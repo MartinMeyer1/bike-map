@@ -1,0 +1,241 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Map styles */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* UI overlay styles */
+.sidebar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-family: sans-serif;
+  max-height: 90%;
+  overflow-y: auto;
+  width: 280px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+}
+
+.auth-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-family: sans-serif;
+  min-width: 250px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+}
+
+.upload-panel {
+  position: absolute;
+  top: 80px;
+  right: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-family: sans-serif;
+  min-width: 300px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+  display: none;
+}
+
+.upload-panel.visible {
+  display: block;
+}
+
+/* Form styles */
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  font-weight: normal;
+  margin-bottom: 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin-right: 4px;
+}
+
+/* Button styles */
+.btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 8px;
+  margin-top: 8px;
+}
+
+.btn:hover {
+  background: #0056b3;
+}
+
+.btn-secondary {
+  background: #6c757d;
+}
+
+.btn-secondary:hover {
+  background: #545b62;
+}
+
+.btn-success {
+  background: #28a745;
+}
+
+.btn-success:hover {
+  background: #1e7e34;
+}
+
+.btn-danger {
+  background: #dc3545;
+}
+
+.btn-danger:hover {
+  background: #bd2130;
+}
+
+/* Trail item styles */
+.trail-item {
+  margin-bottom: 12px;
+  cursor: pointer;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.trail-item:hover {
+  background-color: #f8f9fa;
+}
+
+.trail-item h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+}
+
+.trail-item .trail-meta {
+  font-size: 12px;
+  color: #666;
+  margin: 2px 0;
+}
+
+.trail-item .trail-stats {
+  font-size: 12px;
+  color: #28a745;
+  font-weight: 500;
+}
+
+/* Difficulty level colors */
+.level-s0 { color: #28a745; }
+.level-s1 { color: #007bff; }
+.level-s2 { color: #ffc107; }
+.level-s3, .level-s4, .level-s5 { color: #dc3545; }
+
+/* Loading spinner */
+.loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error message */
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+/* Success message */
+.success {
+  background: #d4edda;
+  color: #155724;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 8px 0;
+  font-size: 14px;
+}

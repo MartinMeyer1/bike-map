@@ -1,0 +1,38 @@
+services:
+  # PocketBase backend
+  pocketbase:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: miobike-pocketbase
+    ports:
+      - "8090:8090"
+    volumes:
+      - pb_data:/pb_data
+    environment:
+      - PB_DATA_DIR=/pb_data
+    command: ["./main", "serve", "--dir", "/pb_data", "--http", "0.0.0.0:8090"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # React frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: miobike-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_POCKETBASE_URL=http://localhost:8090
+    depends_on:
+      - pocketbase
+    restart: unless-stopped
+
+volumes:
+  pb_data:
+    driver: local
