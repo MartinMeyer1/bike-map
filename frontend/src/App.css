@@ -209,7 +209,7 @@ html, body {
 /* Difficulty level colors */
 .level-s0 {
   background: #28a745; /* Green */
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 10px;
@@ -218,7 +218,7 @@ html, body {
 
 .level-s1 {
   background: #007bff; /* Blue */
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 10px;
@@ -227,7 +227,7 @@ html, body {
 
 .level-s2 {
   background: #fd7e14; /* Orange */
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 10px;
@@ -236,7 +236,7 @@ html, body {
 
 .level-s3 {
   background: #dc3545; /* Red */
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 10px;
@@ -245,7 +245,7 @@ html, body {
 
 .level-s4 {
   background: #6f42c1; /* Purple */
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 10px;
@@ -254,7 +254,7 @@ html, body {
 
 .level-s5 {
   background: #343a40; /* Black */
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 10px;

@@ -124,4 +124,5 @@ bike-map/
 - [ ] Trail details page
 - [ ] Comments
 - [ ] GPX drawing
-
+- [ ] OAuth login
+- [ ] User invitation
