@@ -1,4 +1,4 @@
-# 🚵 MioBike
+# 🚵 BikeMap
 
 A lightweight social web app for sharing MTB singletracks among friends. Built with React frontend and PocketBase backend, featuring client-side GPX processing and Swiss topographic maps.
 
@@ -123,5 +123,5 @@ bike-map/
 - [ ] Advanced trail filtering
 - [ ] Trail details page
 - [ ] Comments
-- [ ] GPX track statistics
+- [ ] GPX drawing
 
