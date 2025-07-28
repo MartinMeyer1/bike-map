@@ -28,7 +28,7 @@ export default function TrailSidebar({
   return (
     <div className="sidebar">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px' }}>🚵 BikeMap</h2>
+        <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
         {user && (
           <button className="btn" onClick={onAddTrailClick} title="Add new trail">
             ➕

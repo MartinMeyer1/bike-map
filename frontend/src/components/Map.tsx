@@ -134,11 +134,11 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
       zoom={10}
       style={{ height: '100vh', width: '100%' }}
     >
-      {/* Base map layer */}
+      {/* Swisstopo base layer */}
       <TileLayer
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        maxZoom={19}
+        url="https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg"
+        attribution='&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>'
+        maxZoom={18}
       />
 
       {/* Map event handler */}
