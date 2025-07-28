@@ -1,4 +1,4 @@
-# 🚵 BikeMap
+# 🤘 BikeMap
 
 A lightweight social web app for sharing MTB singletracks among friends. Built with React frontend and PocketBase backend, featuring client-side GPX processing and Swiss topographic maps.
 
@@ -64,36 +64,6 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 - **Spatial filtering**: Efficient map bounds-based trail loading
 - **Responsive design**: Full-screen map with overlay panels
 
-## 🚀 Quick Start
-
-### Using Docker Compose (Recommended)
-```bash
-# Clone and start both services
-git clone <repository>
-cd bike-map
-docker compose up --build
-
-# Access the application
-# Frontend: http://localhost:3000
-# Backend: http://localhost:8090
-```
-
-### Development Setup
-
-#### Backend
-```bash
-cd backend
-go mod download
-go run . serve --http="0.0.0.0:8090"
-```
-
-#### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -154,17 +124,7 @@ BikeMap is production-ready with automated deployment:
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
-## ✨ Current Status & Roadmap
-
-### ✅ Completed Features
-- Google OAuth 2.0 authentication
-- Role-based permissions (Viewer/Editor/Admin)
-- Performance-optimized trail caching
-- Production deployment with Traefik reverse proxy
-- SSL/HTTPS with automatic certificate management
-- Admin account auto-provisioning
-
-### 🔄 Future Enhancements
+## ✨ Future Enhancements
 - [ ] Trail editing and deletion for owners
 - [ ] Advanced trail filtering and search
 - [ ] Trail details page with elevation profile
