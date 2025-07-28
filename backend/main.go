@@ -23,7 +23,17 @@ func main() {
 		return configureUsersCollection(app)
 	})
 
-	// Ensure authenticated user can only create trails for themselves
+	// Set default role for new OAuth users
+	app.OnRecordAfterCreateRequest("users").Add(func(e *core.RecordCreateEvent) error {
+		// Set default role to "Viewer" for new users
+		if e.Record.GetString("role") == "" {
+			e.Record.Set("role", "Viewer")
+			return app.Dao().SaveRecord(e.Record)
+		}
+		return nil
+	})
+
+	// Ensure only Editor or Admin users can create trails
 	app.OnRecordBeforeCreateRequest("trails").Add(func(e *core.RecordCreateEvent) error {
 		admin, _ := e.HttpContext.Get(apis.ContextAdminKey).(*models.Admin)
 		record, _ := e.HttpContext.Get(apis.ContextAuthRecordKey).(*models.Record)
@@ -34,6 +44,12 @@ func main() {
 		
 		if record == nil {
 			return apis.NewForbiddenError("Authentication required", nil)
+		}
+		
+		// Check if user has Editor or Admin role
+		userRole := record.GetString("role")
+		if userRole != "Editor" && userRole != "Admin" {
+			return apis.NewForbiddenError("Only users with Editor or Admin role can create trails", nil)
 		}
 		
 		return nil
@@ -79,9 +95,9 @@ func ensureTrailsCollection(app *pocketbase.PocketBase) error {
 	collection.Name = "trails"
 	collection.Type = models.CollectionTypeBase
 	publicRule := ""
-	createRule := "@request.auth.id != \"\""
-	updateRule := "@request.auth.id = owner"
-	deleteRule := "@request.auth.id = owner"
+	createRule := "@request.auth.id != \"\" && (@request.auth.role = \"Editor\" || @request.auth.role = \"Admin\")"
+	updateRule := "@request.auth.id = owner || @request.auth.role = \"Admin\""
+	deleteRule := "@request.auth.id = owner || @request.auth.role = \"Admin\""
 	
 	collection.ListRule = &publicRule  // Allow public read access
 	collection.ViewRule = &publicRule  // Allow public read access
@@ -156,8 +172,8 @@ func configureUsersCollection(app *pocketbase.PocketBase) error {
 	// Configure access rules for users collection  
 	// Allow public read access to user records (fields are filtered by the API query)
 	viewRule := ""
-	// Only admins can create users
-	createRule := "@request.auth.id != \"\" && @request.auth.collectionName = \"_pb_admins_\""
+	// Allow OAuth users to be created automatically, admins can also create users
+	createRule := ""
 	// Users can update their own records
 	updateRule := "@request.auth.id = id"
 	// Users can delete their own records
@@ -171,11 +187,53 @@ func configureUsersCollection(app *pocketbase.PocketBase) error {
 	usersCollection.DeleteRule = &deleteRule
 	usersCollection.ListRule = &listRule
 
+	// Add role field to users collection if it doesn't exist
+	roleFieldExists := false
+	for _, field := range usersCollection.Schema.Fields() {
+		if field.Name == "role" {
+			roleFieldExists = true
+			break
+		}
+	}
+	
+	if !roleFieldExists {
+		// Add role field with default value "Viewer"
+		roleField := &schema.SchemaField{
+			Name: "role",
+			Type: schema.FieldTypeSelect,
+			Options: &schema.SelectOptions{
+				MaxSelect: 1,
+				Values:    []string{"Viewer", "Editor", "Admin"},
+			},
+			Required: false, //So empty is allowed, will be replaced by Viewer anyway
+		}
+		usersCollection.Schema.AddField(roleField)
+	}
+
+	// Get current authentication options
+	currentAuthOptions := usersCollection.AuthOptions()
+	
+	// Create new auth options based on current ones
+	newAuthOptions := &models.CollectionAuthOptions{
+		ManageRule:         currentAuthOptions.ManageRule,
+		AllowOAuth2Auth:    true,  // Enable OAuth2
+		AllowUsernameAuth:  false, // Disable username auth
+		AllowEmailAuth:     false, // Disable email auth
+		RequireEmail:       currentAuthOptions.RequireEmail,
+		ExceptEmailDomains: currentAuthOptions.ExceptEmailDomains,
+		OnlyVerified:       currentAuthOptions.OnlyVerified,
+		OnlyEmailDomains:   currentAuthOptions.OnlyEmailDomains,
+		MinPasswordLength:  currentAuthOptions.MinPasswordLength,
+	}
+	
+	// Apply the new authentication options to the collection
+	usersCollection.SetOptions(newAuthOptions)
+
 	// Save the updated collection
 	if err := app.Dao().SaveCollection(usersCollection); err != nil {
 		return fmt.Errorf("failed to configure users collection: %w", err)
 	}
 
-	log.Println("✅ Configured users collection successfully")
+	log.Println("✅ Configured users collection for OAuth-only authentication")
 	return nil
 }

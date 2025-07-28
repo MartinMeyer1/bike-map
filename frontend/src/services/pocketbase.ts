@@ -25,34 +25,14 @@ if (storedAuth) {
 }
 
 export class PocketBaseService {
-  static async login(email: string, password: string): Promise<User> {
-    const authData = await pb.collection('users').authWithPassword(email, password);
+  static async loginWithGoogle(): Promise<User> {
+    const authData = await pb.collection('users').authWithOAuth2({ provider: 'google' });
     return {
       id: authData.record.id,
       email: authData.record.email,
       name: authData.record.name,
       avatar: authData.record.avatar,
-    };
-  }
-
-  static async register(email: string, password: string, name?: string): Promise<User> {
-    const userData = {
-      email,
-      password,
-      passwordConfirm: password,
-      name: name || email.split('@')[0],
-    };
-
-    const record = await pb.collection('users').create(userData);
-    
-    // Auto-login after registration
-    const authData = await pb.collection('users').authWithPassword(email, password);
-    
-    return {
-      id: authData.record.id,
-      email: authData.record.email,
-      name: authData.record.name,
-      avatar: authData.record.avatar,
+      role: authData.record.role,
     };
   }
 
@@ -70,6 +50,7 @@ export class PocketBaseService {
       email: pb.authStore.model.email,
       name: pb.authStore.model.name,
       avatar: pb.authStore.model.avatar,
+      role: pb.authStore.model.role,
     };
   }
 

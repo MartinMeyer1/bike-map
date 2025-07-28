@@ -15,6 +15,7 @@ export interface User {
   email: string;
   name?: string;
   avatar?: string;
+  role?: 'Viewer' | 'Editor' | 'Admin';
 }
 
 export interface AuthState {

@@ -48,7 +48,7 @@ export default function TrailSidebar({
     <div className="sidebar">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
-        {user && (
+        {user && (user.role === 'Editor' || user.role === 'Admin') && (
           <button className="btn" onClick={onAddTrailClick} title="Add new trail">
             ➕
           </button>
@@ -66,7 +66,7 @@ export default function TrailSidebar({
         border: `1px solid ${user ? '#c3e6cb' : '#ffeaa7'}`
       }}>
         {user ? (
-          <>✅ Logged in as <strong>{user.name || user.email}</strong></>
+          <>✅ Logged in as <strong>{user.name || user.email}</strong> ({user.role || 'Viewer'})</>
         ) : (
           <>⚠️ Not logged in - <em>Login required to upload trails</em></>
         )}
@@ -82,7 +82,7 @@ export default function TrailSidebar({
           border: '1px solid #dee2e6'
         }}>
           <strong>Welcome!</strong><br />
-          Login to upload your own trails.
+          Login to view trails. Only Editor/Admin users can upload trails.
         </div>
       )}
 
