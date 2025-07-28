@@ -318,3 +318,13 @@ html, body {
   width: 100vw !important;
   height: 100vh !important;
 }
+
+/* Emoji marker styles */
+.emoji-marker {
+  background: transparent !important;
+  border: none !important;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

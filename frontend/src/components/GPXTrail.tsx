@@ -67,30 +67,32 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
         });
       }
 
-      // Add start marker
-      if (latLngs.length > 0) {
-        const startIcon = L.icon({
-          iconUrl: '/icons/start-marker.svg',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34]
-        });
-
-        const startMarker = L.marker(latLngs[0], { icon: startIcon });
-        layerGroup.addLayer(startMarker);
-      }
-
-      // Add end marker
+      // Add end marker first so start marker appears on top when overlapping
       if (latLngs.length > 1) {
-        const endIcon = L.icon({
-          iconUrl: '/icons/finish-marker.svg',
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-          popupAnchor: [0, -30]
+        const endIcon = L.divIcon({
+          html: '<div style="font-size: 24px;">😢</div>',
+          className: 'emoji-marker',
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -15]
         });
 
         const endMarker = L.marker(latLngs[latLngs.length - 1], { icon: endIcon });
         layerGroup.addLayer(endMarker);
+      }
+
+      // Add start marker
+      if (latLngs.length > 0) {
+        const startIcon = L.divIcon({
+          html: '<div style="font-size: 24px;">🤘</div>',
+          className: 'emoji-marker',
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -15]
+        });
+
+        const startMarker = L.marker(latLngs[0], { icon: startIcon });
+        layerGroup.addLayer(startMarker);
       }
 
       // Create popup content
