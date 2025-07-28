@@ -135,52 +135,6 @@ export default function TrailSidebar({
         )}
       </div>
 
-      <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #dee2e6' }} />
-
-      <div>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>
-          All Trails ({trails.length})
-        </h4>
-        
-        {trails.length === 0 ? (
-          <div style={{ 
-            padding: '15px', 
-            textAlign: 'center', 
-            color: '#666',
-            fontSize: '14px'
-          }}>
-            No trails uploaded yet.<br />
-            {user ? 'Upload the first trail!' : 'Login to add trails.'}
-          </div>
-        ) : (
-          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-            {trails.map((trail) => (
-              <div
-                key={trail.id}
-                className="trail-item"
-                onClick={() => onTrailClick(trail)}
-                title="Click to center on map"
-              >
-                <h4>{trail.name}</h4>
-                <div className="trail-meta">
-                  <span className={getLevelClass(trail.level)}>
-                    <strong>{trail.level}</strong>
-                  </span>
-                  <span style={{ marginLeft: '8px', fontSize: '11px' }}>
-                    {new Date(trail.created).toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="trail-stats">
-                  {trail.elevation ? 
-                    `D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m` : 
-                    `GPX file: ${trail.file}`
-                  }
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div style={{ 
         marginTop: '15px', 
@@ -198,9 +152,6 @@ export default function TrailSidebar({
           <span className="level-s3">S3</span>
           <span className="level-s4">S4</span>
           <span className="level-s5">S5</span>
-        </div>
-        <div style={{ fontSize: '10px', marginTop: '4px', color: '#999' }}>
-          Green → Blue → Orange → Red → Purple → Black
         </div>
       </div>
     </div>

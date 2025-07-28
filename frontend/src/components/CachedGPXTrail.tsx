@@ -5,6 +5,7 @@ import { CachedTrail } from '../services/trailCache';
 
 interface CachedGPXTrailProps {
   trail: CachedTrail;
+  isSelected: boolean;
   onTrailClick: (trail: CachedTrail) => void;
 }
 
@@ -21,9 +22,10 @@ function getLevelColor(level: string): string {
   }
 }
 
-export default function CachedGPXTrail({ trail, onTrailClick }: CachedGPXTrailProps) {
+export default function CachedGPXTrail({ trail, isSelected, onTrailClick }: CachedGPXTrailProps) {
   const map = useMap();
   const [trailLayer, setTrailLayer] = useState<L.LayerGroup | null>(null);
+  const [polylineRef, setPolylineRef] = useState<L.Polyline | null>(null);
 
   useEffect(() => {
     if (!trail.geoJson) {
@@ -103,8 +105,13 @@ export default function CachedGPXTrail({ trail, onTrailClick }: CachedGPXTrailPr
       // Bind popup to polyline
       polyline.bindPopup(popupContent);
 
-      // Add click handler
-      polyline.on('click', () => {
+      // Store polyline reference
+      setPolylineRef(polyline);
+
+      // Add click handler - use 'click' event which fires before popup
+      polyline.on('click', (e) => {
+        console.log('Polyline clicked for trail:', trail.name);
+        e.originalEvent?.stopPropagation(); // Prevent map click event
         onTrailClick(trail);
       });
 
@@ -128,6 +135,19 @@ export default function CachedGPXTrail({ trail, onTrailClick }: CachedGPXTrailPr
       }
     };
   }, [trail, map, onTrailClick]);
+
+  // Handle popup opening when trail is selected
+  useEffect(() => {
+    if (isSelected && polylineRef && map.hasLayer(polylineRef)) {
+      // Small delay to ensure map has finished any zoom animation
+      setTimeout(() => {
+        if (polylineRef && map.hasLayer(polylineRef)) {
+          polylineRef.openPopup();
+          console.log(`📍 Opened popup for selected trail: ${trail.name}`);
+        }
+      }, 100);
+    }
+  }, [isSelected, polylineRef, map, trail.name]);
 
   // Cleanup on unmount
   useEffect(() => {

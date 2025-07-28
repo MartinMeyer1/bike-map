@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds } from '../types';
@@ -16,12 +16,21 @@ L.Icon.Default.mergeOptions({
 
 interface MapProps {
   trails: CachedTrail[];
+  selectedTrail: CachedTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
-  onTrailClick: (trail: CachedTrail) => void;
+  onTrailClick: (trail: CachedTrail | null) => void;
 }
 
-// Component to handle map events
-function MapEvents({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => void }) {
+// Component to handle map events and trail zoom
+function MapEvents({ 
+  onBoundsChange, 
+  selectedTrail,
+  onMapClick
+}: { 
+  onBoundsChange: (bounds: MapBounds) => void;
+  selectedTrail: CachedTrail | null;
+  onMapClick: () => void;
+}) {
   const map = useMap();
 
   useEffect(() => {
@@ -35,30 +44,87 @@ function MapEvents({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => 
       });
     };
 
+    const handleMapClick = () => {
+      onMapClick();
+    };
+
     map.on('moveend', handleMoveEnd);
+    map.on('click', handleMapClick);
     
     // Initial bounds
     handleMoveEnd();
 
     return () => {
       map.off('moveend', handleMoveEnd);
+      map.off('click', handleMapClick);
     };
-  }, [map, onBoundsChange]);
+  }, [map, onBoundsChange, onMapClick]);
+
+  // Handle trail zoom when selectedTrail changes
+  useEffect(() => {
+    if (selectedTrail && selectedTrail.bounds) {
+      const bounds = selectedTrail.bounds;
+      
+      // Create Leaflet bounds object
+      const leafletBounds = L.latLngBounds(
+        [bounds.south, bounds.west],
+        [bounds.north, bounds.east]
+      );
+      
+      // Check if trail is already visible in current view
+      const currentBounds = map.getBounds();
+      const isTrailVisible = currentBounds.contains(leafletBounds);
+      
+      if (!isTrailVisible) {
+        // Only zoom if trail is not currently visible
+        console.log(`🎯 Zooming to trail: ${selectedTrail.name}`);
+        
+        // Store reference to any open popup to reopen it after zoom
+        let openPopup: any = null;
+        map.eachLayer((layer: any) => {
+          if (layer.isPopupOpen && layer.isPopupOpen()) {
+            openPopup = layer;
+          }
+        });
+        
+        map.fitBounds(leafletBounds, { 
+          padding: [20, 20],
+          maxZoom: 16 
+        });
+        
+        // Reopen popup after zoom animation
+        if (openPopup) {
+          setTimeout(() => {
+            if (openPopup && map.hasLayer(openPopup)) {
+              openPopup.openPopup();
+            }
+          }, 500);
+        }
+      } else {
+        console.log(`✅ Trail ${selectedTrail.name} already visible, no zoom needed`);
+      }
+    }
+  }, [map, selectedTrail]);
 
   return null;
 }
 
 
 
-export default function Map({ trails, onBoundsChange, onTrailClick }: MapProps) {
-  const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
-
+export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClick }: MapProps) {
   console.log('Map component rendering with cached trails:', trails.length);
 
-  const handleTrailClick = (trail: CachedTrail) => {
-    setSelectedTrail(trail);
+  const handleTrailClick = useCallback((trail: CachedTrail) => {
     onTrailClick(trail);
-  };
+  }, [onTrailClick]);
+
+  const handleMapClick = useCallback(() => {
+    // Clear selection when clicking on empty map area
+    if (selectedTrail) {
+      console.log('🗺️ Clicked on empty map, clearing selection');
+      onTrailClick(null as any); // This will trigger setSelectedTrail(null) in App
+    }
+  }, [selectedTrail, onTrailClick]);
 
   return (
     <MapContainer
@@ -74,13 +140,14 @@ export default function Map({ trails, onBoundsChange, onTrailClick }: MapProps) 
       />
 
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} />
+      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />
 
       {/* Render cached GPX trails */}
       {trails.map((trail) => (
         <CachedGPXTrail
           key={trail.id}
           trail={trail}
+          isSelected={selectedTrail?.id === trail.id}
           onTrailClick={handleTrailClick}
         />
       ))}

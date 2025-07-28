@@ -17,6 +17,7 @@ function App() {
   const [isUploadPanelVisible, setIsUploadPanelVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
 
   // Initialize app - check auth and initialize trail cache
   useEffect(() => {
@@ -88,10 +89,16 @@ function App() {
     }
   };
 
-  // Handle trail click (zoom to trail)
-  const handleTrailClick = (trail: CachedTrail) => {
-    // This could trigger a map zoom - implementation pending
-  };
+  // Handle trail click (zoom to trail and show info)
+  const handleTrailClick = useCallback((trail: CachedTrail | null) => {
+    if (trail) {
+      console.log('Trail clicked:', trail.name);
+      setSelectedTrail(trail);
+    } else {
+      console.log('Clearing trail selection');
+      setSelectedTrail(null);
+    }
+  }, []);
 
   // Show elevation chart in popup (called from Map component)
   const showElevationChart = (trail: CachedTrail, containerId: string) => {
@@ -168,6 +175,7 @@ function App() {
       {/* Main map */}
       <Map 
         trails={trails}
+        selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={handleTrailClick}
       />
