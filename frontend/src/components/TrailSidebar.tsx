@@ -117,10 +117,15 @@ export default function TrailSidebar({
                   
                   {/* Trail stats - always present with same styling */}
                   <div className="trail-stats">
-                    {trail.elevation ? 
-                      `D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m` : 
+                    {trail.elevation ? (
+                      <>
+                        <span style={{ color: '#dc3545' }}>D+ {Math.round(trail.elevation.gain)}m</span>
+                        <span style={{ color: '#666' }}> | </span>
+                        <span style={{ color: '#28a745' }}>D- {Math.round(trail.elevation.loss)}m</span>
+                      </>
+                    ) : (
                       'GPX file available'
-                    }
+                    )}
                   </div>
                   
                   {/* Additional info when expanded */}

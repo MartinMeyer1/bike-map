@@ -70,7 +70,7 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
       // Add end marker first so start marker appears on top when overlapping
       if (latLngs.length > 1) {
         const endIcon = L.divIcon({
-          html: '<div style="font-size: 24px;">😢</div>',
+          html: '<div style="font-size: 24px;">🍺</div>',
           className: 'emoji-marker',
           iconSize: [30, 30],
           iconAnchor: [15, 15],
