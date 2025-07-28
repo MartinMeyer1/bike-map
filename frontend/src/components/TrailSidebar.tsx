@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MapBounds, User } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
+import UserSection from './UserSection';
 
 interface TrailSidebarProps {
   trails: CachedTrail[];
@@ -12,6 +13,7 @@ interface TrailSidebarProps {
   onTrailClick: (trail: CachedTrail) => void;
   onAddTrailClick: () => void;
   onAuthChange: (user: User | null) => void;
+  onEditTrailClick: (trail: CachedTrail) => void;
 }
 
 
@@ -28,7 +30,8 @@ export default function TrailSidebar({
   user, 
   onTrailClick, 
   onAddTrailClick,
-  onAuthChange
+  onAuthChange,
+  onEditTrailClick
 }: TrailSidebarProps) {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
 
@@ -46,83 +49,35 @@ export default function TrailSidebar({
     const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     setShowQRCode(fileUrl);
   };
+
   return (
     <div className="sidebar">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
         {user && (user.role === 'Editor' || user.role === 'Admin') && (
-          <button className="btn" onClick={onAddTrailClick} title="Add new trail">
-            ➕
+          <button 
+            className="btn btn-success" 
+            onClick={onAddTrailClick}
+            title="Add new trail"
+            style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              padding: '8px 12px',
+              fontSize: '12px'
+            }}
+          >
+            ➕ Add Trail
           </button>
         )}
       </div>
 
-
-      {/* Authentication Status */}
-      <div style={{ 
-        background: user ? '#d4edda' : '#f8f9fa', 
-        color: user ? '#155724' : '#333',
-        padding: '10px', 
-        borderRadius: '4px', 
-        fontSize: '14px', 
-        marginBottom: '15px',
-        border: `1px solid ${user ? '#c3e6cb' : '#dee2e6'}`,
-        textAlign: user ? 'left' : 'center'
-      }}>
-        {user ? (
-          <div>
-            <div style={{ marginBottom: '8px' }}>
-              ✅ Logged in as <strong>{user.name || user.email}</strong> ({user.role || 'Viewer'})
-            </div>
-            <button 
-              className="btn" 
-              onClick={() => {
-                PocketBaseService.logout();
-                onAuthChange(null); // Update parent state
-              }}
-              style={{ 
-                fontSize: '10px', 
-                padding: '4px 8px',
-                background: 'rgba(255,255,255,0.8)',
-                color: '#155724',
-                border: '1px solid #c3e6cb'
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div style={{ marginBottom: '10px' }}>
-              <strong>Welcome!</strong><br />
-              Only Editor/Admin users can upload trails.
-            </div>
-            
-            <button 
-              className="btn btn-success" 
-              onClick={async () => {
-                try {
-                  const user = await PocketBaseService.loginWithGoogle();
-                  onAuthChange(user); // Update parent state
-                } catch (error) {
-                  console.error('Login failed:', error);
-                  alert('Login failed. Please try again.');
-                }
-              }}
-              style={{ 
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '10px 16px'
-              }}
-            >
-              🔐 Sign in with Google
-            </button>
-          </div>
-        )}
-      </div>
+      {/* User Section */}
+      <UserSection 
+        user={user}
+        onAuthChange={onAuthChange}
+      />
 
       <div style={{ marginBottom: '15px' }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>
@@ -193,9 +148,9 @@ export default function TrailSidebar({
                       </div>
                       
                       {/* Author info */}
-                      {ownerInfo && ownerInfo.name && (
+                      {ownerInfo && (
                         <div style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
-                          <strong>Author:</strong> {ownerInfo.name}
+                          <strong>Author:</strong> {ownerInfo.name || ownerInfo.email || 'Unknown'}
                         </div>
                       )}
                       
@@ -232,7 +187,7 @@ export default function TrailSidebar({
                             flex: 1
                           }}
                         >
-                          📥 Download GPX
+                          📥 GPX
                         </button>
                         <button
                           className="btn"
@@ -248,6 +203,26 @@ export default function TrailSidebar({
                         >
                           📱 QR Code
                         </button>
+                        {/* Edit button for trail owners and admins */}
+                        {user && PocketBaseService.canEditTrail(trail, user) && (
+                          <button
+                            className="btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditTrailClick(trail);
+                            }}
+                            style={{ 
+                              fontSize: '11px', 
+                              padding: '4px 8px',
+                              background: '#ffc107',
+                              color: '#212529',
+                              border: '1px solid #ffc107'
+                            }}
+                            title="Edit trail"
+                          >
+                            ✏️
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

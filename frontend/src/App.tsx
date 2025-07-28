@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
+import TrailEditPanel from './components/TrailEditPanel';
 import { Trail, User, MapBounds } from './types';
 import { PocketBaseService } from './services/pocketbase';
 import trailCache, { CachedTrail } from './services/trailCache';
@@ -13,6 +14,8 @@ function App() {
   const [visibleTrails, setVisibleTrails] = useState<CachedTrail[]>([]);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [isUploadPanelVisible, setIsUploadPanelVisible] = useState(false);
+  const [isEditPanelVisible, setIsEditPanelVisible] = useState(false);
+  const [trailToEdit, setTrailToEdit] = useState<CachedTrail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
@@ -89,6 +92,59 @@ function App() {
     }
   };
 
+  // Handle trail update
+  const handleTrailUpdated = async (updatedTrail: Trail) => {
+    try {
+      // Update trail in cache
+      await trailCache.updateTrail(updatedTrail);
+      
+      // Refresh trails from cache after a short delay to allow backend processing
+      // (especially important if GPX file was updated)
+      setTimeout(() => {
+        refreshTrails();
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to update trail in cache:', error);
+      setError('Failed to update trail');
+    }
+  };
+
+  // Handle trail deletion
+  const handleTrailDeleted = (trailId: string) => {
+    try {
+      // Remove trail from cache
+      trailCache.removeTrail(trailId);
+      
+      // Clear selection if deleted trail was selected
+      if (selectedTrail?.id === trailId) {
+        setSelectedTrail(null);
+      }
+      
+      // Refresh trails from cache
+      refreshTrails();
+      
+      // Close edit panel
+      setIsEditPanelVisible(false);
+      setTrailToEdit(null);
+    } catch (error) {
+      console.error('Failed to remove trail from cache:', error);
+      setError('Failed to remove trail');
+    }
+  };
+
+  // Handle edit trail click
+  const handleEditTrailClick = (trail: CachedTrail) => {
+    setTrailToEdit(trail);
+    setIsEditPanelVisible(true);
+  };
+
+  // Handle trail updated
+  const handleTrailUpdatedComplete = (updatedTrail: Trail) => {
+    handleTrailUpdated(updatedTrail);
+    setIsEditPanelVisible(false);
+    setTrailToEdit(null);
+  };
+
   // Handle trail selection and deselection
   const handleTrailClick = useCallback((trail: CachedTrail | null) => {
     setSelectedTrail(trail);
@@ -161,6 +217,7 @@ function App() {
         onTrailClick={handleTrailClick}
         onAddTrailClick={() => setIsUploadPanelVisible(true)}
         onAuthChange={handleAuthChange}
+        onEditTrailClick={handleEditTrailClick}
       />
 
 
@@ -169,6 +226,18 @@ function App() {
         isVisible={isUploadPanelVisible}
         onClose={() => setIsUploadPanelVisible(false)}
         onTrailCreated={handleTrailCreated}
+      />
+
+      {/* Edit panel */}
+      <TrailEditPanel
+        isVisible={isEditPanelVisible}
+        trail={trailToEdit}
+        onClose={() => {
+          setIsEditPanelVisible(false);
+          setTrailToEdit(null);
+        }}
+        onTrailUpdated={handleTrailUpdatedComplete}
+        onTrailDeleted={handleTrailDeleted}
       />
     </div>
   );

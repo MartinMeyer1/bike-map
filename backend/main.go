@@ -182,8 +182,8 @@ func configureUsersCollection(app *pocketbase.PocketBase) error {
 	viewRule := ""
 	// Allow OAuth users to be created automatically, admins can also create users
 	createRule := ""
-	// Users can update their own records
-	updateRule := "@request.auth.id = id"
+	// Users can update their own records but cannot change their role
+	updateRule := "@request.auth.id = id && @request.data.role:isset = false"
 	// Users can delete their own records
 	deleteRule := "@request.auth.id = id"
 	// List is restricted to authenticated users only

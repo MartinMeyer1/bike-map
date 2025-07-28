@@ -93,6 +93,21 @@ class TrailCacheService {
     }
   }
 
+  // Update existing trail in cache
+  async updateTrail(updatedTrail: Trail): Promise<void> {
+    const processedTrails = await this.processTrails([updatedTrail]);
+    
+    if (processedTrails.length > 0) {
+      const cachedTrail = processedTrails[0];
+      this.memoryCache.set(cachedTrail.id, cachedTrail);
+    }
+  }
+
+  // Remove trail from cache
+  removeTrail(trailId: string): void {
+    this.memoryCache.delete(trailId);
+  }
+
   // Force refresh cache (useful after backend changes)
   async forceRefresh(): Promise<void> {
     this.isInitialized = false;

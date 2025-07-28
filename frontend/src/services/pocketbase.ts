@@ -83,17 +83,27 @@ export class PocketBaseService {
   }
 
   static async getTrail(id: string): Promise<Trail> {
-    const record = await pb.collection('trails').getOne(id);
+    const record = await pb.collection('trails').getOne(id, {
+      expand: 'owner'
+    });
     
     return this.formatTrail(record);
   }
 
   static async updateTrail(id: string, formData: FormData): Promise<Trail> {
-    const record = await pb.collection('trails').update(id, formData);
+    if (!pb.authStore.isValid) {
+      throw new Error('You must be logged in to update a trail');
+    }
+    const record = await pb.collection('trails').update(id, formData, {
+      expand: 'owner'
+    });
     return this.formatTrail(record);
   }
 
   static async deleteTrail(id: string): Promise<void> {
+    if (!pb.authStore.isValid) {
+      throw new Error('You must be logged in to delete a trail');
+    }
     await pb.collection('trails').delete(id);
   }
 
@@ -106,6 +116,30 @@ export class PocketBaseService {
     return `${pb.baseUrl}/api/files/trails/${trail.id}/${trail.file}`;
   }
 
+  static async updateUser(id: string, data: { name?: string }): Promise<User> {
+    if (!pb.authStore.isValid) {
+      throw new Error('You must be logged in to update your profile');
+    }
+    const record = await pb.collection('_pb_users_auth_').update(id, data);
+    // Update the auth store with the new data
+    pb.authStore.save(pb.authStore.token, record);
+    return {
+      id: record.id,
+      email: record.email,
+      name: record.name,
+      avatar: record.avatar,
+      role: record.role,
+    };
+  }
+
+  static canEditTrail(trail: Trail, user: User | null): boolean {
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    if (typeof trail.owner === 'object' && trail.owner.id === user.id) return true;
+    if (typeof trail.owner === 'string' && trail.owner === user.id) return true;
+    return false;
+  }
+
   private static formatTrail(record: any): Trail {
     return {
       id: record.id,
@@ -114,7 +148,7 @@ export class PocketBaseService {
       level: record.level,
       tags: record.tags || [],
       file: record.file,
-      owner: record.owner,
+      owner: record.expand?.owner || record.owner,
       created: record.created,
       updated: record.updated,
     };
