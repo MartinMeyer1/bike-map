@@ -20,7 +20,15 @@ backend/pb_data/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 backend/.env
+
+# Production build artifacts
+dist/
+*.tar.gz
+
+# SSL certificates
+letsencrypt/
 
 # IDE
 .vscode/

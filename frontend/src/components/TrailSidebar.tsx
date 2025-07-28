@@ -70,10 +70,10 @@ export default function TrailSidebar({
         textAlign: user ? 'left' : 'center'
       }}>
         {user ? (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>
+          <div>
+            <div style={{ marginBottom: '8px' }}>
               ✅ Logged in as <strong>{user.name || user.email}</strong> ({user.role || 'Viewer'})
-            </span>
+            </div>
             <button 
               className="btn" 
               onClick={() => {
@@ -82,8 +82,10 @@ export default function TrailSidebar({
               }}
               style={{ 
                 fontSize: '10px', 
-                padding: '2px 6px',
-                marginLeft: '8px'
+                padding: '4px 8px',
+                background: 'rgba(255,255,255,0.8)',
+                color: '#155724',
+                border: '1px solid #c3e6cb'
               }}
             >
               Logout

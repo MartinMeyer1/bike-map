@@ -25,7 +25,10 @@ func main() {
 		if err := configureUsersCollection(app); err != nil {
 			return err
 		}
-		return configureGoogleOAuth(app)
+		if err := configureGoogleOAuth(app); err != nil {
+			return err
+		}
+		return ensureAdminAccount(app)
 	})
 
 	// Set default role for new OAuth users
@@ -134,7 +137,7 @@ func ensureTrailsCollection(app *pocketbase.PocketBase) error {
 		&schema.SchemaField{
 			Name:     "tags",
 			Type:     schema.FieldTypeJson,
-			Options:  &schema.JsonOptions{MaxSize: 2000000}, // 2MB
+			Options:  &schema.JsonOptions{MaxSize: 1000},
 			Required: false,
 		},
 		&schema.SchemaField{
@@ -142,7 +145,7 @@ func ensureTrailsCollection(app *pocketbase.PocketBase) error {
 			Type:     schema.FieldTypeFile,
 			Options:  &schema.FileOptions{
 				MaxSelect: 1,
-				MaxSize:   10485760, // 10MB in bytes
+				MaxSize:   5485760,
 				MimeTypes: []string{"application/gpx+xml", "application/xml", "text/xml"},
 			},
 			Required: true,
@@ -275,5 +278,35 @@ func configureGoogleOAuth(app *pocketbase.PocketBase) error {
 	}
 	
 	log.Println("✅ Configured Google OAuth provider")
+	return nil
+}
+
+func ensureAdminAccount(app *pocketbase.PocketBase) error {
+	// Get admin credentials from environment variables
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	
+	if adminEmail == "" || adminPassword == "" {
+		log.Println("⚠️  Admin credentials not found in environment variables - skipping admin account creation")
+		return nil // Don't fail startup, just log warning
+	}
+	
+	// Check if admin already exists
+	_, err := app.Dao().FindAdminByEmail(adminEmail)
+	if err == nil {
+		log.Println("✅ Admin account already exists")
+		return nil // Admin already exists
+	}
+	
+	// Create new admin account
+	admin := &models.Admin{}
+	admin.Email = adminEmail
+	admin.SetPassword(adminPassword)
+	
+	if err := app.Dao().SaveAdmin(admin); err != nil {
+		return fmt.Errorf("failed to create admin account: %w", err)
+	}
+	
+	log.Printf("✅ Created admin account: %s", adminEmail)
 	return nil
 }

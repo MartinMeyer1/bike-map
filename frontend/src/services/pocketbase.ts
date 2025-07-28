@@ -1,8 +1,9 @@
 import PocketBase from 'pocketbase';
 import { Trail, User } from '../types';
 
-// Initialize PocketBase client
-const pb = new PocketBase('http://localhost:8090');
+// Initialize PocketBase client with configurable base URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
+const pb = new PocketBase(API_BASE_URL);
 
 // Auto-refresh auth token
 pb.authStore.onChange(() => {

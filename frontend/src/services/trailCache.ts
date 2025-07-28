@@ -108,8 +108,9 @@ class TrailCacheService {
     }
 
     try {
-      // Fetch user data from API - using direct collection access
-      const response = await fetch(`http://localhost:8090/api/collections/_pb_users_auth_/records/${userId}`);
+      // Fetch user data from API - using configurable base URL
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
+      const response = await fetch(`${API_BASE_URL}/api/collections/_pb_users_auth_/records/${userId}`);
       if (!response.ok) {
         console.error(`Failed to fetch user ${userId}:`, response.status);
         return null;
