@@ -90,7 +90,6 @@ export class PocketBaseService {
     try {
       const records = await pb.collection('trails').getFullList({
         sort: '-created',
-        expand: 'owner',
         requestKey: null, // Disable auto-cancellation for this request
       });
       
@@ -102,9 +101,7 @@ export class PocketBaseService {
   }
 
   static async getTrail(id: string): Promise<Trail> {
-    const record = await pb.collection('trails').getOne(id, {
-      expand: 'owner',
-    });
+    const record = await pb.collection('trails').getOne(id);
     
     return this.formatTrail(record);
   }

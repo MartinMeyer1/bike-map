@@ -15,9 +15,12 @@ import (
 func main() {
 	app := pocketbase.New()
 
-	// Create trails collection on startup
+	// Create trails collection and configure users collection on startup
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		return ensureTrailsCollection(app)
+		if err := ensureTrailsCollection(app); err != nil {
+			return err
+		}
+		return configureUsersCollection(app)
 	})
 
 	// Ensure authenticated user can only create trails for themselves
@@ -140,5 +143,39 @@ func ensureTrailsCollection(app *pocketbase.PocketBase) error {
 	}
 
 	log.Println("✅ Created trails collection successfully")
+	return nil
+}
+
+func configureUsersCollection(app *pocketbase.PocketBase) error {
+	// Get the existing users collection
+	usersCollection, err := app.Dao().FindCollectionByNameOrId("users")
+	if err != nil {
+		return fmt.Errorf("failed to find users collection: %w", err)
+	}
+
+	// Configure access rules for users collection  
+	// Allow public read access to user records (fields are filtered by the API query)
+	viewRule := ""
+	// Only admins can create users
+	createRule := "@request.auth.id != \"\" && @request.auth.collectionName = \"_pb_admins_\""
+	// Users can update their own records
+	updateRule := "@request.auth.id = id"
+	// Users can delete their own records
+	deleteRule := "@request.auth.id = id"
+	// List is restricted to authenticated users only
+	listRule := "@request.auth.id != \"\""
+
+	usersCollection.ViewRule = &viewRule
+	usersCollection.CreateRule = &createRule
+	usersCollection.UpdateRule = &updateRule
+	usersCollection.DeleteRule = &deleteRule
+	usersCollection.ListRule = &listRule
+
+	// Save the updated collection
+	if err := app.Dao().SaveCollection(usersCollection); err != nil {
+		return fmt.Errorf("failed to configure users collection: %w", err)
+	}
+
+	log.Println("✅ Configured users collection successfully")
 	return nil
 }

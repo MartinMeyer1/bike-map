@@ -1,4 +1,4 @@
-import { Trail, MapBounds } from '../types';
+import { Trail, MapBounds, User } from '../types';
 import { PocketBaseService } from './pocketbase';
 
 // Extended trail interface with cached GeoJSON data
@@ -22,6 +22,7 @@ export interface CachedTrail extends Trail {
 
 class TrailCacheService {
   private memoryCache: Map<string, CachedTrail> = new Map();
+  private userCache: Map<string, User> = new Map(); // Cache for user data
   private isInitialized = false;
   private initPromise: Promise<void> | null = null;
 
@@ -92,15 +93,76 @@ class TrailCacheService {
     }
   }
 
+  // Force refresh cache (useful after backend changes)
+  async forceRefresh(): Promise<void> {
+    this.isInitialized = false;
+    this.initPromise = null;
+    await this.initialize();
+  }
+
+  // Fetch user data by ID with caching
+  private async fetchUser(userId: string): Promise<User | null> {
+    // Return cached user if available
+    if (this.userCache.has(userId)) {
+      return this.userCache.get(userId)!;
+    }
+
+    try {
+      // Fetch user data from API - using direct collection access
+      const response = await fetch(`http://localhost:8090/api/collections/_pb_users_auth_/records/${userId}`);
+      if (!response.ok) {
+        console.error(`Failed to fetch user ${userId}:`, response.status);
+        return null;
+      }
+
+      const userData = await response.json();
+      const user: User = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        avatar: userData.avatar
+      };
+
+      // Cache the user data
+      this.userCache.set(userId, user);
+      return user;
+    } catch (error) {
+      console.error(`Error fetching user ${userId}:`, error);
+      return null;
+    }
+  }
+
   // Process trails: convert GPX to GeoJSON and extract metadata
   private async processTrails(trails: Trail[]): Promise<CachedTrail[]> {
     const processed: CachedTrail[] = [];
     
+    // First, collect all unique user IDs that need to be fetched
+    const userIdsToFetch = new Set<string>();
+    for (const trail of trails) {
+      if (typeof trail.owner === 'string' && !this.userCache.has(trail.owner)) {
+        userIdsToFetch.add(trail.owner);
+      }
+    }
+
+    // Fetch all user data in parallel
+    const userFetchPromises = Array.from(userIdsToFetch).map(userId => this.fetchUser(userId));
+    await Promise.all(userFetchPromises);
+    
     for (const trail of trails) {
       try {
         const geoJsonData = await this.convertGpxToGeoJson(trail);
+        
+        // Get user data from cache and replace owner string ID with user object
+        let processedTrail = { ...trail };
+        if (typeof trail.owner === 'string') {
+          const userData = this.userCache.get(trail.owner);
+          if (userData) {
+            processedTrail.owner = userData;
+          }
+        }
+        
         const cachedTrail: CachedTrail = {
-          ...trail,
+          ...processedTrail,
           ...geoJsonData,
           processedAt: Date.now()
         };
@@ -108,9 +170,18 @@ class TrailCacheService {
         this.memoryCache.set(trail.id, cachedTrail);
       } catch (error) {
         console.error(`Failed to process trail ${trail.name}:`, error);
-        // Still cache the trail without GeoJSON data
+        
+        // Still cache the trail without GeoJSON data, but with user data if available
+        let processedTrail = { ...trail };
+        if (typeof trail.owner === 'string') {
+          const userData = this.userCache.get(trail.owner);
+          if (userData) {
+            processedTrail.owner = userData;
+          }
+        }
+        
         const cachedTrail: CachedTrail = {
-          ...trail,
+          ...processedTrail,
           processedAt: Date.now()
         };
         processed.push(cachedTrail);

@@ -108,6 +108,7 @@ export default function TrailSidebar({
           <div style={{ flex: 1, overflowY: 'auto', paddingTop: '2px' }}>
             {visibleTrails.map((trail) => {
               const isSelected = selectedTrail?.id === trail.id;
+              // Get owner info - should now be a User object from cache
               const ownerInfo = typeof trail.owner === 'object' ? trail.owner : null;
               
               return (
@@ -153,6 +154,12 @@ export default function TrailSidebar({
                         <strong>Created:</strong> {new Date(trail.created).toLocaleDateString()}
                       </div>
                       
+                      {/* Author info */}
+                      {ownerInfo && ownerInfo.name && (
+                        <div style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
+                          <strong>Author:</strong> {ownerInfo.name}
+                        </div>
+                      )}
                       
                       {/* Description */}
                       {trail.description && (
