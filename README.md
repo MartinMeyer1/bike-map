@@ -126,3 +126,5 @@ bike-map/
 - [ ] GPX drawing
 - [ ] OAuth login
 - [ ] User invitation
+- [ ] Private trails
+- [ ] User groups

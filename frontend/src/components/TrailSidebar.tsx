@@ -1,12 +1,13 @@
 import React from 'react';
-import { Trail, MapBounds, User } from '../types';
+import { MapBounds, User } from '../types';
+import { CachedTrail } from '../services/trailCache';
 
 interface TrailSidebarProps {
-  trails: Trail[];
-  visibleTrails: Trail[];
+  trails: CachedTrail[];
+  visibleTrails: CachedTrail[];
   mapBounds: MapBounds | null;
   user: User | null;
-  onTrailClick: (trail: Trail) => void;
+  onTrailClick: (trail: CachedTrail) => void;
   onAddTrailClick: () => void;
 }
 
@@ -27,7 +28,7 @@ export default function TrailSidebar({
   return (
     <div className="sidebar">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px' }}>🚵 MioBike</h2>
+        <h2 style={{ margin: 0, fontSize: '20px' }}>🚵 BikeMap</h2>
         {user && (
           <button className="btn" onClick={onAddTrailClick} title="Add new trail">
             ➕
@@ -111,7 +112,10 @@ export default function TrailSidebar({
                   )}
                 </div>
                 <div className="trail-stats">
-                  GPX file available
+                  {trail.elevation ? 
+                    `D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m` : 
+                    'GPX file available'
+                  }
                 </div>
                 {trail.description && (
                   <div style={{ 
@@ -167,7 +171,10 @@ export default function TrailSidebar({
                   </span>
                 </div>
                 <div className="trail-stats">
-                  GPX file: {trail.file}
+                  {trail.elevation ? 
+                    `D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m` : 
+                    `GPX file: ${trail.file}`
+                  }
                 </div>
               </div>
             ))}

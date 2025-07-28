@@ -1,0 +1,29 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Flag pole -->
+  <rect x="2" y="0" width="2" height="32" fill="#333"/>
+  
+  <!-- Checkered flag -->
+  <g>
+    <!-- White background -->
+    <rect x="4" y="4" width="24" height="16" fill="#ffffff" stroke="#333" stroke-width="1"/>
+    
+    <!-- Black squares for checkered pattern -->
+    <rect x="4" y="4" width="4" height="4" fill="#000"/>
+    <rect x="12" y="4" width="4" height="4" fill="#000"/>
+    <rect x="20" y="4" width="4" height="4" fill="#000"/>
+    <rect x="28" y="4" width="0" height="4" fill="#000"/>
+    
+    <rect x="8" y="8" width="4" height="4" fill="#000"/>
+    <rect x="16" y="8" width="4" height="4" fill="#000"/>
+    <rect x="24" y="8" width="4" height="4" fill="#000"/>
+    
+    <rect x="4" y="12" width="4" height="4" fill="#000"/>
+    <rect x="12" y="12" width="4" height="4" fill="#000"/>
+    <rect x="20" y="12" width="4" height="4" fill="#000"/>
+    <rect x="28" y="12" width="0" height="4" fill="#000"/>
+    
+    <rect x="8" y="16" width="4" height="4" fill="#000"/>
+    <rect x="16" y="16" width="4" height="4" fill="#000"/>
+    <rect x="24" y="16" width="4" height="4" fill="#000"/>
+  </g>
+</svg>

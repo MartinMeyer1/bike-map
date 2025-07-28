@@ -6,18 +6,19 @@ import TrailSidebar from './components/TrailSidebar';
 import ElevationChart from './components/ElevationChart';
 import { Trail, User, MapBounds } from './types';
 import { PocketBaseService } from './services/pocketbase';
+import trailCache, { CachedTrail } from './services/trailCache';
 import './App.css';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [trails, setTrails] = useState<Trail[]>([]);
-  const [visibleTrails, setVisibleTrails] = useState<Trail[]>([]);
+  const [trails, setTrails] = useState<CachedTrail[]>([]);
+  const [visibleTrails, setVisibleTrails] = useState<CachedTrail[]>([]);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [isUploadPanelVisible, setIsUploadPanelVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Initialize app - check auth and load trails
+  // Initialize app - check auth and initialize trail cache
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -27,8 +28,13 @@ function App() {
           setUser(currentUser);
         }
 
-        // Load trails
-        await loadTrails();
+        // Initialize trail cache (loads and processes all trails)
+        await trailCache.initialize();
+        
+        // Load cached trails into state
+        const cachedTrails = trailCache.getAllTrails();
+        setTrails(cachedTrails);
+        setVisibleTrails(cachedTrails); // Initially show all trails
       } catch (err: any) {
         console.error('Failed to initialize app:', err);
         setError('Failed to load application data');
@@ -40,26 +46,28 @@ function App() {
     initializeApp();
   }, []);
 
-  // Load trails from PocketBase
-  const loadTrails = useCallback(async () => {
-    try {
-      setError(''); // Clear any previous errors
-      const trailsData = await PocketBaseService.getTrails();
-      setTrails(trailsData);
-    } catch (err: any) {
-      console.error('Failed to load trails:', err);
-      setError('Failed to load trails');
+  // Refresh trails from cache (used after uploads)
+  const refreshTrails = useCallback(() => {
+    const cachedTrails = trailCache.getAllTrails();
+    setTrails(cachedTrails);
+    
+    // Update visible trails based on current bounds
+    if (mapBounds) {
+      const boundsFiltered = trailCache.getTrailsInBounds(mapBounds);
+      setVisibleTrails(boundsFiltered);
+    } else {
+      setVisibleTrails(cachedTrails);
     }
-  }, []);
+  }, [mapBounds]);
 
   // Update visible trails when map bounds change
   const updateVisibleTrails = useCallback((bounds: MapBounds) => {
     setMapBounds(bounds);
     
-    // For now, show all trails since we don't have track points
-    // We'll implement GPX-based filtering later
-    setVisibleTrails(trails);
-  }, [trails]);
+    // Use cached spatial filtering for better performance
+    const boundsFiltered = trailCache.getTrailsInBounds(bounds);
+    setVisibleTrails(boundsFiltered);
+  }, []);
 
   // Handle authentication changes
   const handleAuthChange = (newUser: User | null) => {
@@ -68,36 +76,41 @@ function App() {
 
   // Handle trail creation
   const handleTrailCreated = async (newTrail: Trail) => {
-    setTrails(prev => [newTrail, ...prev]);
-    
-    // Refresh trails to get updated data (elevation processing might be done)
-    setTimeout(() => {
-      loadTrails();
-    }, 2000);
+    try {
+      // Add trail to cache (will process GPX automatically)
+      await trailCache.addTrail(newTrail);
+      
+      // Refresh trails from cache
+      refreshTrails();
+    } catch (error) {
+      console.error('Failed to add trail to cache:', error);
+      setError('Failed to process uploaded trail');
+    }
   };
 
   // Handle trail click (zoom to trail)
-  const handleTrailClick = (trail: Trail) => {
+  const handleTrailClick = (trail: CachedTrail) => {
     // This could trigger a map zoom - implementation pending
   };
 
   // Show elevation chart in popup (called from Map component)
-  const showElevationChart = (trail: Trail, containerId: string) => {
+  const showElevationChart = (trail: CachedTrail, containerId: string) => {
     setTimeout(() => {
       const container = document.getElementById(containerId);
-      if (container) {
+      if (container && trail.elevation) {
         // Clear container
         container.innerHTML = '';
         
-        // Create placeholder
+        // Create chart placeholder
         const chartDiv = document.createElement('div');
         container.appendChild(chartDiv);
         
-        // Show message about GPX processing
+        // Show cached elevation data
         chartDiv.innerHTML = `
           <div style="text-align: center; padding: 20px; color: #666;">
-            <p>Elevation Profile</p>
-            <p>GPX file processing will be done client-side</p>
+            <p><strong>Elevation Profile</strong></p>
+            <p>D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m</p>
+            <p>✅ Cached elevation data</p>
           </div>
         `;
       }
@@ -115,7 +128,7 @@ function App() {
         color: '#666'
       }}>
         <span className="loading" style={{ marginRight: '12px' }}></span>
-        Loading MioBike...
+        Loading BikeMap & processing trails...
       </div>
     );
   }

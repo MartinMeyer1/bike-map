@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Trail, MapBounds } from '../types';
-import GPXTrail from './GPXTrail';
+import { MapBounds } from '../types';
+import { CachedTrail } from '../services/trailCache';
+import CachedGPXTrail from './CachedGPXTrail';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -14,9 +15,9 @@ L.Icon.Default.mergeOptions({
 
 
 interface MapProps {
-  trails: Trail[];
+  trails: CachedTrail[];
   onBoundsChange: (bounds: MapBounds) => void;
-  onTrailClick: (trail: Trail) => void;
+  onTrailClick: (trail: CachedTrail) => void;
 }
 
 // Component to handle map events
@@ -50,11 +51,11 @@ function MapEvents({ onBoundsChange }: { onBoundsChange: (bounds: MapBounds) => 
 
 
 export default function Map({ trails, onBoundsChange, onTrailClick }: MapProps) {
-  const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
+  const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
 
-  console.log('Map component rendering with trails:', trails.length);
+  console.log('Map component rendering with cached trails:', trails.length);
 
-  const handleTrailClick = (trail: Trail) => {
+  const handleTrailClick = (trail: CachedTrail) => {
     setSelectedTrail(trail);
     onTrailClick(trail);
   };
@@ -75,9 +76,9 @@ export default function Map({ trails, onBoundsChange, onTrailClick }: MapProps) 
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} />
 
-      {/* Render GPX trails */}
+      {/* Render cached GPX trails */}
       {trails.map((trail) => (
-        <GPXTrail
+        <CachedGPXTrail
           key={trail.id}
           trail={trail}
           onTrailClick={handleTrailClick}
