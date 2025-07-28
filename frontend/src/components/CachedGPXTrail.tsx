@@ -33,6 +33,8 @@ export default function CachedGPXTrail({ trail, isSelected, onTrailClick }: Cach
       return;
     }
 
+    console.log(`🎨 Rendering trail ${trail.name}, selected: ${isSelected}`);
+    
     const trackColor = getLevelColor(trail.level);
     const layerGroup = L.layerGroup();
 
@@ -41,12 +43,32 @@ export default function CachedGPXTrail({ trail, isSelected, onTrailClick }: Cach
       const coordinates = trail.geoJson.geometry.coordinates;
       const latLngs = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
       
-      // Create polyline
-      const polyline = L.polyline(latLngs, {
-        color: trackColor,
-        weight: 6,
-        opacity: 0.8
-      });
+      // Create polyline(s) - add background line if selected
+      let polyline: L.Polyline;
+      
+      if (isSelected) {
+        // Create wider background line with 50% opacity
+        const backgroundLine = L.polyline(latLngs, {
+          color: trackColor,
+          weight: 12,
+          opacity: 0.5
+        });
+        layerGroup.addLayer(backgroundLine);
+        
+        // Create normal foreground line on top
+        polyline = L.polyline(latLngs, {
+          color: trackColor,
+          weight: 6,
+          opacity: 0.9
+        });
+      } else {
+        // Normal line for non-selected trails
+        polyline = L.polyline(latLngs, {
+          color: trackColor,
+          weight: 6,
+          opacity: 0.8
+        });
+      }
 
       // Add start marker
       if (latLngs.length > 0) {
@@ -134,7 +156,7 @@ export default function CachedGPXTrail({ trail, isSelected, onTrailClick }: Cach
         map.removeLayer(layerGroup);
       }
     };
-  }, [trail, map, onTrailClick]);
+  }, [trail, map, onTrailClick, isSelected]);
 
   // Handle popup opening when trail is selected
   useEffect(() => {
