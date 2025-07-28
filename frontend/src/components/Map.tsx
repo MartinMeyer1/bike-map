@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds } from '../types';
 import { CachedTrail } from '../services/trailCache';
-import CachedGPXTrail from './CachedGPXTrail';
+import GPXTrail from './GPXTrail';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -13,6 +13,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+// Configure Leaflet to avoid deprecated Mozilla properties
+if (typeof window !== 'undefined') {
+  // Override the deprecated property access in MouseEvent prototype
+  // This prevents Leaflet from accessing mozPressure and mozInputSource
+  const originalMouseEvent = window.MouseEvent;
+  if (originalMouseEvent && originalMouseEvent.prototype) {
+    // Define getters that return undefined instead of throwing deprecation warnings
+    Object.defineProperty(originalMouseEvent.prototype, 'mozPressure', {
+      get: function() { return undefined; },
+      configurable: true
+    });
+    Object.defineProperty(originalMouseEvent.prototype, 'mozInputSource', {
+      get: function() { return undefined; },
+      configurable: true
+    });
+  }
+}
 
 interface MapProps {
   trails: CachedTrail[];
@@ -77,8 +94,6 @@ function MapEvents({
       
       if (!isTrailVisible) {
         // Only zoom if trail is not currently visible
-        console.log(`🎯 Zooming to trail: ${selectedTrail.name}`);
-        
         // Store reference to any open popup to reopen it after zoom
         let openPopup: any = null;
         map.eachLayer((layer: any) => {
@@ -100,8 +115,6 @@ function MapEvents({
             }
           }, 500);
         }
-      } else {
-        console.log(`✅ Trail ${selectedTrail.name} already visible, no zoom needed`);
       }
     }
   }, [map, selectedTrail]);
@@ -109,11 +122,7 @@ function MapEvents({
   return null;
 }
 
-
-
 export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClick }: MapProps) {
-  console.log('Map component rendering with cached trails:', trails.length);
-
   const handleTrailClick = useCallback((trail: CachedTrail) => {
     onTrailClick(trail);
   }, [onTrailClick]);
@@ -121,8 +130,7 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
   const handleMapClick = useCallback(() => {
     // Clear selection when clicking on empty map area
     if (selectedTrail) {
-      console.log('🗺️ Clicked on empty map, clearing selection');
-      onTrailClick(null as any); // This will trigger setSelectedTrail(null) in App
+      onTrailClick(null as any);
     }
   }, [selectedTrail, onTrailClick]);
 
@@ -132,19 +140,19 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
       zoom={10}
       style={{ height: '100vh', width: '100%' }}
     >
-      {/* Swisstopo base layer */}
+      {/* Base map layer */}
       <TileLayer
-        url="https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg"
-        attribution='&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>'
-        maxZoom={18}
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        maxZoom={19}
       />
 
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />
 
-      {/* Render cached GPX trails */}
+      {/* Render GPX trails */}
       {trails.map((trail) => (
-        <CachedGPXTrail
+        <GPXTrail
           key={trail.id}
           trail={trail}
           isSelected={selectedTrail?.id === trail.id}

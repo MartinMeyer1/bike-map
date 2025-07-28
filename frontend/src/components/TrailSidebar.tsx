@@ -72,11 +72,6 @@ export default function TrailSidebar({
           Visible Trails ({visibleTrails.length})
         </h4>
         
-        {mapBounds && (
-          <div style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-            Move the map to see trails in different areas
-          </div>
-        )}
 
         {visibleTrails.length === 0 ? (
           <div style={{ 
@@ -87,8 +82,8 @@ export default function TrailSidebar({
             border: '1px dashed #dee2e6',
             borderRadius: '4px'
           }}>
-            No trails visible in current area.<br />
-            {trails.length === 0 ? 'Be the first to add a trail!' : 'Pan the map to explore more trails.'}
+            {trails.length === 0 ? 'No trails uploaded yet.' : 'No trails visible in current area.'}<br />
+            {trails.length === 0 ? (user ? 'Upload the first trail!' : 'Login to add trails.') : 'Pan the map to explore more trails.'}
           </div>
         ) : (
           <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
@@ -135,6 +130,8 @@ export default function TrailSidebar({
         )}
       </div>
 
+      {/* Push legend to bottom with flex spacer */}
+      <div style={{ flexGrow: 1 }}></div>
 
       <div style={{ 
         marginTop: '15px', 

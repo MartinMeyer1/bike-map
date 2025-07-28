@@ -3,7 +3,6 @@ import Map from './components/Map';
 import AuthPanel from './components/AuthPanel';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
-import ElevationChart from './components/ElevationChart';
 import { Trail, User, MapBounds } from './types';
 import { PocketBaseService } from './services/pocketbase';
 import trailCache, { CachedTrail } from './services/trailCache';
@@ -89,40 +88,11 @@ function App() {
     }
   };
 
-  // Handle trail click (zoom to trail and show info)
+  // Handle trail selection and deselection
   const handleTrailClick = useCallback((trail: CachedTrail | null) => {
-    if (trail) {
-      console.log('Trail clicked:', trail.name);
-      setSelectedTrail(trail);
-    } else {
-      console.log('Clearing trail selection');
-      setSelectedTrail(null);
-    }
+    setSelectedTrail(trail);
   }, []);
 
-  // Show elevation chart in popup (called from Map component)
-  const showElevationChart = (trail: CachedTrail, containerId: string) => {
-    setTimeout(() => {
-      const container = document.getElementById(containerId);
-      if (container && trail.elevation) {
-        // Clear container
-        container.innerHTML = '';
-        
-        // Create chart placeholder
-        const chartDiv = document.createElement('div');
-        container.appendChild(chartDiv);
-        
-        // Show cached elevation data
-        chartDiv.innerHTML = `
-          <div style="text-align: center; padding: 20px; color: #666;">
-            <p><strong>Elevation Profile</strong></p>
-            <p>D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m</p>
-            <p>✅ Cached elevation data</p>
-          </div>
-        `;
-      }
-    }, 100);
-  };
 
   if (isLoading) {
     return (
@@ -135,7 +105,7 @@ function App() {
         color: '#666'
       }}>
         <span className="loading" style={{ marginRight: '12px' }}></span>
-        Loading BikeMap & processing trails...
+        Loading BikeMap...
       </div>
     );
   }

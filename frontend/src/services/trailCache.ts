@@ -36,25 +36,20 @@ class TrailCacheService {
 
   private async doInitialize(): Promise<void> {
     try {
-      console.log('🚀 Initializing trail cache (memory only)...');
-      
       // Clear any existing cache
       this.memoryCache.clear();
 
       // Fetch fresh trail list from API
       const freshTrails = await PocketBaseService.getTrails();
-      console.log(`🌐 Fetched ${freshTrails.length} trails from API`);
 
       // Process all trails
       if (freshTrails.length > 0) {
-        console.log(`⚡ Processing ${freshTrails.length} trails...`);
         await this.processTrails(freshTrails);
       }
 
       this.isInitialized = true;
-      console.log('✅ Trail cache initialized successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize trail cache:', error);
+      console.error('Failed to initialize trail cache:', error);
       throw error;
     }
   }
@@ -62,7 +57,6 @@ class TrailCacheService {
   // Get all cached trails
   getAllTrails(): CachedTrail[] {
     if (!this.isInitialized) {
-      console.warn('TrailCache not initialized, returning empty array');
       return [];
     }
     return Array.from(this.memoryCache.values());
@@ -90,13 +84,11 @@ class TrailCacheService {
 
   // Add new trail to cache (for when users upload)
   async addTrail(trail: Trail): Promise<void> {
-    console.log(`📝 Processing new trail: ${trail.name}`);
     const processedTrails = await this.processTrails([trail]);
     
     if (processedTrails.length > 0) {
       const cachedTrail = processedTrails[0];
       this.memoryCache.set(cachedTrail.id, cachedTrail);
-      console.log(`✅ Added trail to cache: ${trail.name}`);
     }
   }
 
@@ -264,7 +256,6 @@ class TrailCacheService {
     this.memoryCache.clear();
     this.isInitialized = false;
     this.initPromise = null;
-    console.log('🗑️ Trail cache cleared');
   }
 }
 
