@@ -149,17 +149,6 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
     };
   }, [trail, map, onTrailClick, isSelected]);
 
-  // Handle popup opening when trail is selected
-  useEffect(() => {
-    if (isSelected && polylineRef && map.hasLayer(polylineRef)) {
-      // Small delay to ensure map has finished any zoom animation
-      setTimeout(() => {
-        if (polylineRef && map.hasLayer(polylineRef)) {
-          polylineRef.openPopup();
-        }
-      }, 100);
-    }
-  }, [isSelected, polylineRef, map, trail.name]);
 
   // Cleanup on unmount
   useEffect(() => {

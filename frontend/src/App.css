@@ -190,6 +190,18 @@ html, body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
+.trail-item.selected {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+  transform: translateY(-1px);
+}
+
+.trail-item.selected:hover {
+  background: #bbdefb;
+  border-color: #1976d2;
+}
+
 .trail-item h4 {
   margin: 0 0 4px 0;
   font-size: 14px;

@@ -5,6 +5,7 @@ import { CachedTrail } from '../services/trailCache';
 interface TrailSidebarProps {
   trails: CachedTrail[];
   visibleTrails: CachedTrail[];
+  selectedTrail: CachedTrail | null;
   mapBounds: MapBounds | null;
   user: User | null;
   onTrailClick: (trail: CachedTrail) => void;
@@ -20,6 +21,7 @@ function getLevelClass(level: string): string {
 export default function TrailSidebar({ 
   trails, 
   visibleTrails, 
+  selectedTrail,
   mapBounds, 
   user, 
   onTrailClick, 
@@ -86,46 +88,67 @@ export default function TrailSidebar({
             {trails.length === 0 ? (user ? 'Upload the first trail!' : 'Login to add trails.') : 'Pan the map to explore more trails.'}
           </div>
         ) : (
-          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-            {visibleTrails.map((trail) => (
-              <div
-                key={trail.id}
-                className="trail-item"
-                onClick={() => onTrailClick(trail)}
-                title="Click to center on map"
-              >
-                <h4>{trail.name}</h4>
-                <div className="trail-meta">
-                  <span className={getLevelClass(trail.level)}>
-                    <strong>{trail.level}</strong>
-                  </span>
-                  {trail.tags && trail.tags.length > 0 && (
-                    <span style={{ marginLeft: '8px' }}>
-                      {trail.tags.slice(0, 2).join(', ')}
-                      {trail.tags.length > 2 && '...'}
+          <div style={{ flex: 1, overflowY: 'auto', paddingTop: '2px' }}>
+            {visibleTrails.map((trail) => {
+              const isSelected = selectedTrail?.id === trail.id;
+              const ownerInfo = typeof trail.owner === 'object' ? trail.owner : null;
+              
+              return (
+                <div
+                  key={trail.id}
+                  className={`trail-item ${isSelected ? 'selected' : ''}`}
+                  onClick={() => onTrailClick(trail)}
+                  title="Click to center on map"
+                >
+                  <h4>{trail.name}</h4>
+                  <div className="trail-meta">
+                    <span className={getLevelClass(trail.level)}>
+                      <strong>{trail.level}</strong>
                     </span>
+                    {trail.tags && trail.tags.length > 0 && (
+                      <span style={{ marginLeft: '8px' }}>
+                        {isSelected ? 
+                          trail.tags.join(', ') : 
+                          `${trail.tags.slice(0, 2).join(', ')}${trail.tags.length > 2 ? '...' : ''}`
+                        }
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Trail stats - always present with same styling */}
+                  <div className="trail-stats">
+                    {trail.elevation ? 
+                      `D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m` : 
+                      'GPX file available'
+                    }
+                  </div>
+                  
+                  {/* Additional info when expanded */}
+                  {isSelected && (
+                    <div className="trail-expanded">
+                      {/* Creation date */}
+                      <div style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
+                        <strong>Created:</strong> {new Date(trail.created).toLocaleDateString()}
+                      </div>
+                      
+                      
+                      {/* Description */}
+                      {trail.description && (
+                        <div style={{ 
+                          margin: '8px 0 4px 0', 
+                          fontSize: '12px',
+                          color: '#666',
+                          lineHeight: '1.4'
+                        }}>
+                          <strong>Description:</strong><br />
+                          {trail.description}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="trail-stats">
-                  {trail.elevation ? 
-                    `D+: ${Math.round(trail.elevation.gain)}m | D-: ${Math.round(trail.elevation.loss)}m` : 
-                    'GPX file available'
-                  }
-                </div>
-                {trail.description && (
-                  <div style={{ 
-                    fontSize: '12px', 
-                    color: '#666', 
-                    marginTop: '4px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {trail.description}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

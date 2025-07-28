@@ -80,8 +80,10 @@ function App() {
       // Add trail to cache (will process GPX automatically)
       await trailCache.addTrail(newTrail);
       
-      // Refresh trails from cache
-      refreshTrails();
+      // Refresh trails from cache after a short delay to allow backend processing
+      setTimeout(() => {
+        refreshTrails();
+      }, 1000);
     } catch (error) {
       console.error('Failed to add trail to cache:', error);
       setError('Failed to process uploaded trail');
@@ -154,6 +156,7 @@ function App() {
       <TrailSidebar
         trails={trails}
         visibleTrails={visibleTrails}
+        selectedTrail={selectedTrail}
         mapBounds={mapBounds}
         user={user}
         onTrailClick={handleTrailClick}
