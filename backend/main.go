@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase"
@@ -10,6 +11,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/models/schema"
+	"github.com/pocketbase/pocketbase/models/settings"
 )
 
 func main() {
@@ -20,7 +22,10 @@ func main() {
 		if err := ensureTrailsCollection(app); err != nil {
 			return err
 		}
-		return configureUsersCollection(app)
+		if err := configureUsersCollection(app); err != nil {
+			return err
+		}
+		return configureGoogleOAuth(app)
 	})
 
 	// Set default role for new OAuth users
@@ -235,5 +240,40 @@ func configureUsersCollection(app *pocketbase.PocketBase) error {
 	}
 
 	log.Println("✅ Configured users collection for OAuth-only authentication")
+	return nil
+}
+
+func configureGoogleOAuth(app *pocketbase.PocketBase) error {
+	// Get Google OAuth credentials from environment variables
+	clientId := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	
+	if clientId == "" || clientSecret == "" {
+		log.Println("⚠️  Google OAuth credentials not found in environment variables")
+		return nil // Don't fail startup, just log warning
+	}
+	
+	// Get current app settings
+	appSettings, err := app.Settings().Clone()
+	if err != nil {
+		return fmt.Errorf("failed to get app settings: %w", err)
+	}
+	
+	// Configure Google OAuth provider
+	googleProvider := &settings.AuthProviderConfig{
+		Enabled:      true,
+		ClientId:     clientId,
+		ClientSecret: clientSecret,
+	}
+	
+	// Set the Google OAuth provider in settings
+	appSettings.GoogleAuth = *googleProvider
+	
+	// Save the updated settings
+	if err := app.Settings().Merge(appSettings); err != nil {
+		return fmt.Errorf("failed to update Google OAuth settings: %w", err)
+	}
+	
+	log.Println("✅ Configured Google OAuth provider")
 	return nil
 }
