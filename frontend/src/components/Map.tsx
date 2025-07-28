@@ -88,33 +88,27 @@ function MapEvents({
         [bounds.north, bounds.east]
       );
       
-      // Check if trail is already visible in current view
-      const currentBounds = map.getBounds();
-      const isTrailVisible = currentBounds.contains(leafletBounds);
-      
-      if (!isTrailVisible) {
-        // Only zoom if trail is not currently visible
-        // Store reference to any open popup to reopen it after zoom
-        let openPopup: any = null;
-        map.eachLayer((layer: any) => {
-          if (layer.isPopupOpen && layer.isPopupOpen()) {
-            openPopup = layer;
-          }
-        });
-        
-        map.fitBounds(leafletBounds, { 
-          padding: [20, 20],
-          maxZoom: 16 
-        });
-        
-        // Reopen popup after zoom animation
-        if (openPopup) {
-          setTimeout(() => {
-            if (openPopup && map.hasLayer(openPopup)) {
-              openPopup.openPopup();
-            }
-          }, 500);
+      // Store reference to any open popup to reopen it after zoom
+      let openPopup: any = null;
+      map.eachLayer((layer: any) => {
+        if (layer.isPopupOpen && layer.isPopupOpen()) {
+          openPopup = layer;
         }
+      });
+      
+      // Always zoom to trail bounds for consistent behavior
+      map.fitBounds(leafletBounds, { 
+        padding: [20, 20],
+        maxZoom: 16 
+      });
+      
+      // Reopen popup after zoom animation
+      if (openPopup) {
+        setTimeout(() => {
+          if (openPopup && map.hasLayer(openPopup)) {
+            openPopup.openPopup();
+          }
+        }, 500);
       }
     }
   }, [map, selectedTrail]);
