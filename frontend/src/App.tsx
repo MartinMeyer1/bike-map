@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Map from './components/Map';
-import AuthPanel from './components/AuthPanel';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import { Trail, User, MapBounds } from './types';
@@ -161,13 +160,9 @@ function App() {
         user={user}
         onTrailClick={handleTrailClick}
         onAddTrailClick={() => setIsUploadPanelVisible(true)}
-      />
-
-      {/* Authentication panel */}
-      <AuthPanel 
-        user={user}
         onAuthChange={handleAuthChange}
       />
+
 
       {/* Upload panel */}
       <UploadPanel

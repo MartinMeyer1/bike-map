@@ -11,6 +11,7 @@ interface TrailSidebarProps {
   user: User | null;
   onTrailClick: (trail: CachedTrail) => void;
   onAddTrailClick: () => void;
+  onAuthChange: (user: User | null) => void;
 }
 
 
@@ -26,7 +27,8 @@ export default function TrailSidebar({
   mapBounds, 
   user, 
   onTrailClick, 
-  onAddTrailClick 
+  onAddTrailClick,
+  onAuthChange
 }: TrailSidebarProps) {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
 
@@ -55,36 +57,70 @@ export default function TrailSidebar({
         )}
       </div>
 
+
       {/* Authentication Status */}
       <div style={{ 
-        background: user ? '#d4edda' : '#fff3cd', 
-        color: user ? '#155724' : '#856404',
-        padding: '8px 12px', 
+        background: user ? '#d4edda' : '#f8f9fa', 
+        color: user ? '#155724' : '#333',
+        padding: '10px', 
         borderRadius: '4px', 
-        fontSize: '12px', 
+        fontSize: '14px', 
         marginBottom: '15px',
-        border: `1px solid ${user ? '#c3e6cb' : '#ffeaa7'}`
+        border: `1px solid ${user ? '#c3e6cb' : '#dee2e6'}`,
+        textAlign: user ? 'left' : 'center'
       }}>
         {user ? (
-          <>✅ Logged in as <strong>{user.name || user.email}</strong> ({user.role || 'Viewer'})</>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              ✅ Logged in as <strong>{user.name || user.email}</strong> ({user.role || 'Viewer'})
+            </span>
+            <button 
+              className="btn" 
+              onClick={() => {
+                PocketBaseService.logout();
+                onAuthChange(null); // Update parent state
+              }}
+              style={{ 
+                fontSize: '10px', 
+                padding: '2px 6px',
+                marginLeft: '8px'
+              }}
+            >
+              Logout
+            </button>
+          </div>
         ) : (
-          <>⚠️ Not logged in - <em>Login required to upload trails</em></>
+          <div>
+            <div style={{ marginBottom: '10px' }}>
+              <strong>Welcome!</strong><br />
+              Only Editor/Admin users can upload trails.
+            </div>
+            
+            <button 
+              className="btn btn-success" 
+              onClick={async () => {
+                try {
+                  const user = await PocketBaseService.loginWithGoogle();
+                  onAuthChange(user); // Update parent state
+                } catch (error) {
+                  console.error('Login failed:', error);
+                  alert('Login failed. Please try again.');
+                }
+              }}
+              style={{ 
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '10px 16px'
+              }}
+            >
+              🔐 Sign in with Google
+            </button>
+          </div>
         )}
       </div>
-
-      {!user && (
-        <div style={{ 
-          background: '#f8f9fa', 
-          padding: '10px', 
-          borderRadius: '4px', 
-          fontSize: '14px', 
-          marginBottom: '15px',
-          border: '1px solid #dee2e6'
-        }}>
-          <strong>Welcome!</strong><br />
-          Login to view trails. Only Editor/Admin users can upload trails.
-        </div>
-      )}
 
       <div style={{ marginBottom: '15px' }}>
         <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>
