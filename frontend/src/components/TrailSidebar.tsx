@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapBounds, User } from '../types';
 import { CachedTrail } from '../services/trailCache';
+import { PocketBaseService } from '../services/pocketbase';
 
 interface TrailSidebarProps {
   trails: CachedTrail[];
@@ -27,6 +28,22 @@ export default function TrailSidebar({
   onTrailClick, 
   onAddTrailClick 
 }: TrailSidebarProps) {
+  const [showQRCode, setShowQRCode] = useState<string | null>(null);
+
+  const handleDownloadGPX = (trail: CachedTrail) => {
+    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = `${trail.name}.gpx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleShowQRCode = (trail: CachedTrail) => {
+    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
+    setShowQRCode(fileUrl);
+  };
   return (
     <div className="sidebar">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -149,6 +166,44 @@ export default function TrailSidebar({
                           {trail.description}
                         </div>
                       )}
+                      
+                      {/* Action buttons */}
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '8px', 
+                        marginTop: '12px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid #eee'
+                      }}>
+                        <button
+                          className="btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadGPX(trail);
+                          }}
+                          style={{ 
+                            fontSize: '11px', 
+                            padding: '4px 8px',
+                            flex: 1
+                          }}
+                        >
+                          📥 Download GPX
+                        </button>
+                        <button
+                          className="btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowQRCode(trail);
+                          }}
+                          style={{ 
+                            fontSize: '11px', 
+                            padding: '4px 8px',
+                            flex: 1
+                          }}
+                        >
+                          📱 QR Code
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -157,6 +212,47 @@ export default function TrailSidebar({
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      {showQRCode && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            textAlign: 'center',
+            maxWidth: '300px'
+          }}>
+            <h4 style={{ margin: '0 0 15px 0' }}>Scan to Download GPX</h4>
+            <img 
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(showQRCode)}`}
+              alt="QR Code"
+              style={{ width: '200px', height: '200px', margin: '0 0 15px 0' }}
+            />
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
+              Scan with your phone to download the GPX file
+            </div>
+            <button 
+              className="btn"
+              onClick={() => setShowQRCode(null)}
+              style={{ width: '100%' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Push legend to bottom with flex spacer */}
       <div style={{ flexGrow: 1 }}></div>
