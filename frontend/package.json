@@ -13,7 +13,7 @@
     "chart.js": "^4.4.0",
     "leaflet": "^1.9.4",
     "leaflet-gpx": "^2.2.0",
-    "pocketbase": "^0.21.3",
+    "pocketbase": "^0.26.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
