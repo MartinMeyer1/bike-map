@@ -107,120 +107,357 @@ export default function TrailSidebar({
               return (
                 <div
                   key={trail.id}
-                  className={`trail-item ${isSelected ? 'selected' : ''}`}
                   onClick={() => onTrailClick(trail)}
                   title="Click to center on map"
+                  style={{
+                    background: isSelected 
+                      ? 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)' 
+                      : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                    border: isSelected 
+                      ? '2px solid #007bff' 
+                      : '1px solid #e9ecef',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    marginBottom: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    boxShadow: isSelected 
+                      ? '0 4px 12px rgba(0,123,255,0.15)' 
+                      : '0 2px 4px rgba(0,0,0,0.1)',
+                    transform: isSelected ? 'translateY(-1px)' : 'none'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                      e.currentTarget.style.transform = 'none';
+                    }
+                  }}
                 >
-                  <h4>{trail.name}</h4>
-                  <div className="trail-meta">
-                    <span className={getLevelClass(trail.level)}>
-                      <strong>{trail.level}</strong>
-                    </span>
-                    {trail.tags && trail.tags.length > 0 && (
-                      <span style={{ marginLeft: '8px' }}>
-                        {isSelected ? 
-                          trail.tags.join(', ') : 
-                          `${trail.tags.slice(0, 2).join(', ')}${trail.tags.length > 2 ? '...' : ''}`
-                        }
+                  {/* Header section - always visible */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '12px'
+                  }}>
+                    <h4 style={{
+                      margin: 0,
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: '#212529',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      flex: 1,
+                      marginRight: '8px'
+                    }}>
+                      {trail.name}
+                    </h4>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      flexShrink: 0
+                    }}>
+                      <span 
+                        className={getLevelClass(trail.level)}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        {trail.level}
                       </span>
-                    )}
+                      {isSelected && (
+                        <div style={{
+                          width: '8px',
+                          height: '8px',
+                          backgroundColor: '#007bff',
+                          borderRadius: '50%',
+                          animation: 'pulse 2s infinite'
+                        }}></div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Tags - always visible, expand to show more */}
+                  {trail.tags && trail.tags.length > 0 && (
+                    <div style={{
+                      marginBottom: '12px',
+                      fontSize: '12px'
+                    }}>
+                      {isSelected ? 
+                        trail.tags.map(tag => (
+                          <span key={tag} style={{
+                            background: '#e9ecef',
+                            color: '#495057',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            marginRight: '4px',
+                            display: 'inline-block',
+                            marginBottom: '2px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}>
+                            {tag}
+                          </span>
+                        )) :
+                        (trail.tags.slice(0, 2).map(tag => (
+                          <span key={tag} style={{
+                            background: '#e9ecef',
+                            color: '#495057',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            marginRight: '4px',
+                            display: 'inline-block',
+                            marginBottom: '2px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}>
+                            {tag}
+                          </span>
+                        )).concat(
+                          trail.tags.length > 2 ? [
+                            <span key="more" style={{
+                              color: '#6c757d',
+                              fontSize: '11px',
+                              fontStyle: 'italic'
+                            }}>
+                              +{trail.tags.length - 2} more
+                            </span>
+                          ] : []
+                        ))
+                      }
+                    </div>
+                  )}
                   
                   {/* Trail stats - always present with same styling */}
-                  <div className="trail-stats">
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    padding: '8px 12px',
+                    background: 'rgba(0,0,0,0.03)',
+                    borderRadius: '8px',
+                    marginBottom: isSelected ? '16px' : '0'
+                  }}>
                     {trail.elevation ? (
                       <>
-                        <span style={{ color: '#dc3545' }}>D+ {Math.round(trail.elevation.gain)}m</span>
-                        <span style={{ color: '#666' }}> | </span>
-                        <span style={{ color: '#28a745' }}>D- {Math.round(trail.elevation.loss)}m</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ color: '#dc3545', fontSize: '12px' }}>▲</span>
+                          <span style={{ color: '#dc3545' }}>{Math.round(trail.elevation.gain)}m</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ color: '#28a745', fontSize: '12px' }}>▼</span>
+                          <span style={{ color: '#28a745' }}>{Math.round(trail.elevation.loss)}m</span>
+                        </div>
                       </>
                     ) : (
-                      'GPX file available'
+                      <span style={{ color: '#6c757d', fontSize: '12px' }}>📁 GPX available</span>
                     )}
                   </div>
                   
                   {/* Additional info when expanded */}
                   {isSelected && (
-                    <div className="trail-expanded">
-                      {/* Creation date */}
-                      <div style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
-                        <strong>Created:</strong> {new Date(trail.created).toLocaleDateString()}
-                      </div>
-                      
-                      {/* Author info */}
-                      {ownerInfo && (
-                        <div style={{ margin: '4px 0', fontSize: '11px', color: '#666' }}>
-                          <strong>Author:</strong> {ownerInfo.name || ownerInfo.email || 'Unknown'}
+                    <div style={{ 
+                      animation: 'fadeIn 0.3s ease-in-out',
+                      transform: 'translateY(0)',
+                      opacity: 1
+                    }}>
+                      {/* Metadata section */}
+                      <div style={{
+                        marginBottom: '16px',
+                        padding: '12px',
+                        background: 'rgba(0,123,255,0.05)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(0,123,255,0.1)'
+                      }}>
+                        <div style={{
+                          marginBottom: '8px'
+                        }}>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: '#6c757d',
+                            textTransform: 'uppercase',
+                            fontWeight: '600',
+                            letterSpacing: '0.5px',
+                            marginRight: '8px'
+                          }}>Created:</span>
+                          <span style={{ 
+                            fontSize: '12px', 
+                            color: '#212529',
+                            fontWeight: '500'
+                          }}>
+                            {new Date(trail.created).toLocaleDateString()}
+                          </span>
                         </div>
-                      )}
+                        
+                        {ownerInfo && (
+                          <div>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              color: '#6c757d',
+                              textTransform: 'uppercase',
+                              fontWeight: '600',
+                              letterSpacing: '0.5px',
+                              marginRight: '8px'
+                            }}>Author:</span>
+                            <span style={{ 
+                              fontSize: '12px', 
+                              color: '#212529',
+                              fontWeight: '500',
+                              wordBreak: 'break-word',
+                              overflowWrap: 'break-word'
+                            }}>
+                              {ownerInfo.name || ownerInfo.email || 'Unknown'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                       
                       {/* Description */}
                       {trail.description && (
-                        <div style={{ 
-                          margin: '8px 0 4px 0', 
-                          fontSize: '12px',
-                          color: '#666',
-                          lineHeight: '1.4'
-                        }}>
-                          <strong>Description:</strong><br />
-                          {trail.description}
-                        </div>
+                        <>
+                          <div style={{
+                            fontSize: '10px',
+                            color: '#6c757d',
+                            textTransform: 'uppercase',
+                            fontWeight: '600',
+                            letterSpacing: '0.5px',
+                            marginBottom: '6px'
+                          }}>Description</div>
+                          <div style={{ 
+                            fontSize: '13px',
+                            color: '#495057',
+                            lineHeight: '1.5',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            whiteSpace: 'pre-wrap',
+                            marginBottom: '16px'
+                          }}>
+                            {trail.description}
+                          </div>
+                        </>
                       )}
                       
                       {/* Action buttons */}
                       <div style={{ 
-                        display: 'flex', 
-                        gap: '8px', 
-                        marginTop: '12px',
-                        paddingTop: '8px',
-                        borderTop: '1px solid #eee'
+                        display: 'grid',
+                        gridTemplateColumns: user && PocketBaseService.canEditTrail(trail, user) ? '1fr 1fr 1fr' : '1fr 1fr',
+                        gap: '8px'
                       }}>
                         <button
-                          className="btn"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDownloadGPX(trail);
                           }}
                           style={{ 
-                            fontSize: '11px', 
-                            padding: '4px 8px',
-                            flex: 1
+                            padding: '10px 12px',
+                            background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(40,167,69,0.2)'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(40,167,69,0.3)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(40,167,69,0.2)';
                           }}
                         >
                           📥 GPX
                         </button>
+                        
                         <button
-                          className="btn"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleShowQRCode(trail);
                           }}
                           style={{ 
-                            fontSize: '11px', 
-                            padding: '4px 8px',
-                            flex: 1
+                            padding: '10px 12px',
+                            background: 'linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(111,66,193,0.2)'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                            e.currentTarget.style.boxShadow = '0 4px 8px rgba(111,66,193,0.3)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 2px 4px rgba(111,66,193,0.2)';
                           }}
                         >
-                          📱 QR Code
+                          📱 QR
                         </button>
+                        
                         {/* Edit button for trail owners and admins */}
                         {user && PocketBaseService.canEditTrail(trail, user) && (
                           <button
-                            className="btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               onEditTrailClick(trail);
                             }}
                             style={{ 
-                              fontSize: '11px', 
-                              padding: '4px 8px',
-                              background: '#ffc107',
+                              padding: '10px 12px',
+                              background: 'linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)',
                               color: '#212529',
-                              border: '1px solid #ffc107'
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s',
+                              boxShadow: '0 2px 4px rgba(255,193,7,0.2)'
                             }}
                             title="Edit trail"
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                              e.currentTarget.style.boxShadow = '0 4px 8px rgba(255,193,7,0.3)';
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(255,193,7,0.2)';
+                            }}
                           >
-                            ✏️
+                            ✏️ Edit
                           </button>
                         )}
                       </div>
