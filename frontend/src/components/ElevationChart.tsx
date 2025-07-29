@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -52,8 +52,8 @@ export default function ElevationChart({ trail, width = 300, height = 150 }: Ele
       return null;
     }
 
-    const distances = trail.elevation_profile.map(point => (point.dist / 1000).toFixed(1)); // Convert to km
-    const elevations = trail.elevation_profile.map(point => point.alts.DTM25);
+    const distances = trail.elevation_profile.map(point => (point.distance / 1000).toFixed(1)); // Convert to km
+    const elevations = trail.elevation_profile.map(point => point.elevation);
     const color = getLevelColor(trail.level);
 
     return {

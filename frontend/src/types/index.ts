@@ -8,6 +8,7 @@ export interface Trail {
   owner: string | User; // Can be expanded to full User object
   created: string;
   updated: string;
+  elevation_profile?: Array<{ distance: number; elevation: number }>;
 }
 
 export interface User {

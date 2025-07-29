@@ -135,23 +135,6 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
     }
   };
 
-  const handleReset = () => {
-    setFormData({
-      name: '',
-      description: '',
-      level: 'S1',
-      tags: [],
-      file: null,
-    });
-    setError('');
-    setSuccess('');
-    
-    // Reset file input
-    const fileInput = document.getElementById('gpx-file') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
-  };
 
   if (!isVisible) {
     return null;

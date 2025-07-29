@@ -49,10 +49,6 @@ export default function UsernameEditModal({
     }
   };
 
-  const handleReset = () => {
-    setNewName(user.name || '');
-    setError('');
-  };
 
   if (!isVisible) {
     return null;

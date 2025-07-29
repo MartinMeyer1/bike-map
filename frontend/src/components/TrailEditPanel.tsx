@@ -150,25 +150,6 @@ export default function TrailEditPanel({
     }
   };
 
-  const handleReset = () => {
-    if (trail) {
-      setFormData({
-        name: trail.name,
-        description: trail.description || '',
-        level: trail.level,
-        tags: trail.tags || [],
-        file: null,
-      });
-    }
-    setError('');
-    setSuccess('');
-    
-    // Reset file input
-    const fileInput = document.getElementById('edit-gpx-file') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
-  };
 
   if (!isVisible || !trail) {
     return null;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { CachedTrail } from '../services/trailCache';
@@ -25,7 +25,7 @@ function getLevelColor(level: string): string {
 export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailProps) {
   const map = useMap();
   const [trailLayer, setTrailLayer] = useState<L.LayerGroup | null>(null);
-  const [polylineRef, setPolylineRef] = useState<L.Polyline | null>(null);
+  const [, setPolylineRef] = useState<L.Polyline | null>(null);
 
   useEffect(() => {
     if (!trail.geoJson) {

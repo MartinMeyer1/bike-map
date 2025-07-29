@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MapBounds, User } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
@@ -26,7 +26,7 @@ export default function TrailSidebar({
   trails, 
   visibleTrails, 
   selectedTrail,
-  mapBounds, 
+  mapBounds: _, 
   user, 
   onTrailClick, 
   onAddTrailClick,
