@@ -52,39 +52,44 @@ export default function TrailSidebar({
 
   return (
     <div className="sidebar">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
-        {user && (user.role === 'Editor' || user.role === 'Admin') && (
-          <button 
-            className="btn btn-success" 
-            onClick={onAddTrailClick}
-            title="Add new trail"
-            style={{ 
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              padding: '8px 12px',
-              fontSize: '12px'
-            }}
-          >
-            ➕ Add Trail
-          </button>
-        )}
+      {/* Fixed Header Section */}
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
+          {user && (user.role === 'Editor' || user.role === 'Admin') && (
+            <button 
+              className="btn btn-success" 
+              onClick={onAddTrailClick}
+              title="Add new trail"
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                padding: '8px 12px',
+                fontSize: '12px'
+              }}
+            >
+              ➕ Add Trail
+            </button>
+          )}
+        </div>
+
+        {/* User Section */}
+        <UserSection 
+          user={user}
+          onAuthChange={onAuthChange}
+        />
+
+        <div style={{ marginBottom: '15px' }}>
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>
+            Visible Trails ({visibleTrails.length})
+          </h4>
+        </div>
       </div>
 
-      {/* User Section */}
-      <UserSection 
-        user={user}
-        onAuthChange={onAuthChange}
-      />
-
-      <div style={{ marginBottom: '15px' }}>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>
-          Visible Trails ({visibleTrails.length})
-        </h4>
-        
-
+      {/* Scrollable Trails Section */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {visibleTrails.length === 0 ? (
           <div style={{ 
             padding: '15px', 
@@ -98,7 +103,7 @@ export default function TrailSidebar({
             {trails.length === 0 ? (user ? 'Upload the first trail!' : 'Login to add trails.') : 'Pan the map to explore more trails.'}
           </div>
         ) : (
-          <div style={{ flex: 1, overflowY: 'auto', paddingTop: '2px' }}>
+          <div style={{ paddingTop: '2px' }}>
             {visibleTrails.map((trail) => {
               const isSelected = selectedTrail?.id === trail.id;
               // Get owner info - should now be a User object from cache
@@ -569,25 +574,24 @@ export default function TrailSidebar({
         </div>
       )}
 
-      {/* Push legend to bottom with flex spacer */}
-      <div style={{ flexGrow: 1 }}></div>
-
-      <div style={{ 
-        marginTop: '15px', 
-        padding: '10px', 
-        background: '#f8f9fa', 
-        borderRadius: '4px', 
-        fontSize: '12px',
-        color: '#666'
-      }}>
-        <strong>Difficulty Legend:</strong><br />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-          <span className="level-s0">S0</span>
-          <span className="level-s1">S1</span>
-          <span className="level-s2">S2</span>
-          <span className="level-s3">S3</span>
-          <span className="level-s4">S4</span>
-          <span className="level-s5">S5</span>
+      {/* Fixed Footer Section */}
+      <div style={{ flexShrink: 0, marginTop: '15px' }}>
+        <div style={{ 
+          padding: '10px', 
+          background: '#f8f9fa', 
+          borderRadius: '4px', 
+          fontSize: '12px',
+          color: '#666'
+        }}>
+          <strong>Difficulty Legend:</strong><br />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+            <span className="level-s0">S0</span>
+            <span className="level-s1">S1</span>
+            <span className="level-s2">S2</span>
+            <span className="level-s3">S3</span>
+            <span className="level-s4">S4</span>
+            <span className="level-s5">S5</span>
+          </div>
         </div>
       </div>
     </div>

@@ -31,22 +31,7 @@ body {
   width: 100%;
 }
 
-/* UI overlay styles */
-.sidebar {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-family: sans-serif;
-  max-height: 90%;
-  overflow-y: auto;
-  width: 280px;
-  box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
-}
+/* UI overlay styles - sidebar styles moved to App.css */
 
 .auth-panel {
   position: absolute;
