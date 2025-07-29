@@ -13,20 +13,13 @@ import (
 func main() {
 	app := pocketbase.New()
 
-	// Set default role for new OAuth users
+	// Ensure only Editor or Admin users can create trails
 	app.OnRecordCreateRequest().BindFunc(func(e *core.RecordRequestEvent) error {
 		if e.Collection.Name == "users" {
 			// Set default role to "Viewer" for new users
 			e.Record.Set("role", "Viewer")
-			if err := app.Save(e.Record); err != nil {
-				return err
-			}
+			// Don't call app.Save here - let the normal flow handle it
 		}
-		return e.Next()
-	})
-
-	// Ensure only Editor or Admin users can create trails
-	app.OnRecordCreateRequest().BindFunc(func(e *core.RecordRequestEvent) error {
 		if e.Collection.Name == "trails" {
 			// ignore for superusers
 			if e.HasSuperuserAuth(){
@@ -229,11 +222,7 @@ func configureUsersCollection(app core.App) error {
 			Required: false, //So empty is allowed, will be replaced by Viewer anyway
 		}
 		usersCollection.Fields.Add(roleField)
-	}
-
-	// Update authentication options for OAuth
-	// Note: In PocketBase 0.29, auth options may need to be configured via admin dashboard
-	
+	}	
 
 	// Save the updated collection
 	if err := app.Save(usersCollection); err != nil {
@@ -274,8 +263,14 @@ func configureGoogleOAuth(app core.App) error {
 	// Configure field mappings
 	usersCollection.OAuth2.MappedFields = core.OAuth2KnownFields{
 		Name:      "name", 
-		Username:  "username",
+		Username:  "email",
+		AvatarURL: "picture",
 	}
+
+
+
+	//Disable other login methods
+	usersCollection.PasswordAuth.Enabled = false
 	
 	// Save the collection
 	if err := app.Save(usersCollection); err != nil {
