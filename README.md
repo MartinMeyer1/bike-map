@@ -11,7 +11,7 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 - ✅ User authentication state management
 - ✅ Automatic admin account creation via environment variables
 
-### 📤 GPX Upload
+### 📤 Trails management
 - ✅ Upload `.gpx` file via form (Editor/Admin role required)
 - ✅ Input fields:
   - ✅ Trail name
@@ -23,6 +23,7 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
   - ✅ Metadata in `trails` collection
   - ✅ Linked to authenticated user via `owner`
   - ✅ Permission-based access control
+- ✅ Trail editing and deletion
 
 ### 🗺️ Interactive Map
 - ✅ Leaflet integration with Swisstopo WMTS layer
@@ -125,10 +126,9 @@ BikeMap is production-ready with automated deployment:
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ## ✨ Future Enhancements
-- [ ] Trail editing and deletion for owners
+- [ ] GPX route drawing tool
 - [ ] Advanced trail filtering and search
 - [ ] Trail details page with elevation profile
 - [ ] User comments and ratings
-- [ ] GPX route drawing tool
 - [ ] Private trails and sharing controls
 - [ ] User groups and invites
