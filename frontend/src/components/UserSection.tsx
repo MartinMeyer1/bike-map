@@ -133,29 +133,6 @@ export default function UserSection({ user, onAuthChange }: UserSectionProps) {
             }}>
               {user.name || user.email}
             </strong>
-            <button
-              onClick={() => setShowUsernameEdit(true)}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                borderRadius: '6px',
-                padding: '4px 8px',
-                fontSize: '11px',
-                cursor: 'pointer',
-                color: 'white',
-                flexShrink: 0,
-                transition: 'all 0.2s'
-              }}
-              title="Edit username"
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
-              }}
-            >
-              ✏️ Edit
-            </button>
           </div>
           
           <button
@@ -187,6 +164,52 @@ export default function UserSection({ user, onAuthChange }: UserSectionProps) {
         {/* Collapsible content */}
         {!isCollapsed && (
           <div style={{ padding: '16px' }}>
+            {/* Username with edit button */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '16px',
+              padding: '8px 12px',
+              background: 'rgba(40,167,69,0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(40,167,69,0.2)'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: '#155724',
+                fontWeight: '500'
+              }}>
+                {user.name || user.email}
+              </div>
+              <button
+                onClick={() => setShowUsernameEdit(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  color: '#212529',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 4px rgba(255,193,7,0.2)'
+                }}
+                title="Edit username"
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(255,193,7,0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(255,193,7,0.2)';
+                }}
+              >
+                ✏️ Edit
+              </button>
+            </div>
+
+            {/* Role section */}
             <div style={{ 
               display: 'flex',
               alignItems: 'center',

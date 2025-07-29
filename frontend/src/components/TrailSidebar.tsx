@@ -482,31 +482,89 @@ export default function TrailSidebar({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 2000
+          zIndex: 2000,
+          backdropFilter: 'blur(4px)'
         }}>
           <div style={{
-            background: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            textAlign: 'center',
-            maxWidth: '300px'
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            borderRadius: '16px',
+            width: '90%',
+            maxWidth: '400px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            overflow: 'hidden'
           }}>
-            <h4 style={{ margin: '0 0 15px 0' }}>Scan to Download GPX</h4>
-            <img 
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(showQRCode)}`}
-              alt="QR Code"
-              style={{ width: '200px', height: '200px', margin: '0 0 15px 0' }}
-            />
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
-              Scan with your phone to download the GPX file
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%)',
+              color: 'white',
+              padding: '20px 24px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>📱</div>
+              <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                QR Code Download
+              </h4>
             </div>
-            <button 
-              className="btn"
-              onClick={() => setShowQRCode(null)}
-              style={{ width: '100%' }}
-            >
-              Close
-            </button>
+            
+            {/* Content */}
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <div style={{
+                background: 'white',
+                padding: '16px',
+                borderRadius: '12px',
+                display: 'inline-block',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                marginBottom: '20px'
+              }}>
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(showQRCode)}`}
+                  alt="QR Code"
+                  style={{ 
+                    width: '200px', 
+                    height: '200px', 
+                    display: 'block',
+                    borderRadius: '8px'
+                  }}
+                />
+              </div>
+              
+              <p style={{ 
+                fontSize: '14px', 
+                color: '#6c757d', 
+                marginBottom: '24px',
+                lineHeight: '1.5'
+              }}>
+                Scan this QR code with your phone camera to download the GPX file directly to your device.
+              </p>
+              
+              <button 
+                onClick={() => setShowQRCode(null)}
+                style={{
+                  width: '100%',
+                  padding: '12px 20px',
+                  background: 'linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 4px rgba(111,66,193,0.2)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(111,66,193,0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(111,66,193,0.2)';
+                }}
+              >
+                ✓ Close
+              </button>
+            </div>
           </div>
         </div>
       )}

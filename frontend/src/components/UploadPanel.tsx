@@ -158,26 +158,71 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
   }
 
   return (
-    <div className="upload-panel visible">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h3 style={{ margin: 0 }}>Add New Trail</h3>
-        <button 
-          type="button" 
-          onClick={onClose}
-          style={{ 
-            background: 'none', 
-            border: 'none', 
-            fontSize: '20px', 
-            cursor: 'pointer',
-            padding: '0 5px'
-          }}
-        >
-          ×
-        </button>
-      </div>
+    <>
+      {/* Backdrop */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000,
+        backdropFilter: 'blur(4px)'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+          borderRadius: '16px',
+          width: '90%',
+          maxWidth: '600px',
+          maxHeight: '90vh',
+          overflow: 'auto',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+          border: '1px solid rgba(255,255,255,0.2)'
+        }}>
+          {/* Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+            color: 'white',
+            padding: '20px 24px',
+            borderRadius: '16px 16px 0 0',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>➕ Add New Trail</h3>
+          </div>
 
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
+          {/* Content */}
+          <div style={{ padding: '24px' }}>
+
+      {error && (
+        <div style={{
+          background: 'linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)',
+          color: '#721c24',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          border: '1px solid #f5c6cb',
+          fontSize: '14px'
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
+      {success && (
+        <div style={{
+          background: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)',
+          color: '#155724',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          border: '1px solid #c3e6cb',
+          fontSize: '14px'
+        }}>
+          ✅ {success}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -259,27 +304,88 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
-          <button type="submit" className="btn btn-success" disabled={isLoading}>
+        <div style={{ display: 'flex', gap: '12px', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #e9ecef' }}>
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              padding: '12px 20px',
+              background: isLoading ? '#6c757d' : 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 4px rgba(40,167,69,0.2)'
+            }}
+            onMouseOver={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(40,167,69,0.3)';
+              }
+            }}
+            onMouseOut={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(40,167,69,0.2)';
+              }
+            }}
+          >
             {isLoading ? (
               <>
-                <span className="loading"></span>
+                <span style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid transparent',
+                  borderTop: '2px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></span>
                 Uploading...
               </>
             ) : (
-              'Upload Trail'
+              '➕ Upload Trail'
             )}
           </button>
           
-          <button type="button" className="btn btn-secondary" onClick={handleReset}>
-            Reset
-          </button>
-          
-          <button type="button" className="btn" onClick={onClose}>
+          <button 
+            type="button" 
+            onClick={onClose}
+            style={{
+              padding: '12px 20px',
+              background: 'linear-gradient(135deg, #6c757d 0%, #495057 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 4px rgba(108,117,125,0.2)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(108,117,125,0.3)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(108,117,125,0.2)';
+            }}
+          >
             Cancel
           </button>
         </div>
       </form>
-    </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
