@@ -135,7 +135,15 @@ func ensureTrailsCollection(app core.App) error {
 	collection.UpdateRule = &updateRule
 	collection.DeleteRule = &deleteRule
 
-	// Define schema fields - simplified, no processed elevation data
+	// Define schema fields
+	collection.Fields.Add(&core.AutodateField{
+		Name: "created",
+		OnCreate: true,
+	})
+	collection.Fields.Add(&core.AutodateField{
+		Name: "updated",
+		OnUpdate: true,
+	})
 	collection.Fields.Add(&core.TextField{
 		Name:     "name",
 		Required: true,
@@ -265,10 +273,8 @@ func configureGoogleOAuth(app core.App) error {
 	
 	// Configure field mappings
 	usersCollection.OAuth2.MappedFields = core.OAuth2KnownFields{
-		Id:        "id",
 		Name:      "name", 
 		Username:  "username",
-		AvatarURL: "avatarURL",
 	}
 	
 	// Save the collection
