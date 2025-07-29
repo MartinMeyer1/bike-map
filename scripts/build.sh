@@ -27,7 +27,9 @@ if [ -z "$ADMIN_PASSWORD_HASH" ]; then
     # Generate bcrypt hash using htpasswd (install apache2-utils if needed)
     if command -v htpasswd >/dev/null 2>&1; then
         ADMIN_PASSWORD_HASH=$(htpasswd -nbB "" "$ADMIN_PASSWORD" | cut -d: -f2)
-        echo "ADMIN_PASSWORD_HASH=$ADMIN_PASSWORD_HASH" >> .env.production
+        # Double dollar signs for docker-compose
+        ADMIN_PASSWORD_HASH=$(echo "$ADMIN_PASSWORD_HASH" | sed 's/\$/\$\$/g')
+        echo "\nADMIN_PASSWORD_HASH=$ADMIN_PASSWORD_HASH" >> .env.production
         echo -e "${GREEN}✅ Password hash added to .env.production${NC}"
     else
         echo -e "${RED}❌ htpasswd not found. Install apache2-utils: sudo apt-get install apache2-utils${NC}"
