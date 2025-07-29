@@ -29,7 +29,7 @@ if [ -z "$ADMIN_PASSWORD_HASH" ]; then
         ADMIN_PASSWORD_HASH=$(htpasswd -nbB "" "$ADMIN_PASSWORD" | cut -d: -f2)
         # Double dollar signs for docker-compose
         ADMIN_PASSWORD_HASH=$(echo "$ADMIN_PASSWORD_HASH" | sed 's/\$/\$\$/g')
-        echo "\nADMIN_PASSWORD_HASH=$ADMIN_PASSWORD_HASH" >> .env.production
+        echo -e "\nADMIN_PASSWORD_HASH=$ADMIN_PASSWORD_HASH" >> .env.production
         echo -e "${GREEN}✅ Password hash added to .env.production${NC}"
     else
         echo -e "${RED}❌ htpasswd not found. Install apache2-utils: sudo apt-get install apache2-utils${NC}"

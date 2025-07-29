@@ -63,10 +63,13 @@ docker load < bikemap-frontend.tar.gz
 docker network create traefik 2>/dev/null || true
 
 # Stop existing containers
-docker-compose down 2>/dev/null || true
+docker compose down 2>/dev/null || true
 
 # Start the application
-docker-compose up -d
+docker compose up -d
+
+# Clean up dangling images
+docker image prune -f
 
 # Clean up tar files
 rm -f *.tar.gz
