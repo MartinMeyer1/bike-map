@@ -106,6 +106,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel }: Rou
         return;
       }
       
+      // Check if the click event originated from the RouteDrawer panel
+      // This prevents clicks on the panel from adding waypoints
+      const target = e.originalEvent?.target as HTMLElement;
+      if (target && target.closest('[data-route-drawer-panel]')) {
+        return;
+      }
+      
       setWaypoints(prev => {
         if (prev.length >= PATHFINDING_CONFIG.MAX_WAYPOINTS) {
           alert(`Maximum ${PATHFINDING_CONFIG.MAX_WAYPOINTS} waypoints allowed`);
@@ -187,9 +194,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel }: Rou
     setWaypoints(prev => {
       if (prev.length === 0) return prev;
       
-      // Remove 2 waypoints to compensate for duplicate click issue
-      const waypointsToRemove = Math.min(2, prev.length);
-      return prev.slice(0, -waypointsToRemove);
+      // Remove the last waypoint
+      return prev.slice(0, -1);
     });
     
     // Reset the undoing flag after a short delay
@@ -232,6 +238,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel }: Rou
 
   return (
     <div 
+      data-route-drawer-panel
       style={{
         position: 'absolute',
         top: '20px',
@@ -252,13 +259,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel }: Rou
       
       <div style={{ fontSize: '14px', marginBottom: '12px' }}>
         <div>Waypoints: {waypoints.length}/{PATHFINDING_CONFIG.MAX_WAYPOINTS}</div>
-        {routePoints.length >= 2 && (
-          <div>
-            Distance: {(routePoints.reduce((acc, point, i) => 
+        <div>
+          Distance: {routePoints.length >= 2 ? (
+            (routePoints.reduce((acc, point, i) => 
               i === 0 ? acc : acc + calculateDistance(routePoints[i-1], point), 0
-            ) / 1000).toFixed(1)} km
-          </div>
-        )}
+            ) / 1000).toFixed(1) + ' km'
+          ) : '0 km'}
+        </div>
       </div>
 
 
