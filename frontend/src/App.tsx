@@ -22,6 +22,9 @@ function App() {
   const [isDrawingActive, setIsDrawingActive] = useState(false);
   const [drawnGpxContent, setDrawnGpxContent] = useState<string>('');
   const [previousGpxContent, setPreviousGpxContent] = useState<string>('');
+  const [editDrawnGpxContent, setEditDrawnGpxContent] = useState<string>('');
+  const [editPreviousGpxContent, setEditPreviousGpxContent] = useState<string>('');
+  const [drawingMode, setDrawingMode] = useState<'upload' | 'edit' | null>(null);
 
   // Initialize app - check auth and initialize trail cache
   useEffect(() => {
@@ -158,6 +161,7 @@ function App() {
     // Preserve current GPX content to restore on cancel
     setPreviousGpxContent(drawnGpxContent);
     setIsDrawingActive(true);
+    setDrawingMode('upload');
     setIsUploadPanelVisible(false);
   };
 
@@ -165,13 +169,39 @@ function App() {
   const handleRouteComplete = (gpxContent: string) => {
     setDrawnGpxContent(gpxContent);
     setIsDrawingActive(false);
+    setDrawingMode(null);
     setIsUploadPanelVisible(true);
   };
 
   // Handle drawing cancelled
   const handleDrawingCancel = () => {
     setIsDrawingActive(false);
+    setDrawingMode(null);
     setIsUploadPanelVisible(true);
+  };
+
+  // Handle start drawing for edit panel
+  const handleEditStartDrawing = () => {
+    // Preserve current GPX content to restore on cancel
+    setEditPreviousGpxContent(editDrawnGpxContent);
+    setIsDrawingActive(true);
+    setDrawingMode('edit');
+    setIsEditPanelVisible(false);
+  };
+
+  // Handle route drawing completed for edit panel
+  const handleEditRouteComplete = (gpxContent: string) => {
+    setEditDrawnGpxContent(gpxContent);
+    setIsDrawingActive(false);
+    setDrawingMode(null);
+    setIsEditPanelVisible(true);
+  };
+
+  // Handle drawing cancelled for edit panel
+  const handleEditDrawingCancel = () => {
+    setIsDrawingActive(false);
+    setDrawingMode(null);
+    setIsEditPanelVisible(true);
   };
 
 
@@ -230,9 +260,9 @@ function App() {
         onBoundsChange={updateVisibleTrails}
         onTrailClick={handleTrailClick}
         isDrawingActive={isDrawingActive}
-        onRouteComplete={handleRouteComplete}
-        onDrawingCancel={handleDrawingCancel}
-        initialGpxContent={previousGpxContent}
+        onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
+        onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
+        initialGpxContent={drawingMode === 'edit' ? editPreviousGpxContent : previousGpxContent}
       />
 
       {/* Trail sidebar - hidden during drawing mode */}
@@ -270,9 +300,12 @@ function App() {
         onClose={() => {
           setIsEditPanelVisible(false);
           setTrailToEdit(null);
+          setEditDrawnGpxContent('');
         }}
         onTrailUpdated={handleTrailUpdatedComplete}
         onTrailDeleted={handleTrailDeleted}
+        onStartDrawing={handleEditStartDrawing}
+        drawnGpxContent={editDrawnGpxContent}
       />
     </div>
   );
