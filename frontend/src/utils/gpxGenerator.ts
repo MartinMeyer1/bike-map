@@ -3,6 +3,42 @@ export interface RoutePoint {
   lng: number;
 }
 
+export function parseGPX(gpxContent: string): RoutePoint[] {
+  if (!gpxContent.trim()) {
+    return [];
+  }
+
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(gpxContent, 'text/xml');
+    
+    // Check for parsing errors
+    const parseError = xmlDoc.querySelector('parsererror');
+    if (parseError) {
+      console.warn('GPX parsing error:', parseError.textContent);
+      return [];
+    }
+    
+    // Extract track points
+    const trkpts = xmlDoc.querySelectorAll('trkpt');
+    const points: RoutePoint[] = [];
+    
+    trkpts.forEach(trkpt => {
+      const lat = parseFloat(trkpt.getAttribute('lat') || '0');
+      const lng = parseFloat(trkpt.getAttribute('lon') || '0');
+      
+      if (!isNaN(lat) && !isNaN(lng)) {
+        points.push({ lat, lng });
+      }
+    });
+    
+    return points;
+  } catch (error) {
+    console.warn('Failed to parse GPX content:', error);
+    return [];
+  }
+}
+
 export function generateGPX(points: RoutePoint[], name: string = 'Drawn Route'): string {
   const now = new Date().toISOString();
   

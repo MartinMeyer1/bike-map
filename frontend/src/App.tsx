@@ -21,6 +21,7 @@ function App() {
   const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
   const [isDrawingActive, setIsDrawingActive] = useState(false);
   const [drawnGpxContent, setDrawnGpxContent] = useState<string>('');
+  const [previousGpxContent, setPreviousGpxContent] = useState<string>('');
 
   // Initialize app - check auth and initialize trail cache
   useEffect(() => {
@@ -154,6 +155,8 @@ function App() {
 
   // Handle start drawing
   const handleStartDrawing = () => {
+    // Preserve current GPX content to restore on cancel
+    setPreviousGpxContent(drawnGpxContent);
     setIsDrawingActive(true);
     setIsUploadPanelVisible(false);
   };
@@ -168,7 +171,6 @@ function App() {
   // Handle drawing cancelled
   const handleDrawingCancel = () => {
     setIsDrawingActive(false);
-    setDrawnGpxContent('');
     setIsUploadPanelVisible(true);
   };
 
@@ -230,6 +232,7 @@ function App() {
         isDrawingActive={isDrawingActive}
         onRouteComplete={handleRouteComplete}
         onDrawingCancel={handleDrawingCancel}
+        initialGpxContent={previousGpxContent}
       />
 
       {/* Trail sidebar - hidden during drawing mode */}

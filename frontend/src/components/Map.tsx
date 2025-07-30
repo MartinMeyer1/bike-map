@@ -40,6 +40,7 @@ interface MapProps {
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
+  initialGpxContent?: string;
 }
 
 // Component to handle map events and trail zoom
@@ -127,7 +128,8 @@ export default function Map({
   onTrailClick, 
   isDrawingActive = false,
   onRouteComplete,
-  onDrawingCancel 
+  onDrawingCancel,
+  initialGpxContent
 }: MapProps) {
   const handleTrailClick = useCallback((trail: CachedTrail) => {
     onTrailClick(trail);
@@ -181,6 +183,7 @@ export default function Map({
         isActive={isDrawingActive}
         onRouteComplete={onRouteComplete || (() => {})}
         onCancel={onDrawingCancel || (() => {})}
+        initialGpxContent={initialGpxContent}
       />
     </MapContainer>
   );

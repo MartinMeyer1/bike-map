@@ -10,22 +10,33 @@ import {
   calculateDistance,
   PATHFINDING_CONFIG
 } from '../utils/pathfinding';
-import { generateGPX } from '../utils/gpxGenerator';
+import { generateGPX, parseGPX } from '../utils/gpxGenerator';
 
 interface RouteDrawerProps {
   isActive: boolean;
   onRouteComplete: (gpxContent: string) => void;
   onCancel: () => void;
+  initialGpxContent?: string;
 }
 
-export default function RouteDrawer({ isActive, onRouteComplete, onCancel }: RouteDrawerProps) {
+export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initialGpxContent }: RouteDrawerProps) {
   const map = useMap();
   const [waypoints, setWaypoints] = useState<PathPoint[]>([]);
   const [routePoints, setRoutePoints] = useState<PathPoint[]>([]);
   // const [pathSegments] = useState<PathSegment[]>([]); // Temporarily disabled
   const [routeLayer, setRouteLayer] = useState<L.LayerGroup | null>(null);
   const [waypointLayer, setWaypointLayer] = useState<L.LayerGroup | null>(null);
+  const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
   const isUndoingRef = useRef(false);
+
+  // Initialize waypoints from GPX content when drawing becomes active
+  useEffect(() => {
+    if (!isActive) return;
+    
+    const initialPoints = parseGPX(initialGpxContent || '');
+    setInitialWaypoints(initialPoints);
+    setWaypoints(initialPoints);
+  }, [isActive, initialGpxContent]);
 
   // Initialize layers
   useEffect(() => {
@@ -229,10 +240,15 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel }: Rou
 
   // Handle cancel
   const handleCancel = useCallback(() => {
-    setWaypoints([]);
-    setRoutePoints([]);
-    onCancel();
-  }, [onCancel]);
+    // Generate GPX from initial waypoints to restore previous state
+    if (initialWaypoints.length > 0) {
+      const restoredGpxContent = generateGPX(initialWaypoints, 'Drawn Route');
+      onRouteComplete(restoredGpxContent);
+    } else {
+      // If no initial waypoints, proceed with normal cancel
+      onCancel();
+    }
+  }, [initialWaypoints, onRouteComplete, onCancel]);
 
   if (!isActive) return null;
 
