@@ -19,6 +19,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
+  const [isDrawingActive, setIsDrawingActive] = useState(false);
+  const [drawnGpxContent, setDrawnGpxContent] = useState<string>('');
 
   // Initialize app - check auth and initialize trail cache
   useEffect(() => {
@@ -150,6 +152,26 @@ function App() {
     setSelectedTrail(trail);
   }, []);
 
+  // Handle start drawing
+  const handleStartDrawing = () => {
+    setIsDrawingActive(true);
+    setIsUploadPanelVisible(false);
+  };
+
+  // Handle route drawing completed
+  const handleRouteComplete = (gpxContent: string) => {
+    setDrawnGpxContent(gpxContent);
+    setIsDrawingActive(false);
+    setIsUploadPanelVisible(true);
+  };
+
+  // Handle drawing cancelled
+  const handleDrawingCancel = () => {
+    setIsDrawingActive(false);
+    setDrawnGpxContent('');
+    setIsUploadPanelVisible(true);
+  };
+
 
   if (isLoading) {
     return (
@@ -201,31 +223,41 @@ function App() {
 
       {/* Main map */}
       <Map 
-        trails={trails}
+        trails={isDrawingActive ? [] : trails}
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={handleTrailClick}
+        isDrawingActive={isDrawingActive}
+        onRouteComplete={handleRouteComplete}
+        onDrawingCancel={handleDrawingCancel}
       />
 
-      {/* Trail sidebar */}
-      <TrailSidebar
-        trails={trails}
-        visibleTrails={visibleTrails}
-        selectedTrail={selectedTrail}
-        mapBounds={mapBounds}
-        user={user}
-        onTrailClick={handleTrailClick}
-        onAddTrailClick={() => setIsUploadPanelVisible(true)}
-        onAuthChange={handleAuthChange}
-        onEditTrailClick={handleEditTrailClick}
-      />
+      {/* Trail sidebar - hidden during drawing mode */}
+      {!isDrawingActive && (
+        <TrailSidebar
+          trails={trails}
+          visibleTrails={visibleTrails}
+          selectedTrail={selectedTrail}
+          mapBounds={mapBounds}
+          user={user}
+          onTrailClick={handleTrailClick}
+          onAddTrailClick={() => setIsUploadPanelVisible(true)}
+          onAuthChange={handleAuthChange}
+          onEditTrailClick={handleEditTrailClick}
+        />
+      )}
 
 
       {/* Upload panel */}
       <UploadPanel
         isVisible={isUploadPanelVisible}
-        onClose={() => setIsUploadPanelVisible(false)}
+        onClose={() => {
+          setIsUploadPanelVisible(false);
+          setDrawnGpxContent('');
+        }}
         onTrailCreated={handleTrailCreated}
+        onStartDrawing={handleStartDrawing}
+        drawnGpxContent={drawnGpxContent}
       />
 
       {/* Edit panel */}

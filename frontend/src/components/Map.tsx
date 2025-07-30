@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { MapBounds } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import GPXTrail from './GPXTrail';
+import RouteDrawer from './RouteDrawer';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -36,6 +37,9 @@ interface MapProps {
   selectedTrail: CachedTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: CachedTrail | null) => void;
+  isDrawingActive?: boolean;
+  onRouteComplete?: (gpxContent: string) => void;
+  onDrawingCancel?: () => void;
 }
 
 // Component to handle map events and trail zoom
@@ -116,7 +120,15 @@ function MapEvents({
   return null;
 }
 
-export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClick }: MapProps) {
+export default function Map({ 
+  trails, 
+  selectedTrail, 
+  onBoundsChange, 
+  onTrailClick, 
+  isDrawingActive = false,
+  onRouteComplete,
+  onDrawingCancel 
+}: MapProps) {
   const handleTrailClick = useCallback((trail: CachedTrail) => {
     onTrailClick(trail);
   }, [onTrailClick]);
@@ -141,6 +153,16 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
         maxZoom={18}
       />
 
+      {/* Hiking paths overlay - only show when drawing is active */}
+      {isDrawingActive && (
+        <TileLayer
+          url="https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-strassen/default/current/3857/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>'
+          opacity={0.7}
+          maxZoom={18}
+        />
+      )}
+
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />
 
@@ -153,6 +175,13 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
           onTrailClick={handleTrailClick}
         />
       ))}
+
+      {/* Route drawer */}
+      <RouteDrawer
+        isActive={isDrawingActive}
+        onRouteComplete={onRouteComplete || (() => {})}
+        onCancel={onDrawingCancel || (() => {})}
+      />
     </MapContainer>
   );
 }
