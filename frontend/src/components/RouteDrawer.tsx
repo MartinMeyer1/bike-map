@@ -23,15 +23,21 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const [waypointLayer, setWaypointLayer] = useState<L.LayerGroup | null>(null);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [routePointsWithElevation, setRoutePointsWithElevation] = useState<Array<{lat: number, lng: number, ele?: number}>>([]);
   const isUndoingRef = useRef(false);
 
   // Initialize waypoints from GPX content when drawing becomes active
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      // Clear state when drawing becomes inactive
+      setRoutePointsWithElevation([]);
+      return;
+    }
     
     const initialPoints = parseGPX(initialGpxContent || '');
     setInitialWaypoints(initialPoints);
     setWaypoints(initialPoints);
+    setRoutePointsWithElevation([]); // Clear elevation data when starting fresh
   }, [isActive, initialGpxContent]);
 
   // Initialize layers
@@ -100,8 +106,11 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       // Format waypoints for BRouter API: "lng,lat|lng,lat|..."
       const lonlats = waypoints.map(wp => `${wp.lng},${wp.lat}`).join('|');
       
-      // BRouter API call with GPX format
-      const brouterUrl = `http://localhost:17777/brouter?lonlats=${lonlats}&profile=trekking&format=gpx`;
+      // Debug: log what we're sending to BRouter
+      console.log(`Sending ${waypoints.length} waypoints to BRouter:`, lonlats);
+      
+      // BRouter API call with GPX format - using trekking profile for better waypoint adherence
+      const brouterUrl = `http://localhost:17777/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
       
       const response = await fetch(brouterUrl);
       if (!response.ok) {
@@ -115,29 +124,87 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const parser = new DOMParser();
       const gpxDoc = parser.parseFromString(gpxText, 'application/xml');
       
-      // Extract track points from GPX
-      const trackPoints: PathPoint[] = [];
+      // Extract track points from GPX including elevation data
+      const trackPoints: Array<{lat: number, lng: number, ele?: number}> = [];
       const trkpts = gpxDoc.querySelectorAll('trkpt');
       
       trkpts.forEach(trkpt => {
         const lat = parseFloat(trkpt.getAttribute('lat') || '0');
         const lon = parseFloat(trkpt.getAttribute('lon') || '0');
+        const eleElement = trkpt.querySelector('ele');
+        const elevation = eleElement ? parseFloat(eleElement.textContent || '0') : undefined;
+        
         if (lat && lon) {
-          trackPoints.push({ lat, lng: lon });
+          trackPoints.push({ lat, lng: lon, ele: elevation });
         }
       });
       
-      return trackPoints.length > 0 ? trackPoints : waypoints;
+      // Store the detailed track points with elevation for later use
+      if (trackPoints.length > 0) {
+        // Store in component state for use in handleComplete
+        setRoutePointsWithElevation(trackPoints);
+        
+        // Return simple points for route display
+        return trackPoints.map(p => ({ lat: p.lat, lng: p.lng }));
+      }
+      
+      return waypoints;
     } catch (error) {
       console.error('BRouter routing error:', error);
       return waypoints; // Fallback to straight line
     }
   }, []);
 
+  // Calculate distance between two lat/lng points in meters (Haversine formula)
+  const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }, []);
+
+  // Calculate elevation gain, loss, and total distance from track points
+  const calculateRouteData = useCallback((trackPoints: Array<{lat: number, lng: number, ele?: number}>) => {
+    let totalGain = 0;
+    let totalLoss = 0;
+    let totalDistance = 0;
+
+    for (let i = 1; i < trackPoints.length; i++) {
+      const point = trackPoints[i];
+      const prevPoint = trackPoints[i - 1];
+      
+      // Calculate distance
+      const distance = calculateDistance(prevPoint.lat, prevPoint.lng, point.lat, point.lng);
+      totalDistance += distance;
+      
+      // Calculate elevation change
+      if (point.ele !== undefined && prevPoint.ele !== undefined) {
+        const elevChange = point.ele - prevPoint.ele;
+        if (elevChange > 0) {
+          totalGain += elevChange;
+        } else {
+          totalLoss += Math.abs(elevChange);
+        }
+      }
+    }
+
+    return {
+      gain: totalGain,
+      loss: totalLoss,
+      distance: totalDistance
+    };
+  }, [calculateDistance]);
+
   // Update route when waypoints change
   useEffect(() => {
     if (waypoints.length < 2) {
       setRoutePoints([...waypoints]);
+      setRoutePointsWithElevation([]); // Clear elevation data
       setIsCalculatingRoute(false);
       return;
     }
@@ -219,10 +286,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       return;
     }
 
-    // Generate GPX from waypoints for server routing
-    const gpxContent = generateGPX(routePoints, 'Drawn Route');
+    // Use elevation data if available from BRouter, otherwise use simple route points
+    const pointsToUse = routePointsWithElevation.length > 0 ? routePointsWithElevation : routePoints;
+    
+    // Generate GPX including elevation data if available
+    const gpxContent = generateGPX(pointsToUse, 'Drawn Route');
     onRouteComplete(gpxContent);
-  }, [routePoints, onRouteComplete]);
+  }, [routePoints, routePointsWithElevation, onRouteComplete]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
@@ -262,8 +332,34 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       <div style={{ fontSize: '14px', marginBottom: '12px' }}>
         <div>Waypoints: {waypoints.length}/{PATHFINDING_CONFIG.MAX_WAYPOINTS}</div>
         <div>
-          {isCalculatingRoute ? '🔄 Computing route...' : 'Route computed by BRouter'}
+          {isCalculatingRoute ? '🔄 Computing route...' : 
+            routePointsWithElevation.length > 0 ? 
+              (() => {
+                const routeData = calculateRouteData(routePointsWithElevation);
+                const distanceKm = routeData.distance / 1000;
+                return `Distance: ${distanceKm.toFixed(1)} km`;
+              })() : 
+              routePoints.length > 1 ? 
+                (() => {
+                  const routeData = calculateRouteData(routePoints.map(p => ({...p, ele: undefined})));
+                  const distanceKm = routeData.distance / 1000;
+                  return `Distance: ${distanceKm.toFixed(1)} km (approx)`;
+                })() :
+                'Click to add waypoints'
+          }
         </div>
+        {routePointsWithElevation.length > 0 && !isCalculatingRoute && (
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+            {(() => {
+              const routeData = calculateRouteData(routePointsWithElevation);
+              return (
+                <div>
+                  <strong>D+:</strong> {Math.round(routeData.gain)}m | <strong>D-:</strong> {Math.round(routeData.loss)}m
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
 

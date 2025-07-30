@@ -1,6 +1,7 @@
 export interface RoutePoint {
   lat: number;
   lng: number;
+  ele?: number;
 }
 
 export function parseGPX(gpxContent: string): RoutePoint[] {
@@ -26,9 +27,11 @@ export function parseGPX(gpxContent: string): RoutePoint[] {
     trkpts.forEach(trkpt => {
       const lat = parseFloat(trkpt.getAttribute('lat') || '0');
       const lng = parseFloat(trkpt.getAttribute('lon') || '0');
+      const eleElement = trkpt.querySelector('ele');
+      const elevation = eleElement ? parseFloat(eleElement.textContent || '0') : undefined;
       
       if (!isNaN(lat) && !isNaN(lng)) {
-        points.push({ lat, lng });
+        points.push({ lat, lng, ele: elevation });
       }
     });
     
@@ -42,9 +45,10 @@ export function parseGPX(gpxContent: string): RoutePoint[] {
 export function generateGPX(points: RoutePoint[], name: string = 'Drawn Route'): string {
   const now = new Date().toISOString();
   
-  const trackPoints = points.map(point => 
-    `      <trkpt lat="${point.lat}" lon="${point.lng}"></trkpt>`
-  ).join('\n');
+  const trackPoints = points.map(point => {
+    const elevationTag = point.ele !== undefined ? `\n        <ele>${point.ele}</ele>` : '';
+    return `      <trkpt lat="${point.lat}" lon="${point.lng}">${elevationTag}\n      </trkpt>`;
+  }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="BikeMap Route Drawing" 
