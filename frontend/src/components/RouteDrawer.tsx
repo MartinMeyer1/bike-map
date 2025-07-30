@@ -22,6 +22,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const [routeLayer, setRouteLayer] = useState<L.LayerGroup | null>(null);
   const [waypointLayer, setWaypointLayer] = useState<L.LayerGroup | null>(null);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const isUndoingRef = useRef(false);
 
   // Initialize waypoints from GPX content when drawing becomes active
@@ -91,11 +92,63 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     };
   }, [map, isActive]);
 
+  // Function to call BRouter API
+  const calculateRoute = useCallback(async (waypoints: PathPoint[]): Promise<PathPoint[]> => {
+    if (waypoints.length < 2) return waypoints;
+    
+    try {
+      // Format waypoints for BRouter API: "lng,lat|lng,lat|..."
+      const lonlats = waypoints.map(wp => `${wp.lng},${wp.lat}`).join('|');
+      
+      // BRouter API call with GPX format
+      const brouterUrl = `http://localhost:17777/brouter?lonlats=${lonlats}&profile=trekking&format=gpx`;
+      
+      const response = await fetch(brouterUrl);
+      if (!response.ok) {
+        console.error('BRouter API error:', response.status, response.statusText);
+        return waypoints; // Fallback to straight line
+      }
+      
+      const gpxText = await response.text();
+      
+      // Parse GPX to extract track points
+      const parser = new DOMParser();
+      const gpxDoc = parser.parseFromString(gpxText, 'application/xml');
+      
+      // Extract track points from GPX
+      const trackPoints: PathPoint[] = [];
+      const trkpts = gpxDoc.querySelectorAll('trkpt');
+      
+      trkpts.forEach(trkpt => {
+        const lat = parseFloat(trkpt.getAttribute('lat') || '0');
+        const lon = parseFloat(trkpt.getAttribute('lon') || '0');
+        if (lat && lon) {
+          trackPoints.push({ lat, lng: lon });
+        }
+      });
+      
+      return trackPoints.length > 0 ? trackPoints : waypoints;
+    } catch (error) {
+      console.error('BRouter routing error:', error);
+      return waypoints; // Fallback to straight line
+    }
+  }, []);
+
   // Update route when waypoints change
   useEffect(() => {
-    // Simple implementation: direct line between waypoints (no pathfinding yet)
-    setRoutePoints([...waypoints]);
-  }, [waypoints]);
+    if (waypoints.length < 2) {
+      setRoutePoints([...waypoints]);
+      setIsCalculatingRoute(false);
+      return;
+    }
+    
+    // Call BRouter for routing
+    setIsCalculatingRoute(true);
+    calculateRoute(waypoints).then(routePoints => {
+      setRoutePoints(routePoints);
+      setIsCalculatingRoute(false);
+    });
+  }, [waypoints, calculateRoute]);
 
   // Update map display
   useEffect(() => {
@@ -120,20 +173,25 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       waypointLayer.addLayer(marker);
     });
 
-    // Draw route as straight lines (placeholder while waiting for server routing)
+    // Draw route - either computed by BRouter or straight lines as fallback
     if (routePoints.length >= 2) {
+      const isComputedRoute = routePoints.length > waypoints.length;
+      
       const polyline = L.polyline(
         routePoints.map(p => [p.lat, p.lng]),
         {
-          color: '#007bff',
-          weight: 3,
-          opacity: 0.5,
-          dashArray: '5, 5' // Dashed line to indicate it's temporary
+          color: isComputedRoute ? '#28a745' : '#007bff',
+          weight: isComputedRoute ? 4 : 3,
+          opacity: isComputedRoute ? 0.8 : 0.5,
+          dashArray: isComputedRoute ? undefined : '5, 5'
         }
       );
       routeLayer.addLayer(polyline);
       
-      polyline.bindTooltip('Temporary route - will be computed by server', { permanent: false });
+      const tooltipText = isComputedRoute 
+        ? 'Route computed by BRouter' 
+        : 'Fallback: straight line between waypoints';
+      polyline.bindTooltip(tooltipText, { permanent: false });
     }
   }, [routePoints, waypoints, routeLayer, waypointLayer]);
 
@@ -203,7 +261,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       
       <div style={{ fontSize: '14px', marginBottom: '12px' }}>
         <div>Waypoints: {waypoints.length}/{PATHFINDING_CONFIG.MAX_WAYPOINTS}</div>
-        <div>Route will be computed by server</div>
+        <div>
+          {isCalculatingRoute ? '🔄 Computing route...' : 'Route computed by BRouter'}
+        </div>
       </div>
 
 
