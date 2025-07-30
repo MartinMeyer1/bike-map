@@ -26,6 +26,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const [routePointsWithElevation, setRoutePointsWithElevation] = useState<Array<{lat: number, lng: number, ele?: number}>>([]);
   const [hasExistingRoute, setHasExistingRoute] = useState(false);
   const isUndoingRef = useRef(false);
+  const isSavingRef = useRef(false);
 
   // Calculate distance between two lat/lng points in meters (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -80,7 +81,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       }
     }
     
-    console.log(`Split route into ${segments.length} segments from ${waypoints.length} waypoints`);
     return segments;
   }, [calculateDistance]);
 
@@ -106,8 +106,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     
     if (hasExisting) {
       // Cache the computed route and split it into segments
-      console.log(`Caching existing route: ${initialWaypoints.length} waypoints, ${cachedRoute.length} route points`);
-      
       // Split the cached route back into individual segments between waypoints
       const reconstructedSegments = splitRouteIntoSegments(cachedRoute, initialWaypoints);
       setRouteSegments(reconstructedSegments);
@@ -119,7 +117,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       setRouteSegments([]);
     }
     
-    console.log(`Initialization: hasExisting=${hasExisting}, waypoints=${initialWaypoints.length}, route=${cachedRoute.length}`);
   }, [isActive, initialGpxContent, splitRouteIntoSegments]);
 
   // Initialize layers
@@ -189,7 +186,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       // Format two points for BRouter API
       const lonlats = `${fromPoint.lng},${fromPoint.lat}|${toPoint.lng},${toPoint.lat}`;
       
-      console.log(`Calculating route segment from [${fromPoint.lat.toFixed(4)}, ${fromPoint.lng.toFixed(4)}] to [${toPoint.lat.toFixed(4)}, ${toPoint.lng.toFixed(4)}]`);
       
       // BRouter API call with GPX format
       const brouterUrl = `http://localhost:17777/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
@@ -272,7 +268,12 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     
     // Skip BRouter calls for existing routes - only route when user adds new waypoints
     if (hasExistingRoute) {
-      console.log('Skipping BRouter calls for existing route');
+      return;
+    }
+    
+    // Skip BRouter calls during save operations
+    if (isSavingRef.current) {
+      console.log('🚫 Skipping BRouter calls during save operation');
       return;
     }
     
@@ -280,13 +281,12 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     const currentSegmentCount = routeSegments.length;
     const expectedSegmentCount = waypoints.length - 1;
     
-    console.log(`Waypoints: ${waypoints.length}, Current segments: ${currentSegmentCount}, Expected: ${expectedSegmentCount}`);
-    
     if (expectedSegmentCount > currentSegmentCount) {
       // Adding a waypoint - calculate route from previous waypoint to new one
       const fromPoint = waypoints[waypoints.length - 2];
       const toPoint = waypoints[waypoints.length - 1];
       
+      console.log('🔥 TRIGGERING BROUTER CALL - Adding waypoint');
       setIsCalculatingRoute(true);
       calculateRouteSegment(fromPoint, toPoint).then(newSegment => {
         setRouteSegments(prev => [...prev, newSegment]);
@@ -300,8 +300,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
   // Rebuild complete route from segments
   useEffect(() => {
-    console.log(`Rebuilding route: ${routeSegments.length} segments, ${waypoints.length} waypoints`);
-    
     if (routeSegments.length === 0) {
       setRoutePointsWithElevation([]);
       setRoutePoints([...waypoints]);
@@ -312,7 +310,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     const completeRoute: Array<{lat: number, lng: number, ele?: number}> = [];
     
     routeSegments.forEach((segment, index) => {
-      console.log(`Segment ${index}: ${segment.length} points`);
       if (index === 0) {
         // First segment: add all points
         completeRoute.push(...segment);
@@ -322,7 +319,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       }
     });
     
-    console.log(`Complete route: ${completeRoute.length} points`);
     setRoutePointsWithElevation(completeRoute);
     setRoutePoints(completeRoute.map(p => ({ lat: p.lat, lng: p.lng })));
   }, [routeSegments, waypoints]);
@@ -394,30 +390,48 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
   // Handle route completion
   const handleComplete = useCallback(() => {
-    if (routePoints.length < 2) {
+    if (waypoints.length < 2) {
       alert('Please add at least 2 waypoints to create a route');
       return;
     }
 
-    // Use elevation data if available from BRouter, otherwise use simple route points
+    // Set saving flag to prevent BRouter calls during save
+    isSavingRef.current = true;
+
+    // Use cached route data - no BRouter calls needed
     const pointsToUse = routePointsWithElevation.length > 0 ? routePointsWithElevation : routePoints;
     
     // Generate GPX including elevation data and original waypoints
     const gpxContent = generateGPX(pointsToUse, 'Drawn Route', waypoints);
     onRouteComplete(gpxContent);
-  }, [routePoints, routePointsWithElevation, waypoints, onRouteComplete]);
+    
+    // Reset saving flag after a delay
+    setTimeout(() => {
+      isSavingRef.current = false;
+    }, 500);
+  }, [waypoints, routePoints, routePointsWithElevation, onRouteComplete]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
+    // Set saving flag to prevent BRouter calls during cancel
+    isSavingRef.current = true;
+    
     // Generate GPX from initial waypoints to restore previous state
     if (initialWaypoints.length > 0) {
-      const restoredGpxContent = generateGPX(initialWaypoints, 'Drawn Route');
+      // Use cached route points if available, otherwise fallback to waypoints
+      const pointsToUse = routePointsWithElevation.length > 0 ? routePointsWithElevation : initialWaypoints;
+      const restoredGpxContent = generateGPX(pointsToUse, 'Drawn Route', initialWaypoints);
       onRouteComplete(restoredGpxContent);
     } else {
       // If no initial waypoints, proceed with normal cancel
       onCancel();
     }
-  }, [initialWaypoints, onRouteComplete, onCancel]);
+    
+    // Reset saving flag after a delay
+    setTimeout(() => {
+      isSavingRef.current = false;
+    }, 500);
+  }, [initialWaypoints, routePointsWithElevation, onRouteComplete, onCancel]);
 
   if (!isActive) return null;
 
