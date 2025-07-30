@@ -66,28 +66,19 @@ Fallback behavior: Straight line if no path found or calculation area exceeded
 - ✅ Integration with existing PocketBase API
 - ✅ Trail creation workflow (drawn → GPX → backend)
 
-### 🔄 **CURRENT LIMITATIONS (Mock Implementation)**
-- ⚠️ **Path snapping**: Currently uses mock path data (not real WMTS vector data)
-- ⚠️ **Pathfinding**: Simple point-to-point routing (not following actual trails)
-- ⚠️ **PBF parsing**: Framework ready but needs proper vector tile decoding
+### 🔄 **CURRENT IMPLEMENTATION**
+- ✅ **Waypoint Management**: Click-to-add waypoints with visual feedback
+- ✅ **Client-side UI**: Real-time waypoint visualization with temporary straight-line preview
+- 🔄 **Server-side Routing**: Routes computed by BRouter server (external routing service)
 
 ### 🎯 **TODO (Phase 2 - Production Ready)**
 
 #### High Priority
-- [ ] **Implement proper PBF vector tile parsing**
-  - Parse actual Swiss WMTS vector data from `.pbf` tiles
-  - Extract real hiking trails and road networks
-  - Build proper path network graph
-
-- [ ] **Advanced pathfinding algorithm**
-  - Implement A* or Dijkstra's algorithm
-  - Use actual path network for routing
-  - Proper snapping to nearest trail segments
-
-- [ ] **Path network optimization**
-  - Efficient spatial indexing for large datasets
-  - Path segment caching and management
-  - Performance optimization for real-time routing
+- [ ] **BRouter Server Integration**
+  - Implement server-side routing requests to BRouter API
+  - Handle waypoint-to-lonlats conversion for BRouter format
+  - Process returned GPX from BRouter server
+  - Add error handling for routing failures
 
 #### Medium Priority
 - [ ] **Enhanced user experience**
@@ -107,16 +98,13 @@ Fallback behavior: Straight line if no path found or calculation area exceeded
   - Route caching for popular segments
 
 ### 🔧 **Configuration Files**
-All limits easily adjustable in `pathfinding.ts:PATHFINDING_CONFIG`:
+Waypoint limits in `pathfinding.ts:PATHFINDING_CONFIG`:
 ```typescript
-MAX_WAYPOINTS: 50           // Maximum points per route
-MAX_ROUTE_DISTANCE_KM: 100  // Maximum route length
-SNAP_DISTANCE_METERS: 100   // Point snapping tolerance
-TILE_BUFFER_SIZE: 2         // Path data loading buffer
+MAX_WAYPOINTS: 50           // Maximum waypoints per route
 ```
 
-### 📝 **Notes for Fine-tuning**
-- Current implementation provides full UI/UX workflow
-- Mock pathfinding allows immediate testing and UI refinement
-- PBF parsing framework ready for production data integration
-- All performance limits configurable for easy optimization
+### 📝 **Notes for Implementation**
+- Current implementation provides complete waypoint management UI/UX
+- Straight-line preview allows immediate visual feedback during route drawing
+- Server-side routing via BRouter ensures accurate trail following
+- Waypoint limits easily configurable for performance optimization

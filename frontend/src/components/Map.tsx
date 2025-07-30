@@ -155,15 +155,6 @@ export default function Map({
         maxZoom={18}
       />
 
-      {/* Hiking paths overlay - only show when drawing is active */}
-      {isDrawingActive && (
-        <TileLayer
-          url="https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-strassen/default/current/3857/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>'
-          opacity={0.7}
-          maxZoom={18}
-        />
-      )}
 
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />

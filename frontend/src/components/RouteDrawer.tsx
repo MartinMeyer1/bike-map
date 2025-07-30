@@ -3,11 +3,6 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { 
   PathPoint, 
-  PathSegment, 
-  loadVectorTile, 
-  extractPathsFromTile, 
-  pointToTileCoords,
-  calculateDistance,
   PATHFINDING_CONFIG
 } from '../utils/pathfinding';
 import { generateGPX, parseGPX } from '../utils/gpxGenerator';
@@ -57,56 +52,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     };
   }, [map, isActive]);
 
-  // Load path data for current map view
-  const loadPathData = useCallback(async () => {
-    if (!map || !isActive) return;
-    const bounds = map.getBounds();
-    const zoom = Math.min(map.getZoom(), 16); // Limit zoom level for tile loading
-    
-    const newSegments: PathSegment[] = [];
-    
-    // Get tile coordinates for current bounds
-    const nw = pointToTileCoords(bounds.getNorth(), bounds.getWest(), zoom);
-    const se = pointToTileCoords(bounds.getSouth(), bounds.getEast(), zoom);
-    
-    // Load tiles in the current view + buffer
-    const promises: Promise<void>[] = [];
-    for (let x = nw.x - PATHFINDING_CONFIG.TILE_BUFFER_SIZE; x <= se.x + PATHFINDING_CONFIG.TILE_BUFFER_SIZE; x++) {
-      for (let y = nw.y - PATHFINDING_CONFIG.TILE_BUFFER_SIZE; y <= se.y + PATHFINDING_CONFIG.TILE_BUFFER_SIZE; y++) {
-        promises.push(
-          loadVectorTile(x, y, zoom).then(buffer => {
-            if (buffer) {
-              const segments = extractPathsFromTile(buffer, x, y, zoom);
-              newSegments.push(...segments);
-            }
-          })
-        );
-      }
-    }
-    
-    await Promise.all(promises);
-    // setPathSegments(newSegments); // Temporarily disabled - pathfinding not implemented
-  }, [map, isActive]);
-
-  // Load path data when map moves or drawing becomes active
-  useEffect(() => {
-    if (isActive) {
-      loadPathData();
-    }
-  }, [isActive, loadPathData]);
-
-  useEffect(() => {
-    if (!map || !isActive) return;
-
-    const handleMoveEnd = () => {
-      loadPathData();
-    };
-
-    map.on('moveend', handleMoveEnd);
-    return () => {
-      map.off('moveend', handleMoveEnd);
-    };
-  }, [map, isActive, loadPathData]);
 
   // Handle map clicks to add waypoints
   useEffect(() => {
@@ -175,26 +120,20 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       waypointLayer.addLayer(marker);
     });
 
-    // Draw route
+    // Draw route as straight lines (placeholder while waiting for server routing)
     if (routePoints.length >= 2) {
       const polyline = L.polyline(
         routePoints.map(p => [p.lat, p.lng]),
         {
           color: '#007bff',
-          weight: 4,
-          opacity: 0.8,
+          weight: 3,
+          opacity: 0.5,
+          dashArray: '5, 5' // Dashed line to indicate it's temporary
         }
       );
       routeLayer.addLayer(polyline);
       
-      // Calculate and show total distance
-      let totalDistance = 0;
-      for (let i = 0; i < routePoints.length - 1; i++) {
-        totalDistance += calculateDistance(routePoints[i], routePoints[i + 1]);
-      }
-      
-      const distanceKm = (totalDistance / 1000).toFixed(1);
-      polyline.bindTooltip(`Route: ${distanceKm} km`, { permanent: false });
+      polyline.bindTooltip('Temporary route - will be computed by server', { permanent: false });
     }
   }, [routePoints, waypoints, routeLayer, waypointLayer]);
 
@@ -222,18 +161,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       return;
     }
 
-    // Check route distance
-    let totalDistance = 0;
-    for (let i = 0; i < routePoints.length - 1; i++) {
-      totalDistance += calculateDistance(routePoints[i], routePoints[i + 1]);
-    }
-    
-    const distanceKm = totalDistance / 1000;
-    if (distanceKm > PATHFINDING_CONFIG.MAX_ROUTE_DISTANCE_KM) {
-      alert(`Route too long (${distanceKm.toFixed(1)} km). Maximum allowed: ${PATHFINDING_CONFIG.MAX_ROUTE_DISTANCE_KM} km`);
-      return;
-    }
-
+    // Generate GPX from waypoints for server routing
     const gpxContent = generateGPX(routePoints, 'Drawn Route');
     onRouteComplete(gpxContent);
   }, [routePoints, onRouteComplete]);
@@ -275,13 +203,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       
       <div style={{ fontSize: '14px', marginBottom: '12px' }}>
         <div>Waypoints: {waypoints.length}/{PATHFINDING_CONFIG.MAX_WAYPOINTS}</div>
-        <div>
-          Distance: {routePoints.length >= 2 ? (
-            (routePoints.reduce((acc, point, i) => 
-              i === 0 ? acc : acc + calculateDistance(routePoints[i-1], point), 0
-            ) / 1000).toFixed(1) + ' km'
-          ) : '0 km'}
-        </div>
+        <div>Route will be computed by server</div>
       </div>
 
 
