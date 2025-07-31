@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapBounds, User } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
@@ -34,6 +34,8 @@ export default function TrailSidebar({
   onEditTrailClick
 }: TrailSidebarProps) {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const handleDownloadGPX = (trail: CachedTrail) => {
     const fileUrl = PocketBaseService.getTrailFileUrl(trail);
@@ -49,6 +51,26 @@ export default function TrailSidebar({
     const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     setShowQRCode(fileUrl);
   };
+
+  // Auto-scroll to selected trail
+  useEffect(() => {
+    if (selectedTrail && trailRefs.current[selectedTrail.id]) {
+      const trailElement = trailRefs.current[selectedTrail.id];
+      
+      if (trailElement) {
+        // Add a small delay to ensure the trail card has finished expanding/rendering
+        const scrollTimeout = setTimeout(() => {
+          trailElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        }, 800);
+        
+        return () => clearTimeout(scrollTimeout);
+      }
+    }
+  }, [selectedTrail]);
 
   return (
     <div className="sidebar">
@@ -89,7 +111,7 @@ export default function TrailSidebar({
       </div>
 
       {/* Scrollable Trails Section */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {visibleTrails.length === 0 ? (
           <div style={{ 
             padding: '15px', 
@@ -112,6 +134,7 @@ export default function TrailSidebar({
               return (
                 <div
                   key={trail.id}
+                  ref={(el) => trailRefs.current[trail.id] = el}
                   onClick={() => onTrailClick(trail)}
                   title="Click to center on map"
                   style={{
