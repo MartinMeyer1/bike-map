@@ -22,7 +22,7 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const AVAILABLE_TAGS = [
-  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural'
+  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural', "Switchbacks", "Loose", "Sketchy"
 ];
 
 export default function TrailEditPanel({ 
