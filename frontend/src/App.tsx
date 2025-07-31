@@ -25,6 +25,7 @@ function App() {
   const [editDrawnGpxContent, setEditDrawnGpxContent] = useState<string>('');
   const [editPreviousGpxContent, setEditPreviousGpxContent] = useState<string>('');
   const [drawingMode, setDrawingMode] = useState<'upload' | 'edit' | null>(null);
+  const [mapMoveEndTrigger, setMapMoveEndTrigger] = useState(0);
 
   // Initialize app - check auth and initialize trail cache
   useEffect(() => {
@@ -213,6 +214,11 @@ function App() {
     setIsEditPanelVisible(true);
   };
 
+  // Handle map movement end
+  const handleMapMoveEnd = useCallback(() => {
+    setMapMoveEndTrigger(prev => prev + 1);
+  }, []);
+
 
   if (isLoading) {
     return (
@@ -268,6 +274,7 @@ function App() {
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={handleTrailClick}
+        onMapMoveEnd={handleMapMoveEnd}
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
@@ -281,6 +288,7 @@ function App() {
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
           mapBounds={mapBounds}
+          mapMoveEndTrigger={mapMoveEndTrigger}
           user={user}
           onTrailClick={handleTrailClick}
           onAddTrailClick={() => setIsUploadPanelVisible(true)}

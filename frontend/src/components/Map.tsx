@@ -37,6 +37,7 @@ interface MapProps {
   selectedTrail: CachedTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: CachedTrail | null) => void;
+  onMapMoveEnd?: () => void;
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
@@ -47,11 +48,13 @@ interface MapProps {
 function MapEvents({ 
   onBoundsChange, 
   selectedTrail,
-  onMapClick
+  onMapClick,
+  onMapMoveEnd
 }: { 
   onBoundsChange: (bounds: MapBounds) => void;
   selectedTrail: CachedTrail | null;
   onMapClick: () => void;
+  onMapMoveEnd?: () => void;
 }) {
   const map = useMap();
 
@@ -64,6 +67,11 @@ function MapEvents({
         east: bounds.getEast(),
         west: bounds.getWest(),
       });
+      
+      // Notify that map movement has ended
+      if (onMapMoveEnd) {
+        onMapMoveEnd();
+      }
     };
 
     const handleMapClick = () => {
@@ -80,7 +88,7 @@ function MapEvents({
       map.off('moveend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
-  }, [map, onBoundsChange, onMapClick]);
+  }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
 
   // Handle trail zoom when selectedTrail changes
   useEffect(() => {
@@ -126,6 +134,7 @@ export default function Map({
   selectedTrail, 
   onBoundsChange, 
   onTrailClick, 
+  onMapMoveEnd,
   isDrawingActive = false,
   onRouteComplete,
   onDrawingCancel,
@@ -157,7 +166,7 @@ export default function Map({
 
 
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />
+      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
       {/* Render GPX trails */}
       {trails.map((trail) => (

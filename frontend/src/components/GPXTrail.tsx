@@ -109,7 +109,7 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
         }
         
         // Don't create the normal polyline since we have gradient segments
-        polyline = null as any;
+        polyline = null;
       } else {
         // Normal line for non-selected trails
         polyline = L.polyline(latLngs, {

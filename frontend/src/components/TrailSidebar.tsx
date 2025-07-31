@@ -9,6 +9,7 @@ interface TrailSidebarProps {
   visibleTrails: CachedTrail[];
   selectedTrail: CachedTrail | null;
   mapBounds: MapBounds | null;
+  mapMoveEndTrigger: number;
   user: User | null;
   onTrailClick: (trail: CachedTrail) => void;
   onAddTrailClick: () => void;
@@ -27,6 +28,7 @@ export default function TrailSidebar({
   visibleTrails, 
   selectedTrail,
   mapBounds: _, 
+  mapMoveEndTrigger,
   user, 
   onTrailClick, 
   onAddTrailClick,
@@ -52,25 +54,20 @@ export default function TrailSidebar({
     setShowQRCode(fileUrl);
   };
 
-  // Auto-scroll to selected trail
+  // Auto-scroll to selected trail when map movement ends
   useEffect(() => {
     if (selectedTrail && trailRefs.current[selectedTrail.id]) {
       const trailElement = trailRefs.current[selectedTrail.id];
       
       if (trailElement) {
-        // Add a small delay to ensure the trail card has finished expanding/rendering
-        const scrollTimeout = setTimeout(() => {
-          trailElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          });
-        }, 800);
-        
-        return () => clearTimeout(scrollTimeout);
+        trailElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
       }
     }
-  }, [selectedTrail]);
+  }, [mapMoveEndTrigger]); // Only trigger on map move end
 
   return (
     <div className="sidebar">
