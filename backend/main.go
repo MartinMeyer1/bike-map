@@ -91,6 +91,48 @@ func main() {
 			return err
 		}
 
+		// Add ForwardAuth validation endpoint
+		e.Router.GET("/api/auth/validate", func(e *core.RequestEvent) error {
+			// Get Authorization header
+			authHeader := e.Request.Header.Get("Authorization")
+			if authHeader == "" {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Extract Bearer token
+			if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+			token := authHeader[7:]
+
+			// Get users collection
+			usersCollection, err := app.FindCollectionByNameOrId("users")
+			if err != nil {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Validate JWT token and get user record
+			user, err := app.FindAuthRecordByToken(token, usersCollection.Name)
+			if err != nil {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Check user role
+			userRole := user.GetString("role")
+			if userRole != "Editor" && userRole != "Admin" {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// User is authorized
+			e.Response.WriteHeader(200)
+			return nil
+		})
+
 		// Add custom CORS handling
 		e.Router.GET("/*", func(e *core.RequestEvent) error {
 			e.Response.Header().Set("Access-Control-Allow-Origin", "*")

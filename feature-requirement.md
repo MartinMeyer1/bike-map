@@ -4,7 +4,6 @@ Allow users to draw a route on a Swisstopo-based map by clicking on points. The 
 
 User interaction:
 - Click to add waypoints on the map
-- Auto-route between waypoints using simple pathfinding algorithm
 - Real-time route display as user adds points
 - Undo last point option
 Computes routes entirely server side using Brouter:
@@ -14,45 +13,68 @@ Computes routes entirely server side using Brouter:
 
 ## 🚀 Development Status & Roadmap
 
-### 🔄 **CURRENT IMPLEMENTATION**
+### ✅ **CURRENT IMPLEMENTATION**
 - ✅ **Waypoint Management**: Click-to-add waypoints with visual feedback
-- ✅ **Client-side UI**: Real-time waypoint visualization with temporary straight-line preview
-- 🔄 **Server-side Routing**: Routes computed by BRouter server (external routing service)
+- ✅ **BRouter Integration**: Routes computed by BRouter server with incremental segment calculation
+- ✅ **Route Caching**: Existing routes load from cached GPX data without BRouter calls
+- ✅ **Elevation Data**: Denivellation (D+/D-) calculation and display from BRouter elevation data
+- ✅ **Distance Display**: Real-time distance calculation shown in RouteDrawer panel
+- ✅ **GPX Generation**: Proper GPX export with waypoints and detailed route tracks
 
-### 🎯 **TODO (Phase 2 - Production Ready)**
+- BRouter is running at https://localhost:17777
 
-#### High Priority
-- [ ] **BRouter Server Integration**
-  - Implement server-side routing requests to BRouter API
-  - Handle waypoint-to-lonlats conversion for BRouter format
-  - Process returned GPX from BRouter server
-  - Add error handling for routing failures
 
-#### Medium Priority
-- [ ] **Enhanced user experience**
-  - Show trail difficulty/type during drawing
-  - Preview elevation profile for drawn routes
-  - Better visual feedback for path snapping
+### 📝 **Implementation Notes**
+- Incremental routing: Only calculates route segments between adjacent waypoints for optimal performance
+- Route segment caching: Splits cached routes back into individual segments for proper editing
+- Proper waypoint vs route point separation: GPX stores original waypoints as `<wpt>` elements and computed route as `<trkpt>` elements
 
-- [ ] **Advanced features**
-  - Route optimization (shortest vs most scenic)
-  - Avoid certain trail types or difficulties
-  - Import/export route variations
 
-#### Low Priority
-- [ ] **Performance improvements**
-  - Web Workers for heavy pathfinding calculations
-  - Progressive tile loading strategies
-  - Route caching for popular segments
+## PocketBase ForwardAuth Middleware - Technical Spec
+Objective
+Protect an existing web service (Brouter) using PocketBase authentication via Traefik ForwardAuth middleware. Only users with "Editor" or "Admin" roles should have access.
 
-### 🔧 **Configuration Files**
-Waypoint limits in `pathfinding.ts:PATHFINDING_CONFIG`:
-```typescript
-MAX_WAYPOINTS: 50           // Maximum waypoints per route
-```
+Requirements
+PocketBase Extension
 
-### 📝 **Notes for Implementation**
-- Current implementation provides complete waypoint management UI/UX
-- Straight-line preview allows immediate visual feedback during route drawing
-- Server-side routing via BRouter ensures accurate trail following
-- Waypoint limits easily configurable for performance optimization
+Endpoint: GET /api/auth/validate
+Input: Authorization: Bearer <token> header
+Logic:
+
+Validate JWT token
+Check user role is "Editor" or "Admin"
+
+
+Output:
+
+200 OK if authorized
+401 Unauthorized if not authorized or invalid token
+
+
+
+Traefik Configuration
+
+Configure ForwardAuth middleware pointing to PocketBase validation endpoint
+Forward Authorization header to validation endpoint
+Block requests on 401 response, allow on 200 response
+
+Protected Service
+
+No code changes required
+Receives only authenticated requests with valid roles
+
+User Flow
+
+Request → Traefik
+Traefik → PocketBase validation endpoint
+PocketBase validates token + role
+If "Editor"/"Admin": Allow request to service
+If other role/invalid: Return 401
+
+Acceptance Criteria
+
+✅ Editor/Admin users can access service
+✅ Other roles get 401 Unauthorized
+✅ Invalid/missing tokens get 401
+✅ No changes needed to existing service
+✅ All auth handled at infrastructure level

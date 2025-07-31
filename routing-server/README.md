@@ -1,17 +1,37 @@
-mkdir brouter
+# BRouter Routing Server
 
-cd brouter
+High-performance routing engine for BikeMap using Swiss OSM data.
 
+## Setup
+
+### 1. Build BRouter
+```bash
+cd routing-server
 git clone https://github.com/abrensch/brouter.git
-
-docker build -t brouter .
-
+cd brouter
+docker build -t brouter:latest .
 cd ..
+```
 
-Download E5_N45.rd5 (Switzerland) under the brouter index http://brouter.de/brouter/segments4 and place it in the segment folder.
+### 2. Download Swiss Data
+```bash
+mkdir -p segments
+cd segments
+wget http://brouter.de/brouter/segments4/E5_N45.rd5
+cd ..
+```
 
+### 3. Test Locally
+```bash
 docker run --rm \
-  -v ./segments:/segments4 \
+  -v $(pwd)/segments:/segments4 \
   -p 17777:17777 \
   --name brouter \
-  brouter
+  brouter:latest
+```
+
+## API Usage
+
+```bash
+curl "http://localhost:17777/brouter?lonlats=8.5,47.4|8.6,47.5&profile=trekking&format=geojson"
+```

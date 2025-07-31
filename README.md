@@ -37,6 +37,17 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
   - ✅ Elevation gain/loss (D+, D-)
   - ✅ Start/end markers
 
+### 🧭 Route Drawing & Navigation
+- ✅ Interactive route drawing by clicking waypoints on the map
+- ✅ Real-time pathfinding using BRouter engine
+- ✅ Smart route calculation following existing paths (trails, roads, etc.)
+- ✅ Incremental routing for optimal performance
+- ✅ Elevation profile with denivellation (D+/D-) calculation
+- ✅ Distance tracking and display
+- ✅ GPX export with waypoints and detailed route tracks
+- ✅ Route caching for improved performance
+- ✅ Undo/redo waypoint functionality
+
 ### 📚 Trail Sidebar
 - ✅ List of all trails with metadata
 - ✅ Authentication status indicator with Google OAuth
@@ -53,8 +64,17 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 - **Google OAuth 2.0**: Secure authentication with role-based permissions
 - **Role system**: Viewer (read-only), Editor (can upload), Admin (full access)
 - **File storage**: GPX files with automatic URL generation and validation
+- **ForwardAuth Middleware**: Traefik-compatible authentication for BRouter
 - **CORS enabled**: For frontend integration
 - **Environment-based configuration**: Admin accounts and OAuth credentials
+
+### Routing Engine (BRouter)
+- **BRouter**: High-performance Java-based routing engine
+- **Swiss routing data**: Optimized for Swiss terrain and trails
+- **Multiple routing profiles**: Configurable for different bike types and preferences  
+- **Traefik integration**: Protected by ForwardAuth middleware requiring Editor/Admin roles
+- **Docker containerized**: Easy deployment and scaling
+- **API-based**: RESTful interface for route calculations
 
 ### Frontend (React + TypeScript)
 - **React 18**: Modern component-based UI
@@ -85,16 +105,21 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 ```
 bike-map/
 ├── backend/                 # PocketBase + Go backend
-│   ├── main.go             # Main application with OAuth & permissions
+│   ├── main.go             # Main application with OAuth & ForwardAuth
 │   ├── Dockerfile          # Multi-stage Go build
 │   └── pb_data/            # PocketBase data (gitignored)
 ├── frontend/               # React TypeScript frontend
 │   ├── src/
-│   │   ├── components/     # React components (Map, Auth, etc.)
+│   │   ├── components/     # React components (Map, Auth, RouteDrawer, etc.)
 │   │   ├── services/       # PocketBase API client & trail cache
+│   │   ├── utils/          # GPX generation and pathfinding utilities
 │   │   └── types/          # TypeScript definitions
 │   ├── Dockerfile          # Multi-stage Node build
 │   └── nginx.conf          # Production nginx config
+├── routing-server/         # BRouter routing engine
+│   ├── brouter/            # BRouter source code and Docker setup
+│   ├── segments/           # Swiss routing data (E5_N45.rd5)
+│   └── README.md          # BRouter setup and configuration guide
 ├── scripts/                # Build and deployment scripts
 │   ├── build.sh           # Production build script
 │   └── deploy.sh          # VPS deployment script
@@ -125,10 +150,19 @@ BikeMap is production-ready with automated deployment:
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
-## ✨ Future Enhancements
-- [ ] GPX route drawing tool
-- [ ] Advanced trail filtering and search
-- [ ] Trail details page with elevation profile
-- [ ] User comments and ratings
-- [ ] Private trails and sharing controls
-- [ ] User groups and invites
+## 🛠️ Service Architecture
+
+### Production Deployment
+BikeMap uses a subdomain-based architecture with Traefik as reverse proxy:
+
+- **Main App**: `https://bike-map.ch` - React frontend
+- **API**: `https://bike-map.ch/api/*` - PocketBase backend API
+- **Admin Panel**: `https://admin.bike-map.ch` - PocketBase admin interface  
+- **Routing Service**: `https://routing.bike-map.ch` - BRouter API
+- **Proxy Dashboard**: `https://proxy.bike-map.ch` - Traefik dashboard
+
+### Security & Authentication
+- **Google OAuth 2.0**: Primary authentication method
+- **Role-based access**: Viewer (read-only), Editor (can upload/route), Admin (full access)
+- **ForwardAuth middleware**: Protects BRouter service using PocketBase JWT validation
+- **SSL/HTTPS**: Automatic Let's Encrypt certificates via Traefik

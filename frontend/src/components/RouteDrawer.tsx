@@ -5,7 +5,7 @@ import {
   PathPoint, 
   PATHFINDING_CONFIG
 } from '../utils/pathfinding';
-import { generateGPX, parseGPX, parseGPXDetailed } from '../utils/gpxGenerator';
+import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 
 interface RouteDrawerProps {
   isActive: boolean;
@@ -24,7 +24,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const [routePointsWithElevation, setRoutePointsWithElevation] = useState<Array<{lat: number, lng: number, ele?: number}>>([]);
-  const [hasExistingRoute, setHasExistingRoute] = useState(false);
   const isUndoingRef = useRef(false);
   const lastUserWaypointCountRef = useRef(0);
 
@@ -90,7 +89,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       // Clear state when drawing becomes inactive
             setRoutePointsWithElevation([]);
       setRouteSegments([]);
-      setHasExistingRoute(false);
       lastUserWaypointCountRef.current = 0;
             return;
     }
@@ -106,7 +104,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     
     // Check if we have existing content with both waypoints and computed route
     const hasExisting = initialWaypoints.length > 0 && cachedRoute.length > 0;
-    setHasExistingRoute(hasExisting);
     
     if (hasExisting) {
       // Cache the computed route and split it into segments
@@ -188,7 +185,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       
       
       // BRouter API call with GPX format
-      const brouterUrl = `http://localhost:17777/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
+      const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'http://localhost:17777';
+      const brouterUrl = `${BROUTER_BASE_URL}/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
       
       const response = await fetch(brouterUrl);
       if (!response.ok) {
