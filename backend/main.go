@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func main() {
@@ -105,17 +106,39 @@ func main() {
 				e.Response.WriteHeader(401)
 				return nil
 			}
-			token := authHeader[7:]
+			tokenString := authHeader[7:]
 
-			// Get users collection
-			usersCollection, err := app.FindCollectionByNameOrId("users")
+			// Validate JWT token's signature
+			_, err := app.FindAuthRecordByToken(tokenString)
 			if err != nil {
 				e.Response.WriteHeader(401)
 				return nil
 			}
 
-			// Validate JWT token and get user record
-			user, err := app.FindAuthRecordByToken(token, usersCollection.Name)
+			// Parse the JWT token without verifying the signature (using ParseUnverified)
+			token, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
+			if err != nil {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+		
+			// Extract the user ID from the token claims
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+		
+			// Get user id from the claim (ensure your JWT contains the "id" field)
+			userId, ok := claims["id"].(string)
+			log.Println("User ID from token:", userId)
+			if !ok || userId == "" {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Get the user from user id (look in users collection)
+			user, err := app.FindRecordById("users", userId)
 			if err != nil {
 				e.Response.WriteHeader(401)
 				return nil

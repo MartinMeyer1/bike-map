@@ -5,6 +5,7 @@ import {
   PathPoint
 } from '../utils/pathfinding';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
+import { PocketBaseService } from '../services/pocketbase';
 
 interface RouteDrawerProps {
   isActive: boolean;
@@ -182,12 +183,15 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       // BRouter API call with GPX format
       const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'http://localhost:17777';
       const brouterUrl = `${BROUTER_BASE_URL}/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
-      
-      const response = await fetch(brouterUrl);
-      if (!response.ok) {
-        console.error('BRouter API error:', response.status, response.statusText);
-        return [fromPoint, toPoint].map(p => ({...p, ele: undefined})); // Fallback to straight line
-      }
+
+      const token = await PocketBaseService.getAuthToken(); // RGet the pocketbase token
+
+      const response = await fetch(brouterUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       const gpxText = await response.text();
       

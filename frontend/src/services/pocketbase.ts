@@ -52,6 +52,10 @@ export class PocketBaseService {
     return pb.authStore.isValid;
   }
 
+  static getAuthToken(): string {
+    return pb.authStore.token
+  }
+
   static onAuthChange(callback: (user: User | null) => void): () => void {
     const unsubscribe = pb.authStore.onChange(() => {
       const currentUser = this.getCurrentUser();
