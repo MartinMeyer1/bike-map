@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { 
-  PathPoint, 
-  PATHFINDING_CONFIG
+  PathPoint
 } from '../utils/pathfinding';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 
@@ -154,10 +153,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       }
       
       setWaypoints(prev => {
-        if (prev.length >= PATHFINDING_CONFIG.MAX_WAYPOINTS) {
-          alert(`Maximum ${PATHFINDING_CONFIG.MAX_WAYPOINTS} waypoints allowed`);
-          return prev;
-        }
 
         const newPoint: PathPoint = {
           lat: e.latlng.lat,
@@ -274,7 +269,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const fromPoint = waypoints[waypoints.length - 2];
       const toPoint = waypoints[waypoints.length - 1];
       
-      console.log('🔥 TRIGGERING BROUTER CALL - User added waypoint');
       setIsCalculatingRoute(true);
       calculateRouteSegment(fromPoint, toPoint).then(newSegment => {
         setRouteSegments(prev => [...prev, newSegment]);
@@ -349,9 +343,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const polyline = L.polyline(
         routePoints.map(p => [p.lat, p.lng]),
         {
-          color: isComputedRoute ? '#28a745' : '#007bff',
-          weight: isComputedRoute ? 4 : 3,
-          opacity: isComputedRoute ? 0.8 : 0.5,
+          color: isComputedRoute ? '#dc3545' : '#dc3545',
+          weight: isComputedRoute ? 6 : 6,
+          opacity: isComputedRoute ? 0.8 : 0.8,
           dashArray: isComputedRoute ? undefined : '5, 5'
         }
       );
@@ -435,37 +429,50 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     >
       <h4 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>🎯 Draw Route</h4>
       
-      <div style={{ fontSize: '14px', marginBottom: '12px' }}>
-        <div>Waypoints: {waypoints.length}/{PATHFINDING_CONFIG.MAX_WAYPOINTS}</div>
-        <div>
-          {isCalculatingRoute ? '🔄 Computing route...' : 
-            routePointsWithElevation.length > 0 ? 
-              (() => {
-                const routeData = calculateRouteData(routePointsWithElevation);
-                const distanceKm = routeData.distance / 1000;
-                return `Distance: ${distanceKm.toFixed(1)} km`;
-              })() : 
-              routePoints.length > 1 ? 
-                (() => {
-                  const routeData = calculateRouteData(routePoints.map(p => ({...p, ele: undefined})));
-                  const distanceKm = routeData.distance / 1000;
-                  return `Distance: ${distanceKm.toFixed(1)} km (approx)`;
-                })() :
-                'Click to add waypoints'
-          }
-        </div>
-        {routePointsWithElevation.length > 0 && !isCalculatingRoute && (
-          <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-            {(() => {
+      <div style={{ fontSize: '14px', marginBottom: '16px' }}>
+        <div style={{ 
+          padding: '12px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '6px',
+          border: '1px solid #e9ecef',
+          height: '80px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
+        }}>
+          {isCalculatingRoute ? (
+            <div style={{ color: '#6c757d', fontWeight: '500' }}>🔄 Computing route...</div>
+          ) : routePointsWithElevation.length > 0 ? (
+            (() => {
               const routeData = calculateRouteData(routePointsWithElevation);
+              const distanceKm = routeData.distance / 1000;
               return (
                 <div>
-                  <strong>D+:</strong> {Math.round(routeData.gain)}m | <strong>D-:</strong> {Math.round(routeData.loss)}m
+                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#212529', marginBottom: '8px' }}>
+                    📏 {distanceKm.toFixed(1)} km
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#6c757d' }}>
+                    <strong>D+:</strong> {Math.round(routeData.gain)}m | <strong>D-:</strong> {Math.round(routeData.loss)}m
+                  </div>
                 </div>
               );
-            })()}
-          </div>
-        )}
+            })()
+          ) : routePoints.length > 1 ? (
+            (() => {
+              const routeData = calculateRouteData(routePoints.map(p => ({...p, ele: undefined})));
+              const distanceKm = routeData.distance / 1000;
+              return (
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#6c757d' }}>
+                  📏 {distanceKm.toFixed(1)} km (approx)
+                </div>
+              );
+            })()
+          ) : (
+            <div style={{ color: '#6c757d', fontStyle: 'italic', textAlign: 'center' }}>
+              No waypoint
+            </div>
+          )}
+        </div>
       </div>
 
 

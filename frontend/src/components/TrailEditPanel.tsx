@@ -138,17 +138,24 @@ export default function TrailEditPanel({
 
       const updatedTrail = await PocketBaseService.updateTrail(trail.id, submitData);
       
-      setSuccess('Trail updated successfully!');
       onTrailUpdated(updatedTrail);
       
-      // Close panel after a delay
-      setTimeout(() => {
-        onClose();
-        setSuccess('');
-      }, 1500);
+      // Close panel immediately
+      onClose();
       
     } catch (err: any) {
-      setError(err.message || 'Failed to update trail');
+      console.error('Trail update error:', err);
+      
+      // Check if user lost authentication during update
+      if (err.message.includes('Authentication required')) {
+        setError('Session expired. Please log in again and try updating your trail.');
+      } else if (err.message.includes('permission')) {
+        setError('You do not have permission to edit this trail. Only the owner or Admin users can edit trails.');
+      } else if (err.message.includes('not found')) {
+        setError('Trail not found. It may have been deleted by another user.');
+      } else {
+        setError(err.message || 'Failed to update trail. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +173,18 @@ export default function TrailEditPanel({
       setShowDeleteConfirm(false);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete trail');
+      console.error('Trail delete error:', err);
+      
+      // Check if user lost authentication during delete
+      if (err.message.includes('Authentication required')) {
+        setError('Session expired. Please log in again and try deleting your trail.');
+      } else if (err.message.includes('permission')) {
+        setError('You do not have permission to delete this trail. Only the owner or Admin users can delete trails.');
+      } else if (err.message.includes('not found')) {
+        setError('Trail not found. It may have already been deleted.');
+      } else {
+        setError(err.message || 'Failed to delete trail. Please try again.');
+      }
     } finally {
       setIsDeleting(false);
     }

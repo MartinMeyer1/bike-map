@@ -54,6 +54,15 @@ function App() {
     initializeApp();
   }, []);
 
+  // Listen for auth store changes to keep React state in sync
+  useEffect(() => {
+    const unsubscribe = PocketBaseService.onAuthChange((newUser) => {
+      setUser(newUser);
+    });
+
+    return unsubscribe;
+  }, []);
+
   // Refresh trails from cache (used after uploads)
   const refreshTrails = useCallback(() => {
     const cachedTrails = trailCache.getAllTrails();

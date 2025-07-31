@@ -127,7 +127,6 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStar
 
       const trail = await PocketBaseService.createTrail(submitData);
       
-      setSuccess('Trail uploaded successfully! Processing elevation data...');
       onTrailCreated(trail);
       
       // Reset form
@@ -145,14 +144,20 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStar
         fileInput.value = '';
       }
       
-      // Close panel after a delay
-      setTimeout(() => {
-        onClose();
-        setSuccess('');
-      }, 2000);
+      // Close panel immediately
+      onClose();
       
     } catch (err: any) {
-      setError(err.message || 'Failed to upload trail');
+      console.error('Trail upload error:', err);
+      
+      // Check if user lost authentication during upload
+      if (err.message.includes('Authentication required')) {
+        setError('Session expired. Please log in again and try uploading your trail.');
+      } else if (err.message.includes('permission')) {
+        setError('You need Editor or Admin permissions to create trails. Please contact an administrator.');
+      } else {
+        setError(err.message || 'Failed to upload trail. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
