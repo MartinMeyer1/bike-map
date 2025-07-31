@@ -21,14 +21,13 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 - ✅ Save to PocketBase:
   - ✅ GPX file storage with automatic URL generation
   - ✅ Metadata in `trails` collection
-  - ✅ Linked to authenticated user via `owner`
   - ✅ Permission-based access control
 - ✅ Trail editing and deletion
 
 ### 🗺️ Interactive Map
 - ✅ Leaflet integration with Swisstopo WMTS layer
 - ✅ Load and display all stored trails
-- ✅ Client-side GPX processing with leaflet-gpx
+- ✅ Servere-side route processing with Brouter
 - ✅ Colored tracks by difficulty level (S0-Green → S5-Black)
 - ✅ Trail popups with:
   - ✅ Trail name and description
