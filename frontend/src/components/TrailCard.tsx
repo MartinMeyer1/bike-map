@@ -24,7 +24,7 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
   onDownloadGPX,
   onShowQRCode
 }) => {
-  const ownerInfo = typeof trail.owner === 'object' ? trail.owner : null;
+  const ownerInfo = trail.ownerInfo;
 
   const handleClick = () => {
     onTrailClick(trail);

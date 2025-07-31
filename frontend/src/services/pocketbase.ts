@@ -156,8 +156,7 @@ export class PocketBaseService {
   static canEditTrail(trail: Trail, user: User | null): boolean {
     if (!user) return false;
     if (user.role === 'Admin') return true;
-    if (typeof trail.owner === 'object' && trail.owner.id === user.id) return true;
-    if (typeof trail.owner === 'string' && trail.owner === user.id) return true;
+    if (trail.owner === user.id) return true;
     return false;
   }
 

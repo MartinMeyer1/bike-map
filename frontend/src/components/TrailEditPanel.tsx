@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { DIFFICULTY_LEVELS, AVAILABLE_TAGS } from '../utils/constants';
+import { handleApiError } from '../utils/errorHandling';
 
 interface TrailEditPanelProps {
   isVisible: boolean;
@@ -132,19 +133,10 @@ export default function TrailEditPanel({
       // Close panel immediately
       onClose();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Trail update error:', err);
-      
-      // Check if user lost authentication during update
-      if (err.message.includes('Authentication required')) {
-        setError('Session expired. Please log in again and try updating your trail.');
-      } else if (err.message.includes('permission')) {
-        setError('You do not have permission to edit this trail. Only the owner or Admin users can edit trails.');
-      } else if (err.message.includes('not found')) {
-        setError('Trail not found. It may have been deleted by another user.');
-      } else {
-        setError(err.message || 'Failed to update trail. Please try again.');
-      }
+      const appError = handleApiError(err);
+      setError(appError.message);
     } finally {
       setIsLoading(false);
     }
@@ -161,19 +153,10 @@ export default function TrailEditPanel({
       onTrailDeleted(trail.id);
       setShowDeleteConfirm(false);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Trail delete error:', err);
-      
-      // Check if user lost authentication during delete
-      if (err.message.includes('Authentication required')) {
-        setError('Session expired. Please log in again and try deleting your trail.');
-      } else if (err.message.includes('permission')) {
-        setError('You do not have permission to delete this trail. Only the owner or Admin users can delete trails.');
-      } else if (err.message.includes('not found')) {
-        setError('Trail not found. It may have already been deleted.');
-      } else {
-        setError(err.message || 'Failed to delete trail. Please try again.');
-      }
+      const appError = handleApiError(err);
+      setError(appError.message);
     } finally {
       setIsDeleting(false);
     }

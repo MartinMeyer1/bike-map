@@ -5,7 +5,7 @@ export interface Trail {
   level: 'S0' | 'S1' | 'S2' | 'S3' | 'S4' | 'S5';
   tags: string[];
   file: string;
-  owner: string | User; // Can be expanded to full User object
+  owner: string; // Owner ID reference
   created: string;
   updated: string;
   elevation_profile?: Array<{ distance: number; elevation: number }>;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { DIFFICULTY_LEVELS, AVAILABLE_TAGS } from '../utils/constants';
+import { handleApiError } from '../utils/errorHandling';
 
 interface UploadPanelProps {
   isVisible: boolean;
@@ -136,17 +137,10 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStar
       // Close panel immediately
       onClose();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Trail upload error:', err);
-      
-      // Check if user lost authentication during upload
-      if (err.message.includes('Authentication required')) {
-        setError('Session expired. Please log in again and try uploading your trail.');
-      } else if (err.message.includes('permission')) {
-        setError('You need Editor or Admin permissions to create trails. Please contact an administrator.');
-      } else {
-        setError(err.message || 'Failed to upload trail. Please try again.');
-      }
+      const appError = handleApiError(err);
+      setError(appError.message);
     } finally {
       setIsLoading(false);
     }

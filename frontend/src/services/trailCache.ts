@@ -7,6 +7,7 @@ export interface CachedTrail extends Trail {
   bounds?: TrailBounds;
   elevation?: ElevationData;
   processedAt?: number;
+  ownerInfo?: User; // Cache owner information for display
 }
 
 // Cache configuration - memory only, no persistence
@@ -159,13 +160,11 @@ class TrailCacheService {
       try {
         const geoJsonData = await this.convertGpxToGeoJson(trail);
         
-        // Get user data from cache and replace owner string ID with user object
+        // Get user data from cache and add as ownerInfo for display
         let processedTrail = { ...trail };
-        if (typeof trail.owner === 'string') {
-          const userData = this.userCache.get(trail.owner);
-          if (userData) {
-            processedTrail.owner = userData;
-          }
+        const ownerInfo = this.userCache.get(trail.owner);
+        if (ownerInfo) {
+          (processedTrail as CachedTrail).ownerInfo = ownerInfo;
         }
         
         const cachedTrail: CachedTrail = {
@@ -180,11 +179,9 @@ class TrailCacheService {
         
         // Still cache the trail without GeoJSON data, but with user data if available
         let processedTrail = { ...trail };
-        if (typeof trail.owner === 'string') {
-          const userData = this.userCache.get(trail.owner);
-          if (userData) {
-            processedTrail.owner = userData;
-          }
+        const ownerInfo = this.userCache.get(trail.owner);
+        if (ownerInfo) {
+          (processedTrail as CachedTrail).ownerInfo = ownerInfo;
         }
         
         const cachedTrail: CachedTrail = {

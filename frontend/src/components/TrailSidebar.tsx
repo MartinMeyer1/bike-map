@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { MapBounds, User } from '../types';
+import { User } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
@@ -13,12 +13,10 @@ interface TrailSidebarProps {
   trails: CachedTrail[];
   visibleTrails: CachedTrail[];
   selectedTrail: CachedTrail | null;
-  mapBounds: MapBounds | null;
   mapMoveEndTrigger: number;
   user: User | null;
   onTrailClick: (trail: CachedTrail) => void;
   onAddTrailClick: () => void;
-  onAuthChange: (user: User | null) => void;
   onEditTrailClick: (trail: CachedTrail) => void;
 }
 
@@ -30,7 +28,6 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   user, 
   onTrailClick, 
   onAddTrailClick,
-  onAuthChange,
   onEditTrailClick
 }) => {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
@@ -66,16 +63,19 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     if (selectedTrail && trailRefs.current[selectedTrail.id]) {
       const trailElement = trailRefs.current[selectedTrail.id];
       
-      if (trailElement) {
-        const scrollTimeout = setTimeout(() => {
-          trailElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          });
-        }, 400);
+      if (trailElement && scrollContainerRef.current) {
+        // Use requestAnimationFrame for better performance and timing
+        const scrollTimeout = requestAnimationFrame(() => {
+          setTimeout(() => {
+            trailElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+          }, 400);
+        });
         
-        return () => clearTimeout(scrollTimeout);
+        return () => cancelAnimationFrame(scrollTimeout);
       }
     }
   }, [mapMoveEndTrigger, selectedTrail]);
@@ -114,7 +114,6 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
         {/* User Section */}
         <UserSection 
           user={user}
-          onAuthChange={onAuthChange}
         />
 
         <div>

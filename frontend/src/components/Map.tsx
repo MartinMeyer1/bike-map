@@ -3,8 +3,12 @@ import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds } from '../types';
 import { CachedTrail } from '../services/trailCache';
+import { setupLeafletCompatibility } from '../utils/browserCompat';
 import GPXTrail from './GPXTrail';
 import RouteDrawer from './RouteDrawer';
+
+// Set up browser compatibility once
+setupLeafletCompatibility();
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as L.Icon.Default & { _getIconUrl?: unknown })._getIconUrl;
@@ -13,24 +17,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
-
-// Configure Leaflet to avoid deprecated Mozilla properties
-if (typeof window !== 'undefined') {
-  // Override the deprecated property access in MouseEvent prototype
-  // This prevents Leaflet from accessing mozPressure and mozInputSource
-  const originalMouseEvent = window.MouseEvent;
-  if (originalMouseEvent && originalMouseEvent.prototype) {
-    // Define getters that return undefined instead of throwing deprecation warnings
-    Object.defineProperty(originalMouseEvent.prototype, 'mozPressure', {
-      get: function() { return undefined; },
-      configurable: true
-    });
-    Object.defineProperty(originalMouseEvent.prototype, 'mozInputSource', {
-      get: function() { return undefined; },
-      configurable: true
-    });
-  }
-}
 
 interface MapProps {
   trails: CachedTrail[];
