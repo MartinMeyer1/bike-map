@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { CachedTrail } from '../services/trailCache';
+import { getLevelColor, hexToRgb } from '../utils/colors';
 
 interface GPXTrailProps {
   trail: CachedTrail;
@@ -9,28 +10,6 @@ interface GPXTrailProps {
   onTrailClick: (trail: CachedTrail) => void;
 }
 
-// Get color by difficulty level
-function getLevelColor(level: string): string {
-  switch (level) {
-    case 'S0': return '#28a745'; // Green
-    case 'S1': return '#007bff'; // Blue
-    case 'S2': return '#fd7e14'; // Orange
-    case 'S3': return '#dc3545'; // Red
-    case 'S4': return '#6f42c1'; // Purple
-    case 'S5': return '#343a40'; // Black
-    default: return '#6c757d'; // Gray
-  }
-}
-
-// Convert hex color to RGB
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 0, g: 0, b: 0 };
-}
 
 // Darken a hex color by a percentage (0-1)
 function darkenColor(hex: string, amount: number): string {

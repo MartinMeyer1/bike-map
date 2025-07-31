@@ -9,9 +9,12 @@ import {
   Tooltip,
   Legend,
   Filler,
+  TooltipItem,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { Trail } from '../types';
+import { getLevelColor } from '../utils/colors';
+import styles from './ElevationChart.module.css';
 
 ChartJS.register(
   CategoryScale,
@@ -30,18 +33,6 @@ interface ElevationChartProps {
   height?: number;
 }
 
-// Get color by difficulty level
-function getLevelColor(level: string): string {
-  switch (level) {
-    case 'S0': return '#28a745'; // Green
-    case 'S1': return '#007bff'; // Blue
-    case 'S2': return '#ffc107'; // Yellow
-    case 'S3':
-    case 'S4':
-    case 'S5': return '#dc3545'; // Red
-    default: return '#6c757d'; // Gray
-  }
-}
 
 export default function ElevationChart({ trail, width = 300, height = 150 }: ElevationChartProps) {
   const chartRef = useRef<ChartJS<'line'>>(null);
@@ -84,10 +75,10 @@ export default function ElevationChart({ trail, width = 300, height = 150 }: Ele
         mode: 'index' as const,
         intersect: false,
         callbacks: {
-          title: (context: any) => {
+          title: (context: TooltipItem<'line'>[]) => {
             return `Distance: ${context[0].label}km`;
           },
-          label: (context: any) => {
+          label: (context: TooltipItem<'line'>) => {
             return `Elevation: ${Math.round(context.parsed.y)}m`;
           },
         },
@@ -124,17 +115,8 @@ export default function ElevationChart({ trail, width = 300, height = 150 }: Ele
   if (!chartData) {
     return (
       <div 
-        style={{ 
-          width, 
-          height, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          background: '#f8f9fa',
-          borderRadius: '4px',
-          color: '#666',
-          fontSize: '14px'
-        }}
+        className={styles.noDataContainer}
+        style={{ width, height }}
       >
         No elevation data available
       </div>

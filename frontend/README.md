@@ -23,9 +23,14 @@ src/
 │   ├── pocketbase.ts    # Backend API client
 │   ├── trailCache.ts    # Trail data caching
 │   └── brouter.ts       # BRouter routing service
+├── styles/              # Shared CSS modules
+│   └── common.module.css # Common styles (modals, forms, buttons)
 ├── types/               # TypeScript interfaces
 │   └── index.ts         # Shared type definitions
 └── utils/               # Utility functions
+    ├── colors.ts        # Trail difficulty colors
+    ├── constants.ts     # Shared constants
+    ├── errorHandling.ts # Centralized error handling
     ├── gpxGenerator.ts  # GPX file generation
     └── pathfinding.ts   # Route calculation
 ```
@@ -35,7 +40,8 @@ src/
 - **Component Library**: Reusable UI components with CSS modules
 - **Custom Hooks**: Business logic separated into composable hooks
 - **Type Safety**: Strict TypeScript with proper interfaces
-- **Error Boundaries**: Graceful error handling
+- **Centralized Error Handling**: Consistent error handling across components
+- **Shared Utilities**: No code duplication with shared colors and constants
 - **Performance**: Memoized components and optimized re-renders
 - **State Management**: React Context with useReducer
 

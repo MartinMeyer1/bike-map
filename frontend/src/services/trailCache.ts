@@ -201,7 +201,16 @@ class TrailCacheService {
 
   // Convert GPX file to GeoJSON with elevation data
   private async convertGpxToGeoJson(trail: Trail): Promise<Partial<CachedTrail>> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
+      this.performGpxConversion(trail, resolve, reject);
+    });
+  }
+
+  private async performGpxConversion(
+    trail: Trail, 
+    resolve: (value: Partial<CachedTrail>) => void, 
+    reject: (reason?: unknown) => void
+  ): Promise<void> {
       try {
         const gpxUrl = PocketBaseService.getTrailFileUrl(trail);
         const response = await fetch(gpxUrl);
@@ -266,7 +275,6 @@ class TrailCacheService {
       } catch (error) {
         reject(error);
       }
-    });
   }
 
   // Calculate elevation gain, loss, and profile

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { DIFFICULTY_LEVELS, AVAILABLE_TAGS } from '../utils/constants';
 
 interface TrailEditPanelProps {
   isVisible: boolean;
@@ -12,18 +13,6 @@ interface TrailEditPanelProps {
   drawnGpxContent?: string;
 }
 
-const DIFFICULTY_LEVELS = [
-  { value: 'S0', label: 'S0 (Green - Easy)' },
-  { value: 'S1', label: 'S1 (Blue - Easy)' },
-  { value: 'S2', label: 'S2 (Orange - Intermediate)' },
-  { value: 'S3', label: 'S3 (Red - Advanced)' },
-  { value: 'S4', label: 'S4 (Purple - Expert)' },
-  { value: 'S5', label: 'S5 (Black - Extreme)' },
-];
-
-const AVAILABLE_TAGS = [
-  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural', "Switchbacks", "Loose", "Sketchy"
-];
 
 export default function TrailEditPanel({ 
   isVisible, 

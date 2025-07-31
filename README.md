@@ -81,8 +81,9 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 - **Leaflet**: Interactive mapping with Swiss topographic tiles
 - **Component Library**: Reusable UI components (Button, Modal, Badge)
 - **Custom Hooks**: Business logic separation (useAuth, useTrails, useDrawing)
-- **CSS Modules**: Scoped styling without conflicts
-- **Error Boundaries**: Graceful error handling and recovery
+- **CSS Modules**: Scoped styling with shared design system
+- **Centralized Error Handling**: Consistent error management across components
+- **Shared Utilities**: Zero code duplication with common functions and constants
 - **Performance**: Memoized components and optimized re-renders
 - **Client-side GPX**: Real-time trail processing with elevation data
 - **Trail caching**: Performance-optimized data management
@@ -118,7 +119,8 @@ bike-map/
 │   │   ├── hooks/          # Custom React hooks (useAuth, useTrails, useDrawing)
 │   │   ├── context/        # React Context providers (AppContext)
 │   │   ├── services/       # API clients (PocketBase, BRouter, trail cache)
-│   │   ├── utils/          # GPX generation and pathfinding utilities
+│   │   ├── styles/         # Shared CSS modules and design system
+│   │   ├── utils/          # Shared utilities (colors, constants, error handling)
 │   │   └── types/          # TypeScript definitions and interfaces
 │   ├── Dockerfile          # Multi-stage Node build
 │   ├── nginx.conf          # Production nginx config

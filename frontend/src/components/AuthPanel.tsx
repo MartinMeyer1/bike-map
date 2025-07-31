@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { User } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { getErrorMessage } from '../utils/errorHandling';
 
 interface AuthPanelProps {
   user: User | null;
@@ -18,8 +19,8 @@ export default function AuthPanel({ user, onAuthChange }: AuthPanelProps) {
     try {
       const user = await PocketBaseService.loginWithGoogle();
       onAuthChange(user);
-    } catch (err: any) {
-      setError(err.message || 'Google authentication failed');
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
