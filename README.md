@@ -158,7 +158,7 @@ BikeMap uses a subdomain-based architecture with Traefik as reverse proxy:
 - **Main App**: `https://bike-map.ch` - React frontend
 - **API**: `https://bike-map.ch/api/*` - PocketBase backend API
 - **Admin Panel**: `https://admin.bike-map.ch` - PocketBase admin interface  
-- **Routing Service**: `https://routing.bike-map.ch` - BRouter API
+- **Routing Service**: `https://bike-map.ch/brouter/*` - BRouter API
 - **Proxy Dashboard**: `https://proxy.bike-map.ch` - Traefik dashboard
 
 ### Security & Authentication
