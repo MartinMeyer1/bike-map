@@ -253,15 +253,26 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStar
                 position: 'absolute',
                 right: '8px',
                 padding: '6px 12px',
-                backgroundColor: '#007bff',
+                background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '3px',
+                borderRadius: '6px',
                 fontSize: '12px',
+                fontWeight: '500',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 height: '28px',
-                zIndex: 1
+                zIndex: 1,
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(0,123,255,0.2)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,123,255,0.2)';
               }}
             >
               🎯 Draw

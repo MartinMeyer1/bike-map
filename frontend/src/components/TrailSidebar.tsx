@@ -83,7 +83,6 @@ export default function TrailSidebar({
           <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
           {user && (user.role === 'Editor' || user.role === 'Admin') && (
             <button 
-              className="btn btn-success" 
               onClick={onAddTrailClick}
               title="Add new trail"
               style={{ 
@@ -92,7 +91,23 @@ export default function TrailSidebar({
                 justifyContent: 'center',
                 gap: '4px',
                 padding: '8px 12px',
-                fontSize: '12px'
+                fontSize: '12px',
+                background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(40,167,69,0.2)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(40,167,69,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(40,167,69,0.2)';
               }}
             >
               ➕ Add Trail

@@ -485,12 +485,27 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           disabled={waypoints.length === 0}
           style={{
             padding: '8px 12px',
-            backgroundColor: waypoints.length === 0 ? '#ccc' : '#ffc107',
-            color: waypoints.length === 0 ? '#666' : '#000',
+            background: waypoints.length === 0 ? '#ccc' : 'linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)',
+            color: waypoints.length === 0 ? '#666' : '#212529',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '6px',
+            fontWeight: '500',
             cursor: waypoints.length === 0 ? 'not-allowed' : 'pointer',
             fontSize: '12px',
+            transition: 'all 0.2s',
+            boxShadow: waypoints.length === 0 ? 'none' : '0 2px 4px rgba(255,193,7,0.2)'
+          }}
+          onMouseOver={(e) => {
+            if (waypoints.length > 0) {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(255,193,7,0.3)';
+            }
+          }}
+          onMouseOut={(e) => {
+            if (waypoints.length > 0) {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(255,193,7,0.2)';
+            }
           }}
         >
           ↶ Undo Last Point
@@ -504,12 +519,27 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           disabled={routePoints.length < 2}
           style={{
             padding: '8px 12px',
-            backgroundColor: routePoints.length < 2 ? '#ccc' : '#28a745',
+            background: routePoints.length < 2 ? '#ccc' : 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '6px',
+            fontWeight: '500',
             cursor: routePoints.length < 2 ? 'not-allowed' : 'pointer',
             fontSize: '12px',
+            transition: 'all 0.2s',
+            boxShadow: routePoints.length < 2 ? 'none' : '0 2px 4px rgba(40,167,69,0.2)'
+          }}
+          onMouseOver={(e) => {
+            if (routePoints.length >= 2) {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(40,167,69,0.3)';
+            }
+          }}
+          onMouseOut={(e) => {
+            if (routePoints.length >= 2) {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(40,167,69,0.2)';
+            }
           }}
         >
           ✓ Complete Route
@@ -522,12 +552,23 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           }}
           style={{
             padding: '8px 12px',
-            backgroundColor: '#dc3545',
+            background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '6px',
+            fontWeight: '500',
             cursor: 'pointer',
             fontSize: '12px',
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 4px rgba(220,53,69,0.2)'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 4px 8px rgba(220,53,69,0.3)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(220,53,69,0.2)';
           }}
         >
           ✕ Cancel
