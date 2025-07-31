@@ -22,6 +22,12 @@ services:
       # Global middlewares
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      # CORS middleware - allows all origins
+      - "traefik.http.middlewares.cors-all.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.cors-all.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS,PATCH"
+      - "traefik.http.middlewares.cors-all.headers.accesscontrolallowheaders=Content-Type,Authorization,X-Requested-With"
+      - "traefik.http.middlewares.cors-all.headers.accesscontrolmaxage=86400"
+      - "traefik.http.middlewares.cors-all.headers.addvaryheader=true"
       # ForwardAuth middleware for PocketBase authentication
       - "traefik.http.middlewares.pb-auth.forwardauth.address=http://backend:8090/api/auth/validate"
       - "traefik.http.middlewares.pb-auth.forwardauth.authRequestHeaders=Authorization"
@@ -39,8 +45,7 @@ services:
       - "traefik.http.routers.traefik-http.middlewares=redirect-to-https"
     networks:
       - traefik
-    restart:
-      - unless-stopped  
+    restart: unless-stopped  
 
   backend:
     image: bikemap-backend:latest
@@ -57,6 +62,7 @@ services:
       - "traefik.http.routers.backend-api.rule=Host(`${BASE_DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend-api.entrypoints=websecure"
       - "traefik.http.routers.backend-api.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend-api.middlewares=cors-all"
       - "traefik.http.routers.backend-api.service=backend-api"
       - "traefik.http.services.backend-api.loadbalancer.server.port=8090"
       # Admin UI on admin.bike-map.ch
@@ -69,7 +75,7 @@ services:
       - "traefik.http.routers.backend-api-http.rule=Host(`${BASE_DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend-api-http.entrypoints=web"
       - "traefik.http.routers.backend-api-http.service=backend-api"
-      - "traefik.http.routers.backend-api-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.backend-api-http.middlewares=redirect-to-https,cors-all"
       # Redirect HTTP to HTTPS for admin
       - "traefik.http.routers.backend-admin-http.rule=Host(`admin.${BASE_DOMAIN}`)"
       - "traefik.http.routers.backend-admin-http.entrypoints=web"
@@ -106,12 +112,12 @@ services:
       - "traefik.http.routers.brouter.rule=Host(`routing.${BASE_DOMAIN}`)"
       - "traefik.http.routers.brouter.entrypoints=websecure"
       - "traefik.http.routers.brouter.tls.certresolver=myresolver"
-      - "traefik.http.routers.brouter.middlewares=pb-auth"
+      - "traefik.http.routers.brouter.middlewares=pb-auth,cors-all"
       - "traefik.http.services.brouter.loadbalancer.server.port=17777"
       # Redirect HTTP to HTTPS for BRouter
       - "traefik.http.routers.brouter-http.rule=Host(`routing.${BASE_DOMAIN}`)"
       - "traefik.http.routers.brouter-http.entrypoints=web"
-      - "traefik.http.routers.brouter-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.brouter-http.middlewares=redirect-to-https,cors-all"
     networks:
       - traefik
     restart: unless-stopped

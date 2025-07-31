@@ -84,9 +84,6 @@ docker load < brouter.tar.gz
 # Create traefik network if it doesn't exist
 docker network create traefik 2>/dev/null || true
 
-# Stop existing containers
-docker compose down 2>/dev/null || true
-
 # Start the application
 docker compose up -d
 
