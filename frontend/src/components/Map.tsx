@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { MapBounds } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import GPXTrail from './GPXTrail';
+import RouteDrawer from './RouteDrawer';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -36,6 +37,10 @@ interface MapProps {
   selectedTrail: CachedTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: CachedTrail | null) => void;
+  isDrawingActive?: boolean;
+  onRouteComplete?: (gpxContent: string) => void;
+  onDrawingCancel?: () => void;
+  initialGpxContent?: string;
 }
 
 // Component to handle map events and trail zoom
@@ -116,7 +121,16 @@ function MapEvents({
   return null;
 }
 
-export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClick }: MapProps) {
+export default function Map({ 
+  trails, 
+  selectedTrail, 
+  onBoundsChange, 
+  onTrailClick, 
+  isDrawingActive = false,
+  onRouteComplete,
+  onDrawingCancel,
+  initialGpxContent
+}: MapProps) {
   const handleTrailClick = useCallback((trail: CachedTrail) => {
     onTrailClick(trail);
   }, [onTrailClick]);
@@ -141,6 +155,7 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
         maxZoom={18}
       />
 
+
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />
 
@@ -153,6 +168,14 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
           onTrailClick={handleTrailClick}
         />
       ))}
+
+      {/* Route drawer */}
+      <RouteDrawer
+        isActive={isDrawingActive}
+        onRouteComplete={onRouteComplete || (() => {})}
+        onCancel={onDrawingCancel || (() => {})}
+        initialGpxContent={initialGpxContent}
+      />
     </MapContainer>
   );
 }

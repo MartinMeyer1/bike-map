@@ -8,6 +8,8 @@ interface TrailEditPanelProps {
   onClose: () => void;
   onTrailUpdated: (trail: Trail) => void;
   onTrailDeleted: (trailId: string) => void;
+  onStartDrawing?: () => void;
+  drawnGpxContent?: string;
 }
 
 const DIFFICULTY_LEVELS = [
@@ -28,7 +30,9 @@ export default function TrailEditPanel({
   trail, 
   onClose, 
   onTrailUpdated, 
-  onTrailDeleted 
+  onTrailDeleted,
+  onStartDrawing,
+  drawnGpxContent
 }: TrailEditPanelProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -88,6 +92,17 @@ export default function TrailEditPanel({
     }));
   };
 
+  const handleStartDrawing = () => {
+    if (!PocketBaseService.isAuthenticated()) {
+      setError('You must be logged in to edit a trail. Please log in first.');
+      return;
+    }
+
+    if (onStartDrawing) {
+      onStartDrawing();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -109,9 +124,16 @@ export default function TrailEditPanel({
       submitData.append('level', formData.level);
       submitData.append('tags', JSON.stringify(formData.tags));
       
-      // Only append file if a new one was selected
+      // Handle file upload: either new file or drawn GPX content
       if (formData.file) {
         submitData.append('file', formData.file);
+      } else if (drawnGpxContent) {
+        // Create a Blob from the GPX content for upload
+        const gpxBlob = new Blob([drawnGpxContent], { type: 'application/gpx+xml' });
+        const gpxFile = new File([gpxBlob], `${formData.name.trim().replace(/[^a-zA-Z0-9]/g, '_')}.gpx`, {
+          type: 'application/gpx+xml'
+        });
+        submitData.append('file', gpxFile);
       }
 
       const updatedTrail = await PocketBaseService.updateTrail(trail.id, submitData);
@@ -225,18 +247,46 @@ export default function TrailEditPanel({
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="edit-gpx-file">GPX File (optional - leave empty to keep current file)</label>
-            <input
-              type="file"
-              id="edit-gpx-file"
-              accept=".gpx,application/gpx+xml"
-              onChange={handleFileChange}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="file"
+                id="edit-gpx-file"
+                accept=".gpx,application/gpx+xml"
+                onChange={handleFileChange}
+                style={{ paddingRight: '85px', width: '100%' }}
+              />
+              <button
+                type="button"
+                onClick={handleStartDrawing}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  padding: '6px 12px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  height: '28px',
+                  zIndex: 1
+                }}
+              >
+                🎯 Draw
+              </button>
+            </div>
             {formData.file && (
               <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                 New file selected: {formData.file.name}
               </div>
             )}
-            {!formData.file && (
+            {drawnGpxContent && (
+              <div style={{ fontSize: '12px', color: '#28a745', marginTop: '4px' }}>
+                ✅ Route drawn successfully
+              </div>
+            )}
+            {!formData.file && !drawnGpxContent && (
               <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                 Current file: {trail?.file || 'Unknown'}
               </div>
@@ -353,7 +403,7 @@ export default function TrailEditPanel({
                   Updating...
                 </>
               ) : (
-                '💾 Update Trail'
+                drawnGpxContent ? '💾 Save Trail Route' : '💾 Update Trail'
               )}
             </button>
             

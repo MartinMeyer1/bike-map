@@ -42,15 +42,33 @@ echo -e "${GREEN}📦 Building backend image...${NC}"
 docker build -t bikemap-backend:latest ./backend
 
 echo -e "${GREEN}📦 Building frontend image...${NC}"
+# Construct BRouter URL from base domain
+VITE_BROUTER_BASE_URL="https://routing.${BASE_DOMAIN}"
 docker build \
     --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL" \
+    --build-arg VITE_BROUTER_BASE_URL="$VITE_BROUTER_BASE_URL" \
     -t bikemap-frontend:latest \
     ./frontend
+
+echo -e "${GREEN}🧭 Building BRouter image...${NC}"
+if [ ! -d "./routing-server/brouter" ]; then
+    echo -e "${YELLOW}📥 Cloning BRouter repository...${NC}"
+    cd routing-server
+    git clone https://github.com/abrensch/brouter.git
+    cd ..
+else
+    echo -e "${YELLOW}📥 Updating BRouter repository...${NC}"
+    cd routing-server/brouter
+    git pull origin master || git pull origin main
+    cd ../..
+fi
+docker build -t brouter:latest ./routing-server/brouter
 
 echo -e "${GREEN}💾 Saving images to tar files...${NC}"
 mkdir -p ./dist
 docker save bikemap-backend:latest | gzip > ./dist/bikemap-backend.tar.gz
 docker save bikemap-frontend:latest | gzip > ./dist/bikemap-frontend.tar.gz
+docker save brouter:latest | gzip > ./dist/brouter.tar.gz
 
 echo -e "${GREEN}✅ Build complete!${NC}"
 echo -e "${YELLOW}📁 Images saved to ./dist/${NC}"

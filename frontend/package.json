@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/pbf": "^3.0.5",
     "chart.js": "^4.4.0",
     "leaflet": "^1.9.4",
     "leaflet-gpx": "^2.2.0",
+    "pbf": "^4.0.1",
     "pocketbase": "^0.26.2",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
