@@ -62,7 +62,7 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
       const latLngs = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
       
       // Create polyline(s) - add background line if selected
-      let polyline: L.Polyline;
+      let polyline: L.Polyline | null = null;
       
       if (isSelected) {
         // Create wider background line with 50% opacity
