@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { MapBounds } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import GPXTrail from './GPXTrail';
+import RouteDrawer from './RouteDrawer';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -36,17 +37,24 @@ interface MapProps {
   selectedTrail: CachedTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: CachedTrail | null) => void;
+  onMapMoveEnd?: () => void;
+  isDrawingActive?: boolean;
+  onRouteComplete?: (gpxContent: string) => void;
+  onDrawingCancel?: () => void;
+  initialGpxContent?: string;
 }
 
 // Component to handle map events and trail zoom
 function MapEvents({ 
   onBoundsChange, 
   selectedTrail,
-  onMapClick
+  onMapClick,
+  onMapMoveEnd
 }: { 
   onBoundsChange: (bounds: MapBounds) => void;
   selectedTrail: CachedTrail | null;
   onMapClick: () => void;
+  onMapMoveEnd?: () => void;
 }) {
   const map = useMap();
 
@@ -59,6 +67,11 @@ function MapEvents({
         east: bounds.getEast(),
         west: bounds.getWest(),
       });
+      
+      // Notify that map movement has ended
+      if (onMapMoveEnd) {
+        onMapMoveEnd();
+      }
     };
 
     const handleMapClick = () => {
@@ -75,7 +88,7 @@ function MapEvents({
       map.off('moveend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
-  }, [map, onBoundsChange, onMapClick]);
+  }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
 
   // Handle trail zoom when selectedTrail changes
   useEffect(() => {
@@ -116,7 +129,17 @@ function MapEvents({
   return null;
 }
 
-export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClick }: MapProps) {
+export default function Map({ 
+  trails, 
+  selectedTrail, 
+  onBoundsChange, 
+  onTrailClick, 
+  onMapMoveEnd,
+  isDrawingActive = false,
+  onRouteComplete,
+  onDrawingCancel,
+  initialGpxContent
+}: MapProps) {
   const handleTrailClick = useCallback((trail: CachedTrail) => {
     onTrailClick(trail);
   }, [onTrailClick]);
@@ -141,8 +164,9 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
         maxZoom={18}
       />
 
+
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} />
+      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
       {/* Render GPX trails */}
       {trails.map((trail) => (
@@ -153,6 +177,14 @@ export default function Map({ trails, selectedTrail, onBoundsChange, onTrailClic
           onTrailClick={handleTrailClick}
         />
       ))}
+
+      {/* Route drawer */}
+      <RouteDrawer
+        isActive={isDrawingActive}
+        onRouteComplete={onRouteComplete || (() => {})}
+        onCancel={onDrawingCancel || (() => {})}
+        initialGpxContent={initialGpxContent}
+      />
     </MapContainer>
   );
 }

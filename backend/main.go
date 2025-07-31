@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func main() {
@@ -90,6 +91,70 @@ func main() {
 		if err := ensureAdminAccount(app); err != nil {
 			return err
 		}
+
+		// Add ForwardAuth validation endpoint
+		e.Router.GET("/api/auth/validate", func(e *core.RequestEvent) error {
+			// Get Authorization header
+			authHeader := e.Request.Header.Get("Authorization")
+			if authHeader == "" {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Extract Bearer token
+			if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+			tokenString := authHeader[7:]
+
+			// Validate JWT token's signature
+			_, err := app.FindAuthRecordByToken(tokenString)
+			if err != nil {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Parse the JWT token without verifying the signature (using ParseUnverified)
+			token, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
+			if err != nil {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+		
+			// Extract the user ID from the token claims
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+		
+			// Get user id from the claim (ensure your JWT contains the "id" field)
+			userId, ok := claims["id"].(string)
+			log.Println("User ID from token:", userId)
+			if !ok || userId == "" {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Get the user from user id (look in users collection)
+			user, err := app.FindRecordById("users", userId)
+			if err != nil {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// Check user role
+			userRole := user.GetString("role")
+			if userRole != "Editor" && userRole != "Admin" {
+				e.Response.WriteHeader(401)
+				return nil
+			}
+
+			// User is authorized
+			e.Response.WriteHeader(200)
+			return nil
+		})
 
 		// Add custom CORS handling
 		e.Router.GET("/*", func(e *core.RequestEvent) error {

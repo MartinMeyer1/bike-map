@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapBounds, User } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
@@ -9,6 +9,7 @@ interface TrailSidebarProps {
   visibleTrails: CachedTrail[];
   selectedTrail: CachedTrail | null;
   mapBounds: MapBounds | null;
+  mapMoveEndTrigger: number;
   user: User | null;
   onTrailClick: (trail: CachedTrail) => void;
   onAddTrailClick: () => void;
@@ -27,6 +28,7 @@ export default function TrailSidebar({
   visibleTrails, 
   selectedTrail,
   mapBounds: _, 
+  mapMoveEndTrigger,
   user, 
   onTrailClick, 
   onAddTrailClick,
@@ -34,6 +36,9 @@ export default function TrailSidebar({
   onEditTrailClick
 }: TrailSidebarProps) {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const handleDownloadGPX = (trail: CachedTrail) => {
     const fileUrl = PocketBaseService.getTrailFileUrl(trail);
@@ -50,6 +55,26 @@ export default function TrailSidebar({
     setShowQRCode(fileUrl);
   };
 
+  // Auto-scroll to selected trail when map movement ends
+  useEffect(() => {
+    if (selectedTrail && trailRefs.current[selectedTrail.id]) {
+      const trailElement = trailRefs.current[selectedTrail.id];
+      
+      if (trailElement) {
+        // Small delay to ensure trails list is fully updated
+        const scrollTimeout = setTimeout(() => {
+          trailElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        }, 400);
+        
+        return () => clearTimeout(scrollTimeout);
+      }
+    }
+  }, [mapMoveEndTrigger]); // Only trigger on map move end
+
   return (
     <div className="sidebar">
       {/* Fixed Header Section */}
@@ -58,7 +83,6 @@ export default function TrailSidebar({
           <h2 style={{ margin: 0, fontSize: '20px' }}>🤘 BikeMap</h2>
           {user && (user.role === 'Editor' || user.role === 'Admin') && (
             <button 
-              className="btn btn-success" 
               onClick={onAddTrailClick}
               title="Add new trail"
               style={{ 
@@ -67,7 +91,23 @@ export default function TrailSidebar({
                 justifyContent: 'center',
                 gap: '4px',
                 padding: '8px 12px',
-                fontSize: '12px'
+                fontSize: '12px',
+                background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(40,167,69,0.2)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(40,167,69,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(40,167,69,0.2)';
               }}
             >
               ➕ Add Trail
@@ -89,7 +129,7 @@ export default function TrailSidebar({
       </div>
 
       {/* Scrollable Trails Section */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {visibleTrails.length === 0 ? (
           <div style={{ 
             padding: '15px', 
@@ -104,7 +144,18 @@ export default function TrailSidebar({
           </div>
         ) : (
           <div style={{ paddingTop: '2px' }}>
-            {visibleTrails.map((trail) => {
+            {(() => {
+              // Sort trails to put selected trail first
+              const sortedTrails = [...visibleTrails];
+              if (selectedTrail) {
+                const selectedIndex = sortedTrails.findIndex(t => t.id === selectedTrail.id);
+                if (selectedIndex > 0) {
+                  const [selected] = sortedTrails.splice(selectedIndex, 1);
+                  sortedTrails.unshift(selected);
+                }
+              }
+              return sortedTrails;
+            })().map((trail) => {
               const isSelected = selectedTrail?.id === trail.id;
               // Get owner info - should now be a User object from cache
               const ownerInfo = typeof trail.owner === 'object' ? trail.owner : null;
@@ -112,6 +163,7 @@ export default function TrailSidebar({
               return (
                 <div
                   key={trail.id}
+                  ref={(el) => trailRefs.current[trail.id] = el}
                   onClick={() => onTrailClick(trail)}
                   title="Click to center on map"
                   style={{
@@ -574,6 +626,244 @@ export default function TrailSidebar({
         </div>
       )}
 
+      {/* Information Modal */}
+      {showInfoModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            borderRadius: '16px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+              color: 'white',
+              padding: '20px 24px',
+              borderRadius: '16px 16px 0 0',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🤘</div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                About BikeMap
+              </h3>
+            </div>
+            
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
+              {/* App Description */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ 
+                  margin: '0 0 12px 0', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#212529'
+                }}>
+                  🚵 Mountain Bike Trail Sharing
+                </h4>
+                <p style={{ 
+                  margin: '0 0 16px 0', 
+                  fontSize: '14px', 
+                  lineHeight: '1.5',
+                  color: '#495057'
+                }}>
+                  BikeMap is a community-driven platform for sharing and discovering mountain bike trails. 
+                  Upload your favorite trails, explore new routes, and connect with fellow riders.
+                </p>
+              </div>
+
+              {/* Difficulty Levels */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ 
+                  margin: '0 0 12px 0', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#212529'
+                }}>
+                  🎯 Difficulty Levels
+                </h4>
+                <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="level-s0" style={{ marginRight: '8px', fontSize: '11px' }}>S0</span>
+                      <span style={{ color: '#212529', fontWeight: '600' }}>Green - Easy</span>
+                    </div>
+                    <p style={{ margin: '0 0 0 32px', color: '#495057', fontSize: '11px', lineHeight: '1.4' }}>
+                      Flat trails through forests or meadows on natural adherent surfaces or flat rock. No steps, rocks, or many roots. Gentle gradient, wide turns. No specific technique required.
+                    </p>
+                  </div>
+                  
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="level-s1" style={{ marginRight: '8px', fontSize: '11px' }}>S1</span>
+                      <span style={{ color: '#212529', fontWeight: '600' }}>Blue - Easy</span>
+                    </div>
+                    <p style={{ margin: '0 0 0 32px', color: '#495057', fontSize: '11px', lineHeight: '1.4' }}>
+                      Small obstacles like flat roots, small stones, water channels. Partly unstable ground. Gradients up to 40%. No hairpin turns. Basic MTB knowledge needed: braking technique and good body balance.
+                    </p>
+                  </div>
+                  
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="level-s2" style={{ marginRight: '8px', fontSize: '11px' }}>S2</span>
+                      <span style={{ color: '#212529', fontWeight: '600' }}>Orange - Intermediate</span>
+                    </div>
+                    <p style={{ margin: '0 0 0 32px', color: '#495057', fontSize: '11px', lineHeight: '1.4' }}>
+                      Larger roots, stones, steps, and tight turns. Gradients up to 70%. Required: braking technique and body weight transfer to overcome obstacles.
+                    </p>
+                  </div>
+                  
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="level-s3" style={{ marginRight: '8px', fontSize: '11px' }}>S3</span>
+                      <span style={{ color: '#212529', fontWeight: '600' }}>Red - Advanced</span>
+                    </div>
+                    <p style={{ margin: '0 0 0 32px', color: '#495057', fontSize: '11px', lineHeight: '1.4' }}>
+                      Path obstructed by rocks, roots, large steps. Rocky and slippery terrain, hairpin turns and stairs. Gradient over 70%. Very good MTB mastery required: precise braking and excellent balance.
+                    </p>
+                  </div>
+                  
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="level-s4" style={{ marginRight: '8px', fontSize: '11px' }}>S4</span>
+                      <span style={{ color: '#212529', fontWeight: '600' }}>Purple - Expert</span>
+                    </div>
+                    <p style={{ margin: '0 0 0 32px', color: '#495057', fontSize: '11px', lineHeight: '1.4' }}>
+                      Very steep and heavily obstructed terrain. Steep sections, tight hairpin turns, large steps. Trial techniques, front and rear wheel pivots, perfect braking essential. Only for extreme mountain bikers! Bike can hardly be pushed/carried.
+                    </p>
+                  </div>
+                  
+                  <div style={{ marginBottom: '0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="level-s5" style={{ marginRight: '8px', fontSize: '11px' }}>S5</span>
+                      <span style={{ color: '#212529', fontWeight: '600' }}>Black - Extreme</span>
+                    </div>
+                    <p style={{ margin: '0 0 0 32px', color: '#495057', fontSize: '11px', lineHeight: '1.4' }}>
+                      Very heavily obstructed terrain with large climbs. Loose terrain with scree/large obstacles like tree trunks and consecutive high steps. Little momentum, short braking distance. Reserved only for extreme mountain bikers! Bike can hardly be pushed/carried.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trail Segments Preference */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ 
+                  margin: '0 0 12px 0', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#212529'
+                }}>
+                  🛤️ Trail Segments vs Tours
+                </h4>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: '14px', 
+                  lineHeight: '1.5',
+                  color: '#495057'
+                }}>
+                  We prefer individual trail segments over complete tours. This allows riders to mix and match 
+                  trails based on their skill level and preferences, creating custom riding experiences.
+                </p>
+              </div>
+
+              {/* GitHub Link */}
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ 
+                  margin: '0 0 12px 0', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#212529'
+                }}>
+                  💻 Open Source
+                </h4>
+                <p style={{ 
+                  margin: '0 0 12px 0', 
+                  fontSize: '14px', 
+                  lineHeight: '1.5',
+                  color: '#495057'
+                }}>
+                  BikeMap is open source! Check out the code, contribute, or report issues:
+                </p>
+                <a 
+                  href="https://github.com/MartinMeyer1/bike-map" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    background: 'linear-gradient(135deg, #24292e 0%, #586069 100%)',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 2px 4px rgba(36,41,46,0.2)'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(36,41,46,0.3)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(36,41,46,0.2)';
+                  }}
+                >
+                  📂 GitHub Repository
+                </a>
+              </div>
+
+              {/* Close Button */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+                <button 
+                  onClick={() => setShowInfoModal(false)}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 2px 4px rgba(0,123,255,0.2)'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.3)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,123,255,0.2)';
+                  }}
+                >
+                  ✓ Got it!
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fixed Footer Section */}
       <div style={{ flexShrink: 0, marginTop: '15px' }}>
         <div style={{ 
@@ -581,10 +871,13 @@ export default function TrailSidebar({
           background: '#f8f9fa', 
           borderRadius: '4px', 
           fontSize: '12px',
-          color: '#666'
+          color: '#666',
+          position: 'relative'
         }}>
-          <strong>Difficulty Legend:</strong><br />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+          <div style={{ marginBottom: '6px' }}>
+            <strong>Difficulty Legend:</strong>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
             <span className="level-s0">S0</span>
             <span className="level-s1">S1</span>
             <span className="level-s2">S2</span>
@@ -592,6 +885,40 @@ export default function TrailSidebar({
             <span className="level-s4">S4</span>
             <span className="level-s5">S5</span>
           </div>
+          <button
+            onClick={() => setShowInfoModal(true)}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: '10px',
+              transform: 'translateY(-50%)',
+              background: 'transparent',
+              border: '1px solid #dee2e6',
+              borderRadius: '6px',
+              width: '32px',
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: '14px',
+              color: '#6c757d',
+              transition: 'all 0.2s'
+            }}
+            title="App Information"
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#e9ecef';
+              e.currentTarget.style.borderColor = '#adb5bd';
+              e.currentTarget.style.color = '#495057';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderColor = '#dee2e6';
+              e.currentTarget.style.color = '#6c757d';
+            }}
+          >
+            ℹ️
+          </button>
         </div>
       </div>
     </div>

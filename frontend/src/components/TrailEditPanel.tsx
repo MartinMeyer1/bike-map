@@ -8,6 +8,8 @@ interface TrailEditPanelProps {
   onClose: () => void;
   onTrailUpdated: (trail: Trail) => void;
   onTrailDeleted: (trailId: string) => void;
+  onStartDrawing?: () => void;
+  drawnGpxContent?: string;
 }
 
 const DIFFICULTY_LEVELS = [
@@ -20,7 +22,7 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const AVAILABLE_TAGS = [
-  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural'
+  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural', "Switchbacks", "Loose", "Sketchy"
 ];
 
 export default function TrailEditPanel({ 
@@ -28,7 +30,9 @@ export default function TrailEditPanel({
   trail, 
   onClose, 
   onTrailUpdated, 
-  onTrailDeleted 
+  onTrailDeleted,
+  onStartDrawing,
+  drawnGpxContent
 }: TrailEditPanelProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -88,6 +92,17 @@ export default function TrailEditPanel({
     }));
   };
 
+  const handleStartDrawing = () => {
+    if (!PocketBaseService.isAuthenticated()) {
+      setError('You must be logged in to edit a trail. Please log in first.');
+      return;
+    }
+
+    if (onStartDrawing) {
+      onStartDrawing();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -109,24 +124,38 @@ export default function TrailEditPanel({
       submitData.append('level', formData.level);
       submitData.append('tags', JSON.stringify(formData.tags));
       
-      // Only append file if a new one was selected
+      // Handle file upload: either new file or drawn GPX content
       if (formData.file) {
         submitData.append('file', formData.file);
+      } else if (drawnGpxContent) {
+        // Create a Blob from the GPX content for upload
+        const gpxBlob = new Blob([drawnGpxContent], { type: 'application/gpx+xml' });
+        const gpxFile = new File([gpxBlob], `${formData.name.trim().replace(/[^a-zA-Z0-9]/g, '_')}.gpx`, {
+          type: 'application/gpx+xml'
+        });
+        submitData.append('file', gpxFile);
       }
 
       const updatedTrail = await PocketBaseService.updateTrail(trail.id, submitData);
       
-      setSuccess('Trail updated successfully!');
       onTrailUpdated(updatedTrail);
       
-      // Close panel after a delay
-      setTimeout(() => {
-        onClose();
-        setSuccess('');
-      }, 1500);
+      // Close panel immediately
+      onClose();
       
     } catch (err: any) {
-      setError(err.message || 'Failed to update trail');
+      console.error('Trail update error:', err);
+      
+      // Check if user lost authentication during update
+      if (err.message.includes('Authentication required')) {
+        setError('Session expired. Please log in again and try updating your trail.');
+      } else if (err.message.includes('permission')) {
+        setError('You do not have permission to edit this trail. Only the owner or Admin users can edit trails.');
+      } else if (err.message.includes('not found')) {
+        setError('Trail not found. It may have been deleted by another user.');
+      } else {
+        setError(err.message || 'Failed to update trail. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +173,18 @@ export default function TrailEditPanel({
       setShowDeleteConfirm(false);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete trail');
+      console.error('Trail delete error:', err);
+      
+      // Check if user lost authentication during delete
+      if (err.message.includes('Authentication required')) {
+        setError('Session expired. Please log in again and try deleting your trail.');
+      } else if (err.message.includes('permission')) {
+        setError('You do not have permission to delete this trail. Only the owner or Admin users can delete trails.');
+      } else if (err.message.includes('not found')) {
+        setError('Trail not found. It may have already been deleted.');
+      } else {
+        setError(err.message || 'Failed to delete trail. Please try again.');
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -225,18 +265,57 @@ export default function TrailEditPanel({
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="edit-gpx-file">GPX File (optional - leave empty to keep current file)</label>
-            <input
-              type="file"
-              id="edit-gpx-file"
-              accept=".gpx,application/gpx+xml"
-              onChange={handleFileChange}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="file"
+                id="edit-gpx-file"
+                accept=".gpx,application/gpx+xml"
+                onChange={handleFileChange}
+                style={{ paddingRight: '85px', width: '100%' }}
+              />
+              <button
+                type="button"
+                onClick={handleStartDrawing}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  padding: '6px 12px',
+                  background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  height: '28px',
+                  zIndex: 1,
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 4px rgba(0,123,255,0.2)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,123,255,0.2)';
+                }}
+              >
+                🎯 Draw
+              </button>
+            </div>
             {formData.file && (
               <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                 New file selected: {formData.file.name}
               </div>
             )}
-            {!formData.file && (
+            {drawnGpxContent && (
+              <div style={{ fontSize: '12px', color: '#28a745', marginTop: '4px' }}>
+                ✅ Route drawn successfully
+              </div>
+            )}
+            {!formData.file && !drawnGpxContent && (
               <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                 Current file: {trail?.file || 'Unknown'}
               </div>
@@ -353,7 +432,7 @@ export default function TrailEditPanel({
                   Updating...
                 </>
               ) : (
-                '💾 Update Trail'
+                drawnGpxContent ? '💾 Save Trail Route' : '💾 Update Trail'
               )}
             </button>
             

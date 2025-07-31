@@ -14,7 +14,9 @@ COPY . .
 
 # Build arguments for production configuration
 ARG VITE_API_BASE_URL
+ARG VITE_BROUTER_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_BROUTER_BASE_URL=$VITE_BROUTER_BASE_URL
 
 # Build the application
 RUN npm run build

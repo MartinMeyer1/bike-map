@@ -6,6 +6,8 @@ interface UploadPanelProps {
   isVisible: boolean;
   onClose: () => void;
   onTrailCreated: (trail: Trail) => void;
+  onStartDrawing?: () => void;
+  drawnGpxContent?: string;
 }
 
 const DIFFICULTY_LEVELS = [
@@ -18,10 +20,10 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const AVAILABLE_TAGS = [
-  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural'
+  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural', "Switchbacks", "Loose", "Sketchy"
 ];
 
-export default function UploadPanel({ isVisible, onClose, onTrailCreated }: UploadPanelProps) {
+export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStartDrawing, drawnGpxContent }: UploadPanelProps) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -65,6 +67,17 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
     }));
   };
 
+  const handleStartDrawing = () => {
+    if (!PocketBaseService.isAuthenticated()) {
+      setError('You must be logged in to create a trail. Please log in first.');
+      return;
+    }
+
+    if (onStartDrawing) {
+      onStartDrawing();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -74,8 +87,8 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
       return;
     }
     
-    if (!formData.file) {
-      setError('Please select a GPX file');
+    if (!formData.file && !drawnGpxContent) {
+      setError('Please select a GPX file or draw a route');
       return;
     }
 
@@ -94,7 +107,17 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
       submitData.append('description', formData.description.trim());
       submitData.append('level', formData.level);
       submitData.append('tags', JSON.stringify(formData.tags));
-      submitData.append('file', formData.file);
+      
+      if (formData.file) {
+        submitData.append('file', formData.file);
+      } else if (drawnGpxContent) {
+        // Create a Blob from the GPX content for upload
+        const gpxBlob = new Blob([drawnGpxContent], { type: 'application/gpx+xml' });
+        const gpxFile = new File([gpxBlob], `${formData.name.trim().replace(/[^a-zA-Z0-9]/g, '_')}.gpx`, {
+          type: 'application/gpx+xml'
+        });
+        submitData.append('file', gpxFile);
+      }
       
       // Get the authenticated user ID
       const currentUser = PocketBaseService.getCurrentUser();
@@ -104,7 +127,6 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
 
       const trail = await PocketBaseService.createTrail(submitData);
       
-      setSuccess('Trail uploaded successfully! Processing elevation data...');
       onTrailCreated(trail);
       
       // Reset form
@@ -122,14 +144,20 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
         fileInput.value = '';
       }
       
-      // Close panel after a delay
-      setTimeout(() => {
-        onClose();
-        setSuccess('');
-      }, 2000);
+      // Close panel immediately
+      onClose();
       
     } catch (err: any) {
-      setError(err.message || 'Failed to upload trail');
+      console.error('Trail upload error:', err);
+      
+      // Check if user lost authentication during upload
+      if (err.message.includes('Authentication required')) {
+        setError('Session expired. Please log in again and try uploading your trail.');
+      } else if (err.message.includes('permission')) {
+        setError('You need Editor or Admin permissions to create trails. Please contact an administrator.');
+      } else {
+        setError(err.message || 'Failed to upload trail. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -209,17 +237,55 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="gpx-file">GPX File *</label>
-          <input
-            type="file"
-            id="gpx-file"
-            accept=".gpx,application/gpx+xml"
-            onChange={handleFileChange}
-            required
-          />
+          <label htmlFor="gpx-file">GPX File</label>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="file"
+              id="gpx-file"
+              accept=".gpx,application/gpx+xml"
+              onChange={handleFileChange}
+              style={{ paddingRight: '85px', width: '100%' }}
+            />
+            <button
+              type="button"
+              onClick={handleStartDrawing}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                padding: '6px 12px',
+                background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                height: '28px',
+                zIndex: 1,
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(0,123,255,0.2)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,123,255,0.2)';
+              }}
+            >
+              🎯 Draw
+            </button>
+          </div>
           {formData.file && (
             <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
               Selected: {formData.file.name}
+            </div>
+          )}
+          {drawnGpxContent && (
+            <div style={{ fontSize: '12px', color: '#28a745', marginTop: '4px' }}>
+              ✅ Route drawn successfully
             </div>
           )}
         </div>
@@ -331,10 +397,10 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated }: Uplo
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite'
                 }}></span>
-                Uploading...
+                {drawnGpxContent ? 'Saving...' : 'Uploading...'}
               </>
             ) : (
-              '➕ Upload Trail'
+              drawnGpxContent ? '💾 Save Trail' : '➕ Upload Trail'
             )}
           </button>
           

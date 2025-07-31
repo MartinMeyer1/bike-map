@@ -5,24 +5,17 @@ import { Trail, User } from '../types';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
 const pb = new PocketBase(API_BASE_URL);
 
-// Auto-refresh auth token
-pb.authStore.onChange(() => {
-  if (pb.authStore.isValid) {
-    localStorage.setItem('pb_auth', JSON.stringify(pb.authStore.exportToCookie()));
-  } else {
-    localStorage.removeItem('pb_auth');
-  }
-});
+// Enable auto-refresh and persistence of auth token
+pb.autoCancellation(false);
 
-// Restore auth state from localStorage
-const storedAuth = localStorage.getItem('pb_auth');
-if (storedAuth) {
-  try {
-    pb.authStore.loadFromCookie(storedAuth);
-  } catch (e) {
-    console.error('Failed to restore auth state:', e);
-    localStorage.removeItem('pb_auth');
-  }
+// Auth state persistence - PocketBase should handle this automatically,
+// but we can add explicit handling for better reliability
+if (pb.authStore.isValid) {
+  // Trigger a test API call to verify the token is still valid
+  pb.collection('users').authRefresh().catch(() => {
+    // Token is invalid, clear it
+    pb.authStore.clear();
+  });
 }
 
 export class PocketBaseService {
@@ -59,13 +52,67 @@ export class PocketBaseService {
     return pb.authStore.isValid;
   }
 
+  static getAuthToken(): string {
+    return pb.authStore.token
+  }
+
+  static onAuthChange(callback: (user: User | null) => void): () => void {
+    const unsubscribe = pb.authStore.onChange(() => {
+      const currentUser = this.getCurrentUser();
+      callback(currentUser);
+    });
+    
+    return unsubscribe;
+  }
+
   static async createTrail(formData: FormData): Promise<Trail> {
     if (!pb.authStore.isValid) {
       throw new Error('You must be logged in to create a trail');
     }
     
-    const record = await pb.collection('trails').create(formData);
-    return this.formatTrail(record);
+    try {
+      const record = await pb.collection('trails').create(formData);
+      return this.formatTrail(record);
+    } catch (error: any) {
+      // Handle specific error responses
+      if (error?.status) {
+        switch (error.status) {
+          case 400:
+            if (error.data?.message) {
+              throw new Error(`Invalid data: ${error.data.message}`);
+            }
+            throw new Error('Invalid trail data. Please check your input and try again.');
+          case 401:
+            throw new Error('Authentication required. Please log in and try again.');
+          case 403:
+            throw new Error('You do not have permission to create trails. Only Editor and Admin users can create trails.');
+          case 413:
+            throw new Error('File too large. Please use a smaller GPX file (max 5MB).');
+          case 415:
+            throw new Error('Invalid file type. Please upload a valid GPX file.');
+          case 422:
+            if (error.data?.data) {
+              const fieldErrors = Object.entries(error.data.data)
+                .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+                .join('; ');
+              throw new Error(`Validation errors: ${fieldErrors}`);
+            }
+            throw new Error('Validation failed. Please check your input and try again.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(`Upload failed with status ${error.status}. Please try again.`);
+        }
+      }
+      
+      // Handle network or other errors
+      if (error.name === 'NetworkError' || !navigator.onLine) {
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      
+      // Fallback error message
+      throw new Error(error.message || 'Failed to create trail. Please try again.');
+    }
   }
 
   static async getTrails(): Promise<Trail[]> {
@@ -94,17 +141,88 @@ export class PocketBaseService {
     if (!pb.authStore.isValid) {
       throw new Error('You must be logged in to update a trail');
     }
-    const record = await pb.collection('trails').update(id, formData, {
-      expand: 'owner'
-    });
-    return this.formatTrail(record);
+    
+    try {
+      const record = await pb.collection('trails').update(id, formData, {
+        expand: 'owner'
+      });
+      return this.formatTrail(record);
+    } catch (error: any) {
+      // Handle specific error responses
+      if (error?.status) {
+        switch (error.status) {
+          case 400:
+            if (error.data?.message) {
+              throw new Error(`Invalid data: ${error.data.message}`);
+            }
+            throw new Error('Invalid trail data. Please check your input and try again.');
+          case 401:
+            throw new Error('Authentication required. Please log in and try again.');
+          case 403:
+            throw new Error('You do not have permission to edit this trail. Only the owner or Admin users can edit trails.');
+          case 404:
+            throw new Error('Trail not found. It may have been deleted.');
+          case 413:
+            throw new Error('File too large. Please use a smaller GPX file (max 5MB).');
+          case 415:
+            throw new Error('Invalid file type. Please upload a valid GPX file.');
+          case 422:
+            if (error.data?.data) {
+              const fieldErrors = Object.entries(error.data.data)
+                .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+                .join('; ');
+              throw new Error(`Validation errors: ${fieldErrors}`);
+            }
+            throw new Error('Validation failed. Please check your input and try again.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(`Update failed with status ${error.status}. Please try again.`);
+        }
+      }
+      
+      // Handle network or other errors
+      if (error.name === 'NetworkError' || !navigator.onLine) {
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      
+      // Fallback error message
+      throw new Error(error.message || 'Failed to update trail. Please try again.');
+    }
   }
 
   static async deleteTrail(id: string): Promise<void> {
     if (!pb.authStore.isValid) {
       throw new Error('You must be logged in to delete a trail');
     }
-    await pb.collection('trails').delete(id);
+    
+    try {
+      await pb.collection('trails').delete(id);
+    } catch (error: any) {
+      // Handle specific error responses
+      if (error?.status) {
+        switch (error.status) {
+          case 401:
+            throw new Error('Authentication required. Please log in and try again.');
+          case 403:
+            throw new Error('You do not have permission to delete this trail. Only the owner or Admin users can delete trails.');
+          case 404:
+            throw new Error('Trail not found. It may have already been deleted.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(`Delete failed with status ${error.status}. Please try again.`);
+        }
+      }
+      
+      // Handle network or other errors
+      if (error.name === 'NetworkError' || !navigator.onLine) {
+        throw new Error('Network error. Please check your connection and try again.');
+      }
+      
+      // Fallback error message
+      throw new Error(error.message || 'Failed to delete trail. Please try again.');
+    }
   }
 
   static getFileUrl(record: any, filename: string): string {

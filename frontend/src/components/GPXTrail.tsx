@@ -22,6 +22,27 @@ function getLevelColor(level: string): string {
   }
 }
 
+// Convert hex color to RGB
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+}
+
+// Darken a hex color by a percentage (0-1)
+function darkenColor(hex: string, amount: number): string {
+  const rgb = hexToRgb(hex);
+  const r = Math.round(rgb.r * (1 - amount));
+  const g = Math.round(rgb.g * (1 - amount));
+  const b = Math.round(rgb.b * (1 - amount));
+  
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailProps) {
   const map = useMap();
   const [trailLayer, setTrailLayer] = useState<L.LayerGroup | null>(null);
@@ -41,7 +62,7 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
       const latLngs = coordinates.map((coord: number[]) => [coord[1], coord[0]] as [number, number]);
       
       // Create polyline(s) - add background line if selected
-      let polyline: L.Polyline;
+      let polyline: L.Polyline | null = null;
       
       if (isSelected) {
         // Create wider background line with 50% opacity
@@ -52,12 +73,43 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
         });
         layerGroup.addLayer(backgroundLine);
         
-        // Create normal foreground line on top
-        polyline = L.polyline(latLngs, {
-          color: trackColor,
-          weight: 6,
-          opacity: 0.9
-        });
+        // Create gradient trail to show direction (from start to end)
+        const segmentLength = Math.max(1, Math.floor(latLngs.length / 20)); // Create ~20 segments
+        
+        for (let i = 0; i < latLngs.length - 1; i += segmentLength) {
+          const endIndex = Math.min(i + segmentLength, latLngs.length - 1);
+          const segmentPoints = latLngs.slice(i, endIndex + 1);
+          
+          if (segmentPoints.length < 2) continue;
+          
+          // Calculate progress along trail (0 to 1)
+          const progress = i / (latLngs.length - 1);
+          
+          // Create gradient from start color to end color
+          const startColor = darkenColor(trackColor, 0.3); // Darker version of trail difficulty color
+          const endColor = '#ffffff'; // White at the end
+          
+          // Interpolate between colors
+          const startRGB = hexToRgb(startColor);
+          const endRGB = hexToRgb(endColor);
+          
+          const r = Math.round(startRGB.r + (endRGB.r - startRGB.r) * progress);
+          const g = Math.round(startRGB.g + (endRGB.g - startRGB.g) * progress);
+          const b = Math.round(startRGB.b + (endRGB.b - startRGB.b) * progress);
+          
+          const segmentColor = `rgb(${r}, ${g}, ${b})`;
+          
+          const segmentLine = L.polyline(segmentPoints, {
+            color: segmentColor,
+            weight: 6,
+            opacity: 0.9
+          });
+          
+          layerGroup.addLayer(segmentLine);
+        }
+        
+        // Don't create the normal polyline since we have gradient segments
+        polyline = null;
       } else {
         // Normal line for non-selected trails
         polyline = L.polyline(latLngs, {
@@ -120,20 +172,33 @@ export default function GPXTrail({ trail, isSelected, onTrailClick }: GPXTrailPr
         </div>
       `;
 
-      // Bind popup to polyline
-      polyline.bindPopup(popupContent);
+      // Handle popup and click events
+      if (polyline) {
+        // Bind popup to polyline
+        polyline.bindPopup(popupContent);
 
-      // Store polyline reference
-      setPolylineRef(polyline);
+        // Store polyline reference
+        setPolylineRef(polyline);
 
-      // Add click handler
-      polyline.on('click', (e) => {
-        e.originalEvent?.stopPropagation(); // Prevent map click event
-        onTrailClick(trail);
-      });
+        // Add click handler
+        polyline.on('click', (e) => {
+          e.originalEvent?.stopPropagation(); // Prevent map click event
+          onTrailClick(trail);
+        });
 
-      // Add polyline to layer group
-      layerGroup.addLayer(polyline);
+        // Add polyline to layer group
+        layerGroup.addLayer(polyline);
+      } else if (isSelected) {
+        // For gradient trails, add popup and click to the background line
+        const backgroundLine = layerGroup.getLayers().find(layer => layer instanceof L.Polyline) as L.Polyline;
+        if (backgroundLine) {
+          backgroundLine.bindPopup(popupContent);
+          backgroundLine.on('click', (e) => {
+            e.originalEvent?.stopPropagation();
+            onTrailClick(trail);
+          });
+        }
+      }
 
       // Add to map
       layerGroup.addTo(map);

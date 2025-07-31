@@ -19,6 +19,13 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
+  const [isDrawingActive, setIsDrawingActive] = useState(false);
+  const [drawnGpxContent, setDrawnGpxContent] = useState<string>('');
+  const [previousGpxContent, setPreviousGpxContent] = useState<string>('');
+  const [editDrawnGpxContent, setEditDrawnGpxContent] = useState<string>('');
+  const [editPreviousGpxContent, setEditPreviousGpxContent] = useState<string>('');
+  const [drawingMode, setDrawingMode] = useState<'upload' | 'edit' | null>(null);
+  const [mapMoveEndTrigger, setMapMoveEndTrigger] = useState(0);
 
   // Initialize app - check auth and initialize trail cache
   useEffect(() => {
@@ -46,6 +53,15 @@ function App() {
     };
 
     initializeApp();
+  }, []);
+
+  // Listen for auth store changes to keep React state in sync
+  useEffect(() => {
+    const unsubscribe = PocketBaseService.onAuthChange((newUser) => {
+      setUser(newUser);
+    });
+
+    return unsubscribe;
   }, []);
 
   // Refresh trails from cache (used after uploads)
@@ -150,6 +166,59 @@ function App() {
     setSelectedTrail(trail);
   }, []);
 
+  // Handle start drawing
+  const handleStartDrawing = () => {
+    // Preserve current GPX content to restore on cancel
+    setPreviousGpxContent(drawnGpxContent);
+    setIsDrawingActive(true);
+    setDrawingMode('upload');
+    setIsUploadPanelVisible(false);
+  };
+
+  // Handle route drawing completed
+  const handleRouteComplete = (gpxContent: string) => {
+    setDrawnGpxContent(gpxContent);
+    setIsDrawingActive(false);
+    setDrawingMode(null);
+    setIsUploadPanelVisible(true);
+  };
+
+  // Handle drawing cancelled
+  const handleDrawingCancel = () => {
+    setIsDrawingActive(false);
+    setDrawingMode(null);
+    setIsUploadPanelVisible(true);
+  };
+
+  // Handle start drawing for edit panel
+  const handleEditStartDrawing = () => {
+    // Preserve current GPX content to restore on cancel
+    setEditPreviousGpxContent(editDrawnGpxContent);
+    setIsDrawingActive(true);
+    setDrawingMode('edit');
+    setIsEditPanelVisible(false);
+  };
+
+  // Handle route drawing completed for edit panel
+  const handleEditRouteComplete = (gpxContent: string) => {
+    setEditDrawnGpxContent(gpxContent);
+    setIsDrawingActive(false);
+    setDrawingMode(null);
+    setIsEditPanelVisible(true);
+  };
+
+  // Handle drawing cancelled for edit panel
+  const handleEditDrawingCancel = () => {
+    setIsDrawingActive(false);
+    setDrawingMode(null);
+    setIsEditPanelVisible(true);
+  };
+
+  // Handle map movement end
+  const handleMapMoveEnd = useCallback(() => {
+    setMapMoveEndTrigger(prev => prev + 1);
+  }, []);
+
 
   if (isLoading) {
     return (
@@ -201,31 +270,44 @@ function App() {
 
       {/* Main map */}
       <Map 
-        trails={trails}
+        trails={isDrawingActive ? [] : trails}
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={handleTrailClick}
+        onMapMoveEnd={handleMapMoveEnd}
+        isDrawingActive={isDrawingActive}
+        onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
+        onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
+        initialGpxContent={drawingMode === 'edit' ? editPreviousGpxContent : previousGpxContent}
       />
 
-      {/* Trail sidebar */}
-      <TrailSidebar
-        trails={trails}
-        visibleTrails={visibleTrails}
-        selectedTrail={selectedTrail}
-        mapBounds={mapBounds}
-        user={user}
-        onTrailClick={handleTrailClick}
-        onAddTrailClick={() => setIsUploadPanelVisible(true)}
-        onAuthChange={handleAuthChange}
-        onEditTrailClick={handleEditTrailClick}
-      />
+      {/* Trail sidebar - hidden during drawing mode */}
+      {!isDrawingActive && (
+        <TrailSidebar
+          trails={trails}
+          visibleTrails={visibleTrails}
+          selectedTrail={selectedTrail}
+          mapBounds={mapBounds}
+          mapMoveEndTrigger={mapMoveEndTrigger}
+          user={user}
+          onTrailClick={handleTrailClick}
+          onAddTrailClick={() => setIsUploadPanelVisible(true)}
+          onAuthChange={handleAuthChange}
+          onEditTrailClick={handleEditTrailClick}
+        />
+      )}
 
 
       {/* Upload panel */}
       <UploadPanel
         isVisible={isUploadPanelVisible}
-        onClose={() => setIsUploadPanelVisible(false)}
+        onClose={() => {
+          setIsUploadPanelVisible(false);
+          setDrawnGpxContent('');
+        }}
         onTrailCreated={handleTrailCreated}
+        onStartDrawing={handleStartDrawing}
+        drawnGpxContent={drawnGpxContent}
       />
 
       {/* Edit panel */}
@@ -235,9 +317,12 @@ function App() {
         onClose={() => {
           setIsEditPanelVisible(false);
           setTrailToEdit(null);
+          setEditDrawnGpxContent('');
         }}
         onTrailUpdated={handleTrailUpdatedComplete}
         onTrailDeleted={handleTrailDeleted}
+        onStartDrawing={handleEditStartDrawing}
+        drawnGpxContent={editDrawnGpxContent}
       />
     </div>
   );
