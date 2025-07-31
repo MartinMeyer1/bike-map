@@ -43,7 +43,6 @@ docker build -t bikemap-backend:latest ./backend
 
 echo -e "${GREEN}📦 Building frontend image...${NC}"
 # Construct BRouter URL from base domain
-VITE_BROUTER_BASE_URL="https://routing.${BASE_DOMAIN}"
 docker build \
     --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL" \
     --build-arg VITE_BROUTER_BASE_URL="$VITE_BROUTER_BASE_URL" \

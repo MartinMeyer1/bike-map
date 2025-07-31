@@ -109,13 +109,13 @@ services:
     labels:
       - "traefik.enable=true"
       # BRouter service on routing.${BASE_DOMAIN} with PocketBase authentication
-      - "traefik.http.routers.brouter.rule=Host(`routing.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.brouter.rule=Host(`${BASE_DOMAIN}`) && PathPrefix(`/brouter`)"
       - "traefik.http.routers.brouter.entrypoints=websecure"
       - "traefik.http.routers.brouter.tls.certresolver=myresolver"
       - "traefik.http.routers.brouter.middlewares=pb-auth,cors-all"
       - "traefik.http.services.brouter.loadbalancer.server.port=17777"
       # Redirect HTTP to HTTPS for BRouter
-      - "traefik.http.routers.brouter-http.rule=Host(`routing.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.brouter-http.rule=Host(`${BASE_DOMAIN}`) && PathPrefix(`/brouter`)"
       - "traefik.http.routers.brouter-http.entrypoints=web"
       - "traefik.http.routers.brouter-http.middlewares=redirect-to-https,cors-all"
     networks:
