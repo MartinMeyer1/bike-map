@@ -60,11 +60,16 @@ export default function TrailSidebar({
       const trailElement = trailRefs.current[selectedTrail.id];
       
       if (trailElement) {
-        trailElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        });
+        // Small delay to ensure trails list is fully updated
+        const scrollTimeout = setTimeout(() => {
+          trailElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        }, 400);
+        
+        return () => clearTimeout(scrollTimeout);
       }
     }
   }, [mapMoveEndTrigger]); // Only trigger on map move end
