@@ -128,7 +128,18 @@ export default function TrailSidebar({
           </div>
         ) : (
           <div style={{ paddingTop: '2px' }}>
-            {visibleTrails.map((trail) => {
+            {(() => {
+              // Sort trails to put selected trail first
+              const sortedTrails = [...visibleTrails];
+              if (selectedTrail) {
+                const selectedIndex = sortedTrails.findIndex(t => t.id === selectedTrail.id);
+                if (selectedIndex > 0) {
+                  const [selected] = sortedTrails.splice(selectedIndex, 1);
+                  sortedTrails.unshift(selected);
+                }
+              }
+              return sortedTrails;
+            })().map((trail) => {
               const isSelected = selectedTrail?.id === trail.id;
               // Get owner info - should now be a User object from cache
               const ownerInfo = typeof trail.owner === 'object' ? trail.owner : null;
