@@ -11,6 +11,35 @@ export interface Trail {
   elevation_profile?: Array<{ distance: number; elevation: number }>;
 }
 
+export interface GeoJsonGeometry {
+  type: 'LineString';
+  coordinates: number[][];
+}
+
+export interface GeoJsonFeature {
+  type: 'Feature';
+  properties: {
+    name: string;
+    level: string;
+    description?: string;
+    tags: string[];
+  };
+  geometry: GeoJsonGeometry;
+}
+
+export interface TrailBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+export interface ElevationData {
+  gain: number;
+  loss: number;
+  profile: Array<{ distance: number; elevation: number }>;
+}
+
 export interface User {
   id: string;
   email: string;

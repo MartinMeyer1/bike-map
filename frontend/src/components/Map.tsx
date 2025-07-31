@@ -7,7 +7,7 @@ import GPXTrail from './GPXTrail';
 import RouteDrawer from './RouteDrawer';
 
 // Fix for default markers in react-leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as L.Icon.Default & { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
@@ -102,9 +102,9 @@ function MapEvents({
       );
       
       // Store reference to any open popup to reopen it after zoom
-      let openPopup: any = null;
-      map.eachLayer((layer: any) => {
-        if (layer.isPopupOpen && layer.isPopupOpen()) {
+      let openPopup: L.Layer | null = null;
+      map.eachLayer((layer: L.Layer) => {
+        if ('isPopupOpen' in layer && typeof layer.isPopupOpen === 'function' && layer.isPopupOpen()) {
           openPopup = layer;
         }
       });
@@ -118,7 +118,7 @@ function MapEvents({
       // Reopen popup after zoom animation
       if (openPopup) {
         setTimeout(() => {
-          if (openPopup && map.hasLayer(openPopup)) {
+          if (openPopup && map.hasLayer(openPopup) && 'openPopup' in openPopup && typeof openPopup.openPopup === 'function') {
             openPopup.openPopup();
           }
         }, 500);
@@ -147,7 +147,7 @@ export default function Map({
   const handleMapClick = useCallback(() => {
     // Clear selection when clicking on empty map area
     if (selectedTrail) {
-      onTrailClick(null as any);
+      onTrailClick(null);
     }
   }, [selectedTrail, onTrailClick]);
 

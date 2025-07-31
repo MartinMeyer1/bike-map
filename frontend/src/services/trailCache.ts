@@ -1,20 +1,11 @@
-import { Trail, MapBounds, User } from '../types';
+import { Trail, MapBounds, User, GeoJsonFeature, TrailBounds, ElevationData } from '../types';
 import { PocketBaseService } from './pocketbase';
 
 // Extended trail interface with cached GeoJSON data
 export interface CachedTrail extends Trail {
-  geoJson?: any;
-  bounds?: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-  };
-  elevation?: {
-    gain: number;
-    loss: number;
-    profile: Array<{ distance: number; elevation: number }>;
-  };
+  geoJson?: GeoJsonFeature;
+  bounds?: TrailBounds;
+  elevation?: ElevationData;
   processedAt?: number;
 }
 
@@ -253,7 +244,7 @@ class TrailCacheService {
         const elevation = this.calculateElevationData(trackPoints);
 
         // Create GeoJSON
-        const geoJson = {
+        const geoJson: GeoJsonFeature = {
           type: 'Feature',
           properties: {
             name: trail.name,

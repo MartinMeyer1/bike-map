@@ -76,13 +76,17 @@ A lightweight social web app for sharing MTB singletracks among friends. Built w
 - **API-based**: RESTful interface for route calculations
 
 ### Frontend (React + TypeScript)
-- **React 18**: Modern component-based UI
-- **TypeScript**: Type-safe development
+- **React 18**: Modern component-based UI with hooks and context
+- **TypeScript**: Strict type safety with comprehensive interfaces
 - **Leaflet**: Interactive mapping with Swiss topographic tiles
+- **Component Library**: Reusable UI components (Button, Modal, Badge)
+- **Custom Hooks**: Business logic separation (useAuth, useTrails, useDrawing)
+- **CSS Modules**: Scoped styling without conflicts
+- **Error Boundaries**: Graceful error handling and recovery
+- **Performance**: Memoized components and optimized re-renders
 - **Client-side GPX**: Real-time trail processing with elevation data
 - **Trail caching**: Performance-optimized data management
 - **Spatial filtering**: Efficient map bounds-based trail loading
-- **Responsive design**: Full-screen map with overlay panels
 
 ## 🔧 Configuration
 
@@ -109,12 +113,16 @@ bike-map/
 │   └── pb_data/            # PocketBase data (gitignored)
 ├── frontend/               # React TypeScript frontend
 │   ├── src/
-│   │   ├── components/     # React components (Map, Auth, RouteDrawer, etc.)
-│   │   ├── services/       # PocketBase API client & trail cache
+│   │   ├── components/     # React components & UI library
+│   │   │   └── ui/         # Reusable components (Button, Modal, Badge)
+│   │   ├── hooks/          # Custom React hooks (useAuth, useTrails, useDrawing)
+│   │   ├── context/        # React Context providers (AppContext)
+│   │   ├── services/       # API clients (PocketBase, BRouter, trail cache)
 │   │   ├── utils/          # GPX generation and pathfinding utilities
-│   │   └── types/          # TypeScript definitions
+│   │   └── types/          # TypeScript definitions and interfaces
 │   ├── Dockerfile          # Multi-stage Node build
-│   └── nginx.conf          # Production nginx config
+│   ├── nginx.conf          # Production nginx config
+│   └── README.md           # Frontend architecture guide
 ├── routing-server/         # BRouter routing engine
 │   ├── brouter/            # BRouter source code and Docker setup
 │   ├── segments/           # Swiss routing data (E5_N45.rd5)
