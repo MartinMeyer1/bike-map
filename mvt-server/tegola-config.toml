@@ -1,0 +1,29 @@
+[webserver]
+port = ":8080"
+
+[cache]
+type = "redis"
+uri = "redis://redis:6379"
+max_zoom = 20
+
+[[providers]]
+name = "pg_mvt"
+type = "mvt_postgis"
+uri = "postgresql://gisuser:gispass@postgis:5432/gis?sslmode=disable"
+
+  [[providers.layers]]
+  name = "routes"
+  geometry_fieldname = "geom"        
+  id_fieldname = "id"                
+  geometry_type = "LineString"       
+  sql = "SELECT ST_AsMVTGeom(geom, !BBOX!) AS geom, id, name FROM routes WHERE geom && !BBOX!"
+
+
+
+[[maps]]
+name = "routes_map"
+
+  [[maps.layers]]
+  provider_layer = "pg_mvt.routes"
+  min_zoom = 0
+  max_zoom = 20
