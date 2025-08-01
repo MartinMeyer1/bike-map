@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
+	"miobike/internal/config"
+	"miobike/internal/models"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -12,13 +13,20 @@ import (
 )
 
 func main() {
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	cfg.LogConfiguration()
+
 	app := pocketbase.New()
 
 	// Ensure only Editor or Admin users can create trails
 	app.OnRecordCreateRequest().BindFunc(func(e *core.RecordRequestEvent) error {
 		if e.Collection.Name == "users" {
 			// Set default role to "Viewer" for new users
-			e.Record.Set("role", "Viewer")
+			e.Record.Set("role", string(models.RoleViewer))
 			// Don't call app.Save here - let the normal flow handle it
 		}
 		if e.Collection.Name == "trails" {
@@ -35,8 +43,8 @@ func main() {
 			}
 			
 			// Check if user has Editor or Admin role
-			userRole := reqInfo.Auth.GetString("role")
-			if userRole != "Editor" && userRole != "Admin" {
+			userRole := models.UserRole(reqInfo.Auth.GetString("role"))
+			if userRole != models.RoleEditor && userRole != models.RoleAdmin {
 				return apis.NewForbiddenError("Only users with Editor or Admin role can create trails", nil)
 			}
 		}
@@ -66,7 +74,7 @@ func main() {
 
 			if oldRole != newRole {
 				// Check if the current user is an admin
-				if reqInfo.Auth.GetString("role") != "Admin" {
+				if models.UserRole(reqInfo.Auth.GetString("role")) != models.RoleAdmin {
 					return apis.NewForbiddenError("You are not allowed to change your own role.", nil)
 				}
 			}
@@ -85,10 +93,10 @@ func main() {
 		if err := configureUsersCollection(app); err != nil {
 			return err
 		}
-		if err := configureGoogleOAuth(app); err != nil {
+		if err := configureGoogleOAuth(app, cfg); err != nil {
 			return err
 		}
-		if err := ensureAdminAccount(app); err != nil {
+		if err := ensureAdminAccount(app, cfg); err != nil {
 			return err
 		}
 
@@ -131,7 +139,6 @@ func main() {
 		
 			// Get user id from the claim (ensure your JWT contains the "id" field)
 			userId, ok := claims["id"].(string)
-			log.Println("User ID from token:", userId)
 			if !ok || userId == "" {
 				e.Response.WriteHeader(401)
 				return nil
@@ -145,8 +152,8 @@ func main() {
 			}
 
 			// Check user role
-			userRole := user.GetString("role")
-			if userRole != "Editor" && userRole != "Admin" {
+			userRole := models.UserRole(user.GetString("role"))
+			if userRole != models.RoleEditor && userRole != models.RoleAdmin {
 				e.Response.WriteHeader(401)
 				return nil
 			}
@@ -167,8 +174,9 @@ func main() {
 		return e.Next()
 	})
 
+	// Start the server with configuration
 	if err := app.Start(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
 
@@ -210,9 +218,15 @@ func ensureTrailsCollection(app core.App) error {
 		Name:     "description",
 		Required: false,
 	})
+	// Convert trail levels to string slice
+	trailLevels := make([]string, len(models.ValidTrailLevels))
+	for i, level := range models.ValidTrailLevels {
+		trailLevels[i] = string(level)
+	}
+	
 	collection.Fields.Add(&core.SelectField{
 		Name: "level",
-		Values: []string{"S0", "S1", "S2", "S3", "S4", "S5"},
+		Values: trailLevels,
 		MaxSelect: 1,
 		Required: true,
 	})
@@ -282,7 +296,7 @@ func configureUsersCollection(app core.App) error {
 		// Add role field with default value "Viewer"
 		roleField := &core.SelectField{
 			Name: "role",
-			Values: []string{"Viewer", "Editor", "Admin"},
+			Values: []string{string(models.RoleViewer), string(models.RoleEditor), string(models.RoleAdmin)},
 			MaxSelect: 1,
 			Required: false, //So empty is allowed, will be replaced by Viewer anyway
 		}
@@ -298,13 +312,9 @@ func configureUsersCollection(app core.App) error {
 	return nil
 }
 
-func configureGoogleOAuth(app core.App) error {
-	// Get Google OAuth credentials from environment variables
-	clientId := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	
-	if clientId == "" || clientSecret == "" {
-		log.Println("⚠️  Google OAuth credentials not found in environment variables")
+func configureGoogleOAuth(app core.App, cfg *config.Config) error {
+	if !cfg.OAuth.Google.Enabled {
+		log.Println("⚠️  Google OAuth credentials not configured")
 		return nil // Don't fail startup, just log warning
 	}
 	
@@ -319,8 +329,8 @@ func configureGoogleOAuth(app core.App) error {
 	usersCollection.OAuth2.Providers = []core.OAuth2ProviderConfig{
 		{
 			Name:         "google",
-			ClientId:     clientId,
-			ClientSecret: clientSecret,
+			ClientId:     cfg.OAuth.Google.ClientID,
+			ClientSecret: cfg.OAuth.Google.ClientSecret,
 			DisplayName:  "Google",
 		},
 	}
@@ -346,13 +356,9 @@ func configureGoogleOAuth(app core.App) error {
 	return nil
 }
 
-func ensureAdminAccount(app core.App) error {
-	// Get admin credentials from environment variables
-	adminEmail := os.Getenv("ADMIN_EMAIL")
-	adminPassword := os.Getenv("ADMIN_PASSWORD")
-	
-	if adminEmail == "" || adminPassword == "" {
-		log.Println("⚠️  Admin credentials not found in environment variables - skipping admin account creation")
+func ensureAdminAccount(app core.App, cfg *config.Config) error {
+	if cfg.Admin.Email == "" || cfg.Admin.Password == "" {
+		log.Println("⚠️  Admin credentials not configured - skipping admin account creation")
 		return nil // Don't fail startup, just log warning
 	}
 	
@@ -363,24 +369,24 @@ func ensureAdminAccount(app core.App) error {
 	}
 
 	// Check if admin already exists
-	superuser, err := app.FindAuthRecordByEmail(superusersCol, adminEmail)
+	superuser, err := app.FindAuthRecordByEmail(superusersCol, cfg.Admin.Email)
 	if err != nil {
 		// Create new superuser if not found
 		superuser = core.NewRecord(superusersCol)
-		log.Printf("Creating new admin user: %s", adminEmail)
+		log.Printf("Creating new admin user: %s", cfg.Admin.Email)
 	} else {
-		log.Printf("Admin user already exists, updating password: %s", adminEmail)
+		log.Printf("Admin user already exists, updating password: %s", cfg.Admin.Email)
 	}
 
 	// Set credentials
-	superuser.SetEmail(adminEmail)
-	superuser.SetPassword(adminPassword)
+	superuser.SetEmail(cfg.Admin.Email)
+	superuser.SetPassword(cfg.Admin.Password)
 
 	// Save the superuser
 	if err := app.Save(superuser); err != nil {
 		return fmt.Errorf("failed to save admin user: %w", err)
 	}
 	
-	log.Printf("✅ Successfully created/updated admin account: %s", adminEmail)
+	log.Printf("✅ Successfully created/updated admin account: %s", cfg.Admin.Email)
 	return nil
 }
