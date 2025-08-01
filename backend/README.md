@@ -14,21 +14,21 @@ go build -tags "sqlite_fts5" -o app .
 
 ## Configuration
 
-Set environment variables:
+**Environment Variables:**
 
 ```bash
-# OAuth (optional)
+# OAuth Configuration (optional)
 GOOGLE_CLIENT_ID=your_client_id
 GOOGLE_CLIENT_SECRET=your_client_secret
 
-# Admin account (optional)
+# Admin Account (optional)
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=secure_password
 
-# Server (optional)
-PORT=8090
-HOST=0.0.0.0
-PB_DATA_DIR=/pb_data
+# Server Configuration (optional)
+PORT=8090                 # Server port (default: 8090)
+HOST=0.0.0.0             # Server host (default: 0.0.0.0)  
+PB_DATA_DIR=/pb_data     # Data directory (default: /pb_data)
 ```
 
 ## Features
@@ -38,6 +38,7 @@ PB_DATA_DIR=/pb_data
 - **Authentication**: Google OAuth integration
 - **API**: RESTful API with PocketBase
 - **Authorization**: JWT-based auth validation endpoint
+- **Security**: CORS middleware with wildcard origin support
 
 ## API Endpoints
 

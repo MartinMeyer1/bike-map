@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"miobike/internal/config"
-	"miobike/internal/models"
+	"bikemap/internal/config"
+	"bikemap/internal/models"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"

@@ -100,5 +100,5 @@ EOF
 echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo -e "${YELLOW}🌐 Your BikeMap should be available at https://${BASE_DOMAIN}${NC}"
 echo -e "${YELLOW}🔧 Admin interface: https://admin.${BASE_DOMAIN}${NC}"
-echo -e "${YELLOW}🧭 Routing service: https://routing.${BASE_DOMAIN}${NC}"
+echo -e "${YELLOW}🧭 Routing service: https://${BASE_DOMAIN}/brouter${NC}"
 echo -e "${YELLOW}📊 Traefik dashboard: https://proxy.${BASE_DOMAIN}${NC}"

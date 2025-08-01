@@ -151,6 +151,10 @@ The deployment uses a subdomain-based architecture:
   - Admin interface: `https://admin.bike-map.ch`
   - Data persisted in `./pb_data` volume
 
+- **Routing Engine** (BRouter)
+  - Routing service: `https://bike-map.ch/brouter/*`
+  - Protected by ForwardAuth middleware requiring Editor/Admin roles
+
 - **Frontend** (React SPA)
   - Main application: `https://bike-map.ch`
   - Served by Nginx
@@ -244,9 +248,16 @@ Make sure `VITE_API_BASE_URL` is set correctly when building the frontend image.
   - Password: Your `ADMIN_PASSWORD`
 - **PocketBase admin interface**: Protected with admin account at `https://admin.bike-map.ch`
   - Same credentials as above
+- **BRouter service**: Protected by ForwardAuth middleware requiring Editor/Admin roles
+- **CORS configuration**: Backend allows all origins (*) - consider restricting in production
 - **SSL/HTTPS**: Automatic certificate management via Let's Encrypt
 - **Regular backups**: Recommended for production data
 - **Updates**: Keep Docker images updated regularly
+
+**Security Considerations:**
+- The backend currently uses wildcard CORS (`*`) for development convenience
+- For production, consider modifying `main.go` to restrict CORS to your domain only
+- All services are protected by SSL/HTTPS via Traefik with automatic certificate renewal
 
 ## Support
 

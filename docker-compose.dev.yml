@@ -1,0 +1,42 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8090:8090"
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@localhost}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - PORT=8090
+      - HOST=0.0.0.0
+      - PB_DATA_DIR=/pb_data
+    volumes:
+      - "./backend/pb_data:/pb_data"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8090
+      - VITE_BROUTER_BASE_URL=http://localhost:17777
+    volumes:
+      - "./frontend:/app"
+      - "/app/node_modules"
+    restart: unless-stopped
+
+  brouter:
+    build: ./routing-server/brouter
+    ports:
+      - "17777:17777"
+    volumes:
+      - "./routing-server/segments:/segments4"
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge

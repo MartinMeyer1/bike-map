@@ -1,4 +1,4 @@
-module miobike
+module bikemap
 
 go 1.23.0
 
