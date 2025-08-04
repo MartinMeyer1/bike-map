@@ -145,6 +145,23 @@ func main() {
 			SetupMVTRoutes(e, mvtService)
 		}
 
+		// Sync all trails to PostGIS at startup
+		log.Println("🔄 Starting initial sync of all trails to PostGIS...")
+		go func() {
+			gpxImporter, err := NewGPXImporter(GetDefaultPostGISConfig())
+			if err != nil {
+				log.Printf("⚠️  Failed to initialize GPX importer for startup sync: %v", err)
+				return
+			}
+			defer gpxImporter.Close()
+
+			if err := gpxImporter.SyncAllTrails(app); err != nil {
+				log.Printf("⚠️  Failed to sync trails at startup: %v", err)
+			} else {
+				log.Println("✅ Successfully synced all trails to PostGIS at startup")
+			}
+		}()
+
 		// Add ForwardAuth validation endpoint
 		e.Router.GET("/api/auth/validate", func(e *core.RequestEvent) error {
 			// Get Authorization header

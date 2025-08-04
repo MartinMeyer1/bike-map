@@ -228,47 +228,6 @@ func SetupMVTRoutes(e *core.ServeEvent, mvtService *MVTService) {
 		return nil
 	})
 
-	// Add sync endpoint to manually trigger sync from PocketBase to PostGIS
-	e.Router.POST("/api/mvt/sync", func(re *core.RequestEvent) error {
-		// Check if user is authenticated and has admin role
-		reqInfo, err := re.RequestInfo()
-		if err != nil || reqInfo.Auth == nil {
-			re.Response.WriteHeader(http.StatusUnauthorized)
-			re.Response.Write([]byte("Authentication required"))
-			return nil
-		}
-
-		userRole := reqInfo.Auth.GetString("role")
-		if userRole != "Admin" {
-			re.Response.WriteHeader(http.StatusForbidden)
-			re.Response.Write([]byte("Admin role required"))
-			return nil
-		}
-
-		// Initialize GPX importer
-		gpxImporter, err := NewGPXImporter(GetDefaultPostGISConfig())
-		if err != nil {
-			log.Printf("Failed to initialize GPX importer: %v", err)
-			re.Response.WriteHeader(http.StatusInternalServerError)
-			re.Response.Write([]byte("Failed to initialize importer"))
-			return nil
-		}
-		defer gpxImporter.Close()
-
-		// Get app instance from context
-		app := re.App
-
-		if err := gpxImporter.SyncAllTrails(app); err != nil {
-			log.Printf("Failed to sync trails: %v", err)
-			re.Response.WriteHeader(http.StatusInternalServerError)
-			re.Response.Write([]byte("Failed to sync trails"))
-			return nil
-		}
-
-		re.Response.WriteHeader(http.StatusOK)
-		re.Response.Write([]byte("Trails synced successfully"))
-		return nil
-	})
 }
 
 // GetTrailsMetadata returns trail metadata (for use with MVT geometry)

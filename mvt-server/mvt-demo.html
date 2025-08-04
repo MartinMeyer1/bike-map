@@ -186,20 +186,20 @@
         const mvtLayer = L.vectorGrid.protobuf('http://localhost:8090/api/mvt/trails?z={z}&x={x}&y={y}', {
             vectorTileLayerStyles: {
                 'trails': function(properties, zoom) {
-                    // Style trails based on difficulty level
+                    // Style trails based on difficulty level with flashy colors
                     const levelColors = {
-                        'S0': '#2ecc71', // Green - Easy
-                        'S1': '#f1c40f', // Yellow - Moderate  
-                        'S2': '#e67e22', // Orange - Difficult
-                        'S3': '#e74c3c', // Red - Very Difficult
-                        'S4': '#8e44ad', // Purple - Extreme
-                        'S5': '#2c3e50'  // Dark - Expert Only
+                        'S0': '#00ff88', // Bright Green - Easy
+                        'S1': '#ffff00', // Bright Yellow - Moderate  
+                        'S2': '#ff8800', // Bright Orange - Difficult
+                        'S3': '#ff0044', // Bright Red - Very Difficult
+                        'S4': '#cc00ff', // Bright Purple - Extreme
+                        'S5': '#ff0099'  // Hot Pink - Expert Only
                     };
                     
                     return {
-                        weight: Math.max(2, 6 - zoom * 0.3), // Thicker lines at lower zoom
-                        color: levelColors[properties.level] || '#3498db',
-                        opacity: 0.8,
+                        weight: Math.max(5, 12 - zoom * 0.4), // Much thicker lines
+                        color: levelColors[properties.level] || '#00ccff', // Bright cyan fallback
+                        opacity: 0.9, // Higher opacity for better visibility
                         lineCap: 'round',
                         lineJoin: 'round'
                     };
@@ -217,8 +217,8 @@
             if (e.layer && e.layer.properties) {
                 const props = e.layer.properties;
                 const levelColors = {
-                    'S0': '#2ecc71', 'S1': '#f1c40f', 'S2': '#e67e22',
-                    'S3': '#e74c3c', 'S4': '#8e44ad', 'S5': '#2c3e50'
+                    'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
+                    'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
                 };
                 
                 const popupContent = `
@@ -278,13 +278,13 @@
             // Update trail styles with new opacity
             mvtLayer.setFeatureStyle = function(layerName, feature) {
                 const levelColors = {
-                    'S0': '#2ecc71', 'S1': '#f1c40f', 'S2': '#e67e22',
-                    'S3': '#e74c3c', 'S4': '#8e44ad', 'S5': '#2c3e50'
+                    'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
+                    'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
                 };
                 
                 return {
-                    weight: 3,
-                    color: levelColors[feature.properties.level] || '#3498db',
+                    weight: 6, // Thicker lines for opacity control too
+                    color: levelColors[feature.properties.level] || '#00ccff',
                     opacity: opacity,
                     lineCap: 'round',
                     lineJoin: 'round'
