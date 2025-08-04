@@ -5,6 +5,8 @@ go 1.23.0
 toolchain go1.23.4
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.3
+	github.com/lib/pq v1.10.9
 	github.com/pocketbase/pocketbase v0.29.0
 )
 
@@ -18,7 +20,6 @@ require (
 	github.com/ganigeorgiev/fexpr v0.5.0 // indirect
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect

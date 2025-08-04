@@ -75,6 +75,49 @@ func main() {
 		return e.Next()
 	})
 
+	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trails" {
+			// Sync to PostGIS after trail is created (in goroutine to avoid blocking)
+			go func() {
+				// Give some time for the record to be fully committed
+				gpxImporter, err := NewGPXImporter(GetDefaultPostGISConfig())
+				if err != nil {
+					log.Printf("Failed to initialize GPX importer for sync: %v", err)
+					return
+				}
+				defer gpxImporter.Close()
+
+				if err := gpxImporter.ImportTrailFromPocketBase(app, e.Record.Id); err != nil {
+					log.Printf("Failed to sync trail %s to PostGIS: %v", e.Record.Id, err)
+				} else {
+					log.Printf("Successfully synced trail %s to PostGIS", e.Record.GetString("name"))
+				}
+			}()
+		}
+		return e.Next()
+	})
+
+	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trails" {
+			// Sync to PostGIS after trail is updated
+			go func() {
+				gpxImporter, err := NewGPXImporter(GetDefaultPostGISConfig())
+				if err != nil {
+					log.Printf("Failed to initialize GPX importer for sync: %v", err)
+					return
+				}
+				defer gpxImporter.Close()
+
+				if err := gpxImporter.ImportTrailFromPocketBase(app, e.Record.Id); err != nil {
+					log.Printf("Failed to sync updated trail %s to PostGIS: %v", e.Record.Id, err)
+				} else {
+					log.Printf("Successfully synced updated trail %s to PostGIS", e.Record.GetString("name"))
+				}
+			}()
+		}
+		return e.Next()
+	})
+
 	// Add CORS middleware for frontend integration
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 
@@ -90,6 +133,16 @@ func main() {
 		}
 		if err := ensureAdminAccount(app); err != nil {
 			return err
+		}
+
+		// Initialize MVT service
+		mvtService, err := NewMVTService(GetDefaultPostGISConfig())
+		if err != nil {
+			log.Printf("⚠️  Failed to initialize MVT service: %v", err)
+			log.Printf("MVT endpoints will not be available")
+		} else {
+			log.Println("✅ MVT service initialized successfully")
+			SetupMVTRoutes(e, mvtService)
 		}
 
 		// Add ForwardAuth validation endpoint

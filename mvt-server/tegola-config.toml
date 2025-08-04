@@ -7,23 +7,23 @@ uri = "redis://redis:6379"
 max_zoom = 20
 
 [[providers]]
-name = "pg_mvt"
-type = "mvt_postgis"
+name = "pg_trails"
+type = "postgis"
 uri = "postgresql://gisuser:gispass@postgis:5432/gis?sslmode=disable"
 
   [[providers.layers]]
-  name = "routes"
+  name = "trails"
   geometry_fieldname = "geom"        
   id_fieldname = "id"                
   geometry_type = "LineString"       
-  sql = "SELECT ST_AsMVTGeom(geom, !BBOX!) AS geom, id, name FROM routes WHERE geom && !BBOX!"
+  sql = "SELECT id, name, level, geom FROM trails WHERE geom && !BBOX!"
 
 
 
 [[maps]]
-name = "routes_map"
+name = "trails_map"
 
   [[maps.layers]]
-  provider_layer = "pg_mvt.routes"
+  provider_layer = "pg_trails.trails"
   min_zoom = 0
   max_zoom = 20
