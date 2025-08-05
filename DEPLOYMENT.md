@@ -1,6 +1,6 @@
 # BikeMap Production Deployment Guide
 
-This guide will help you deploy the professional BikeMap application to a VPS using Docker, PostGIS, and Traefik for high-performance vector tile serving.
+This guide will help you deploy the BikeMap application to a VPS using Docker, PostGIS, and Traefik for high-performance vector tile serving.
 
 ## Prerequisites
 
@@ -163,7 +163,7 @@ docker compose logs backend
 
 ## Service Architecture
 
-The deployment uses a professional multi-service architecture:
+The deployment uses a multi-service architecture:
 
 - **Traefik** (Reverse proxy with automatic SSL)
   - Port 80 (HTTP - redirects to HTTPS)
@@ -176,7 +176,7 @@ The deployment uses a professional multi-service architecture:
   - Vector tile generation with ST_AsMVT()
   - Data persisted in `postgis_data` volume
 
-- **Backend** (Professional Go service)
+- **Backend** (Go service)
   - API routes: `https://bike-map.ch/api/*`
   - Vector tiles: `https://bike-map.ch/api/tiles/{z}/{x}/{y}.mvt`
   - Admin interface: `https://admin.bike-map.ch`

@@ -54,7 +54,7 @@ if [ -z "$ADMIN_PASSWORD_HASH" ]; then
     fi
 fi
 
-echo -e "${GREEN}📦 Building professional backend image...${NC}"
+echo -e "${GREEN}📦 Building backend image...${NC}"
 echo -e "${BLUE}   → Clean architecture with PostGIS integration${NC}"
 docker build -t bikemap-backend:latest ./backend
 

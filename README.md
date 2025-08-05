@@ -1,8 +1,8 @@
-# 🚵 BikeMap
+# 🤘 BikeMap
 
-A professional web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter for high-performance vector tile rendering and optimal user experience.
+A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter for high-performance vector tile rendering and optimal user experience.
 
-## 🚀 Features
+## Features
 
 ### **Trail Management**
 - GPX file upload with metadata (name, difficulty S0-S5, tags, description)
@@ -25,7 +25,7 @@ A professional web application for sharing MTB trails among friends. Built with 
 - ForwardAuth middleware for service protection
 - CORS enabled for cross-origin requests (configurable for production)
 
-## 🏗️ Architecture
+## Architecture
 
 ### **Backend (PocketBase + Go + PostGIS)**
 - **Clean Architecture**: Professional service-oriented design
@@ -79,7 +79,7 @@ POSTGRES_USER=gisuser                # Database user
 POSTGRES_PASSWORD=gispass            # Database password
 ```
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 bike-map/
@@ -118,7 +118,7 @@ bike-map/
 - **S4**: Purple - Expert-level obstacles
 - **S5**: Black - Extreme technical difficulty
 
-## 🛠️ Development
+## Development
 
 ### **Quick Start**
 ```bash
@@ -147,7 +147,7 @@ docker-compose -f docker-compose.dev.yml up --build
 - **Cache Invalidation**: Vector tiles update automatically
 - **Debug Console**: MVT demo page with tile loading statistics
 
-## 🚀 Production Deployment
+## Production Deployment
 
 ### **Quick Start**
 ```bash
