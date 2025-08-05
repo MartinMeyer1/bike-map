@@ -170,65 +170,96 @@ func SetupMVTRoutes(e *core.ServeEvent, mvtService *MVTService) {
 		return nil
 	})
 
-	// Add trail MVT endpoint
-	e.Router.GET("/api/mvt/trails", func(re *core.RequestEvent) error {
-		// Set CORS headers
-		re.Response.Header().Set("Access-Control-Allow-Origin", "*")
-		re.Response.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		re.Response.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
-		// Parse query parameters for tile coordinates
-		z, err := strconv.Atoi(re.Request.URL.Query().Get("z"))
-		if err != nil {
-			re.Response.WriteHeader(http.StatusBadRequest)
-			re.Response.Write([]byte("Missing or invalid zoom level"))
-			return nil
-		}
-		
-		x, err := strconv.Atoi(re.Request.URL.Query().Get("x"))
-		if err != nil {
-			re.Response.WriteHeader(http.StatusBadRequest)
-			re.Response.Write([]byte("Missing or invalid x coordinate"))
-			return nil
-		}
-		
-		y, err := strconv.Atoi(re.Request.URL.Query().Get("y"))
-		if err != nil {
-			re.Response.WriteHeader(http.StatusBadRequest)
-			re.Response.Write([]byte("Missing or invalid y coordinate"))
-			return nil
-		}
-
-		// Validate tile coordinates
-		if z < 0 || z > 18 || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
-			re.Response.WriteHeader(http.StatusBadRequest)
-			re.Response.Write([]byte("Invalid tile coordinates"))
-			return nil
-		}
-
-		// Generate MVT
-		log.Printf("Generating MVT for tile %d/%d/%d", z, x, y)
-		mvtData, err := mvtService.GenerateTrailsMVT(z, x, y)
-		if err != nil {
-			log.Printf("Failed to generate MVT for tile %d/%d/%d: %v", z, x, y, err)
-			re.Response.WriteHeader(http.StatusInternalServerError)
-			re.Response.Write([]byte(fmt.Sprintf("Failed to generate tile: %v", err)))
-			return nil
-		}
-		log.Printf("Generated MVT tile size: %d bytes", len(mvtData))
-
-		// Set appropriate headers for MVT (CORS already set above)
-		re.Response.Header().Set("Content-Type", "application/vnd.mapbox-vector-tile")
-		re.Response.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
-		
-		// Write MVT data
-		re.Response.WriteHeader(http.StatusOK)
-		re.Response.Write(mvtData)
-		
-		return nil
+	// Add standard MVT endpoints using wildcard pattern since PocketBase doesn't support multi-level parameters
+	// Support standard path format /api/tiles/{z}/{x}/{y}.mvt
+	e.Router.GET("/api/tiles/{path...}", func(re *core.RequestEvent) error {
+		return handleMVTRequestWithPath(re, mvtService)
 	})
 
 }
+
+// handleMVTRequestWithPath handles MVT requests using wildcard path parsing
+func handleMVTRequestWithPath(re *core.RequestEvent, mvtService *MVTService) error {
+	// Set CORS headers first
+	re.Response.Header().Set("Access-Control-Allow-Origin", "*")
+	re.Response.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	re.Response.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	
+	// Extract path from wildcard parameter
+	pathParam := re.Request.PathValue("path")
+	
+	// Remove file extensions (.mvt, .pbf)
+	pathParam = strings.TrimSuffix(pathParam, ".mvt")
+	pathParam = strings.TrimSuffix(pathParam, ".pbf")
+	
+	// Split path into z/x/y components
+	parts := strings.Split(pathParam, "/")
+	if len(parts) != 3 {
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte("Invalid path format. Expected: /api/tiles/{z}/{x}/{y}.mvt"))
+		return nil
+	}
+	
+	// Parse coordinates
+	z, err := strconv.Atoi(parts[0])
+	if err != nil {
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte("Invalid zoom level"))
+		return nil
+	}
+	
+	x, err := strconv.Atoi(parts[1])
+	if err != nil {
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte("Invalid x coordinate"))
+		return nil
+	}
+	
+	y, err := strconv.Atoi(parts[2])
+	if err != nil {
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte("Invalid y coordinate"))
+		return nil
+	}
+
+	// Validate tile coordinates
+	if z < 0 || z > 18 || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte("Invalid tile coordinates"))
+		return nil
+	}
+
+	// Generate MVT
+	log.Printf("Generating standard MVT for tile %d/%d/%d", z, x, y)
+	mvtData, err := mvtService.GenerateTrailsMVT(z, x, y)
+	if err != nil {
+		log.Printf("Failed to generate MVT for tile %d/%d/%d: %v", z, x, y, err)
+		re.Response.WriteHeader(http.StatusInternalServerError)
+		re.Response.Write([]byte(fmt.Sprintf("Failed to generate tile: %v", err)))
+		return nil
+	}
+	log.Printf("Generated standard MVT tile size: %d bytes", len(mvtData))
+
+	// Set standard MVT headers (CORS already set above)
+	re.Response.Header().Set("Content-Type", "application/vnd.mapbox-vector-tile")
+	
+	// Set proper caching headers for tiles
+	re.Response.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
+	re.Response.Header().Set("ETag", fmt.Sprintf(`"mvt-%d-%d-%d"`, z, x, y)) // Simple ETag
+	
+	// Check if client has cached version
+	if re.Request.Header.Get("If-None-Match") == fmt.Sprintf(`"mvt-%d-%d-%d"`, z, x, y) {
+		re.Response.WriteHeader(http.StatusNotModified)
+		return nil
+	}
+	
+	// Write MVT data
+	re.Response.WriteHeader(http.StatusOK)
+	re.Response.Write(mvtData)
+	
+	return nil
+}
+
 
 // GetTrailsMetadata returns trail metadata (for use with MVT geometry)
 func (m *MVTService) GetTrailsMetadata(trailIds []string) ([]map[string]interface{}, error) {

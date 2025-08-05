@@ -151,6 +151,20 @@
                 Show Trail Marker
             </label>
         </div>
+        
+        <div class="control-group">
+            <label style="font-weight: bold; color: #2c3e50; margin-bottom: 10px;">
+                MVT Endpoint Format:
+            </label>
+            <label>
+                <input type="radio" name="mvtFormat" value="standard" checked>
+                Standard (/api/tiles/{z}/{x}/{y}.mvt)
+            </label>
+            <label>
+                <input type="radio" name="mvtFormat" value="query">
+                Query Parameters (?z=&x=&y=)
+            </label>
+        </div>
     </div>
     
     <div class="stats" id="stats">
@@ -182,93 +196,141 @@
             maxZoom: 18
         }).addTo(map);
 
-        // Add MVT trail layer
-        const mvtLayer = L.vectorGrid.protobuf('http://localhost:8090/api/mvt/trails?z={z}&x={x}&y={y}', {
-            vectorTileLayerStyles: {
-                'trails': function(properties, zoom) {
-                    // Style trails based on difficulty level with flashy colors
-                    const levelColors = {
-                        'S0': '#00ff88', // Bright Green - Easy
-                        'S1': '#ffff00', // Bright Yellow - Moderate  
-                        'S2': '#ff8800', // Bright Orange - Difficult
-                        'S3': '#ff0044', // Bright Red - Very Difficult
-                        'S4': '#cc00ff', // Bright Purple - Extreme
-                        'S5': '#ff0099'  // Hot Pink - Expert Only
-                    };
-                    
-                    return {
-                        weight: Math.max(5, 12 - zoom * 0.4), // Much thicker lines
-                        color: levelColors[properties.level] || '#00ccff', // Bright cyan fallback
-                        opacity: 0.9, // Higher opacity for better visibility
-                        lineCap: 'round',
-                        lineJoin: 'round'
-                    };
+        // Initialize with standard format MVT layer
+        let currentMVTLayer;
+        let currentFormat = 'standard';
+        
+        function createMVTLayer(format) {
+            const url = format === 'standard' 
+                ? 'http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt'
+                : 'http://localhost:8090/api/mvt/trails?z={z}&x={x}&y={y}';
+                
+            console.log(`Creating MVT layer with ${format} format: ${url}`);
+            
+            return L.vectorGrid.protobuf(url, {
+                vectorTileLayerStyles: {
+                    'trails': function(properties, zoom) {
+                        // Style trails based on difficulty level with flashy colors
+                        const levelColors = {
+                            'S0': '#00ff88', // Bright Green - Easy
+                            'S1': '#ffff00', // Bright Yellow - Moderate  
+                            'S2': '#ff8800', // Bright Orange - Difficult
+                            'S3': '#ff0044', // Bright Red - Very Difficult
+                            'S4': '#cc00ff', // Bright Purple - Extreme
+                            'S5': '#ff0099'  // Hot Pink - Expert Only
+                        };
+                        
+                        return {
+                            weight: Math.max(5, 12 - zoom * 0.4), // Much thicker lines
+                            color: levelColors[properties.level] || '#00ccff', // Bright cyan fallback
+                            opacity: 0.9, // Higher opacity for better visibility
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        };
+                    }
+                },
+                interactive: true,
+                maxZoom: 18,
+                getFeatureId: function(f) {
+                    return f.properties.id;
                 }
-            },
-            interactive: true,
-            maxZoom: 18,
-            getFeatureId: function(f) {
-                return f.properties.id;
-            }
-        }).addTo(map);
+            });
+        }
+        
+        // Create initial MVT layer
+        currentMVTLayer = createMVTLayer(currentFormat).addTo(map);
 
         // Add click handlers for trail information
-        mvtLayer.on('click', function(e) {
-            if (e.layer && e.layer.properties) {
-                const props = e.layer.properties;
-                const levelColors = {
-                    'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
-                    'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
-                };
-                
-                const popupContent = `
-                    <div class="trail-popup">
-                        <h4>🚵 ${props.name}</h4>
-                        <p><strong>Difficulty:</strong> <span class="trail-level" style="background-color: ${levelColors[props.level]}">${props.level}</span></p>
-                        <p><strong>Trail ID:</strong> ${props.id}</p>
-                        <p><em>Click and drag to explore the trail route</em></p>
-                    </div>
-                `;
-                
-                L.popup()
-                    .setLatLng(e.latlng)
-                    .setContent(popupContent)
-                    .openOn(map);
-            }
-        });
+        function setupLayerEvents(layer) {
+            layer.on('click', function(e) {
+                if (e.layer && e.layer.properties) {
+                    const props = e.layer.properties;
+                    const levelColors = {
+                        'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
+                        'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
+                    };
+                    
+                    const popupContent = `
+                        <div class="trail-popup">
+                            <h4>🚵 ${props.name}</h4>
+                            <p><strong>Difficulty:</strong> <span class="trail-level" style="background-color: ${levelColors[props.level]}">${props.level}</span></p>
+                            <p><strong>Trail ID:</strong> ${props.id}</p>
+                            <p><strong>Format:</strong> ${currentFormat}</p>
+                            <p><em>Click and drag to explore the trail route</em></p>
+                        </div>
+                    `;
+                    
+                    L.popup()
+                        .setLatLng(e.latlng)
+                        .setContent(popupContent)
+                        .openOn(map);
+                }
+            });
 
-        // Track tile loading statistics  
-        mvtLayer.on('tileload', function(e) {
-            tileLoadCount++;
-            
-            // Count features in this tile
-            let tileFeatures = 0;
-            if (e.tile._features) {
-                Object.keys(e.tile._features).forEach(layerName => {
-                    const features = e.tile._features[layerName];
-                    tileFeatures += features.length;
-                    console.log(`Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - Layer '${layerName}': ${features.length} features`);
-                });
-            } else {
-                console.log(`Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - No _features property`);
-            }
-            
-            totalFeatures += tileFeatures;
-            updateStats();
-        });
+            // Track tile loading statistics  
+            layer.on('tileload', function(e) {
+                tileLoadCount++;
+                
+                // Count features in this tile
+                let tileFeatures = 0;
+                if (e.tile._features) {
+                    Object.keys(e.tile._features).forEach(layerName => {
+                        const features = e.tile._features[layerName];
+                        tileFeatures += features.length;
+                        console.log(`${currentFormat.toUpperCase()} - Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - Layer '${layerName}': ${features.length} features`);
+                    });
+                } else {
+                    console.log(`${currentFormat.toUpperCase()} - Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - No _features property`);
+                }
+                
+                totalFeatures += tileFeatures;
+                updateStats();
+            });
 
-        // Log tile errors to identify decode failures
-        mvtLayer.on('tileerror', function(e) {
-            console.error(`Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
-        });
+            // Log tile errors to identify decode failures
+            layer.on('tileerror', function(e) {
+                console.error(`${currentFormat.toUpperCase()} - Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
+            });
+        }
+        
+        // Setup events for initial layer
+        setupLayerEvents(currentMVTLayer);
 
         // Control handlers
         document.getElementById('mvtLayer').addEventListener('change', function() {
             if (this.checked) {
-                map.addLayer(mvtLayer);
+                map.addLayer(currentMVTLayer);
             } else {
-                map.removeLayer(mvtLayer);
+                map.removeLayer(currentMVTLayer);
             }
+        });
+        
+        // Format switcher
+        document.querySelectorAll('input[name="mvtFormat"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    const newFormat = this.value;
+                    console.log(`Switching MVT format from ${currentFormat} to ${newFormat}`);
+                    
+                    // Remove current layer
+                    map.removeLayer(currentMVTLayer);
+                    
+                    // Reset statistics for new layer
+                    tileLoadCount = 0;
+                    totalFeatures = 0;
+                    updateStats();
+                    
+                    // Create new layer with different format
+                    currentFormat = newFormat;
+                    currentMVTLayer = createMVTLayer(currentFormat);
+                    setupLayerEvents(currentMVTLayer);
+                    
+                    // Add new layer if checkbox is checked
+                    if (document.getElementById('mvtLayer').checked) {
+                        map.addLayer(currentMVTLayer);
+                    }
+                }
+            });
         });
 
         document.getElementById('opacity').addEventListener('input', function() {
@@ -276,7 +338,7 @@
             document.getElementById('opacityValue').textContent = opacity;
             
             // Update trail styles with new opacity
-            mvtLayer.setFeatureStyle = function(layerName, feature) {
+            currentMVTLayer.setFeatureStyle = function(layerName, feature) {
                 const levelColors = {
                     'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
                     'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
@@ -290,7 +352,7 @@
                     lineJoin: 'round'
                 };
             };
-            mvtLayer.redraw();
+            currentMVTLayer.redraw();
         });
 
         document.getElementById('showTrailCenter').addEventListener('change', function() {
@@ -309,8 +371,10 @@
 
         // Log successful initialization
         console.log('🚵 BikeMap MVT Demo initialized successfully!');
-        console.log('Backend API: http://localhost:8090/api/mvt/trails');
+        console.log('Standard API: http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt');
+        console.log('Query API: http://localhost:8090/api/mvt/trails?z={z}&x={x}&y={y}');
         console.log('Map bounds set to trail area in Swiss Alps');
+        console.log('Current format:', currentFormat);
     </script>
 </body>
 </html>

@@ -275,15 +275,61 @@ func (g *GPXImporter) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 
 	return R * c
 }
 
+// DeleteTrailFromPostGIS removes a trail from PostGIS
+func (g *GPXImporter) DeleteTrailFromPostGIS(trailId string) error {
+	query := `DELETE FROM trails WHERE id = $1`
+	result, err := g.db.Exec(query, trailId)
+	if err != nil {
+		return fmt.Errorf("failed to delete trail %s from PostGIS: %w", trailId, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for trail deletion: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("trail %s not found in PostGIS", trailId)
+	}
+
+	return nil
+}
+
+// ClearAllTrails removes all trails from PostGIS
+func (g *GPXImporter) ClearAllTrails() error {
+	query := `DELETE FROM trails`
+	result, err := g.db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to clear all trails from PostGIS: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for trail clearing: %w", err)
+	}
+
+	fmt.Printf("Cleared %d trails from PostGIS\n", rowsAffected)
+	return nil
+}
+
 // SyncAllTrails syncs all trails from PocketBase to PostGIS
 func (g *GPXImporter) SyncAllTrails(app core.App) error {
+	// Clear all existing trails from PostGIS first
+	if err := g.ClearAllTrails(); err != nil {
+		return fmt.Errorf("failed to clear existing trails: %w", err)
+	}
+
 	// Get all trails from PocketBase
 	trails, err := app.FindAllRecords("trails")
 	if err != nil {
 		return fmt.Errorf("failed to get trails from PocketBase: %w", err)
 	}
 
-	for _, trail := range trails {
+	fmt.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
+
+	for i, trail := range trails {
+		fmt.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
+		
 		if err := g.ImportTrailFromPocketBase(app, trail.Id); err != nil {
 			fmt.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
 			continue

@@ -118,6 +118,27 @@ func main() {
 		return e.Next()
 	})
 
+	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trails" {
+			// Remove trail from PostGIS when deleted from PocketBase
+			go func() {
+				gpxImporter, err := NewGPXImporter(GetDefaultPostGISConfig())
+				if err != nil {
+					log.Printf("Failed to initialize GPX importer for delete sync: %v", err)
+					return
+				}
+				defer gpxImporter.Close()
+
+				if err := gpxImporter.DeleteTrailFromPostGIS(e.Record.Id); err != nil {
+					log.Printf("Failed to delete trail %s from PostGIS: %v", e.Record.Id, err)
+				} else {
+					log.Printf("Successfully deleted trail %s from PostGIS", e.Record.GetString("name"))
+				}
+			}()
+		}
+		return e.Next()
+	})
+
 	// Add CORS middleware for frontend integration
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 
