@@ -76,7 +76,6 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 	}
 
 	// Generate MVT
-	log.Printf("Generating standard MVT for tile %d/%d/%d", z, x, y)
 	mvtData, err := h.mvtService.GenerateTrailsMVT(z, x, y)
 	if err != nil {
 		log.Printf("Failed to generate MVT for tile %d/%d/%d: %v", z, x, y, err)
@@ -84,7 +83,6 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		re.Response.Write([]byte(fmt.Sprintf("Failed to generate tile: %v", err)))
 		return nil
 	}
-	log.Printf("Generated standard MVT tile size: %d bytes", len(mvtData))
 
 	// Set MVT headers
 	h.setMVTHeaders(re, z, x, y)

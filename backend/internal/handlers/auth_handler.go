@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
 	"bike-map-backend/internal/interfaces"
@@ -69,7 +68,6 @@ func (h *AuthHandler) handleValidateAuth(re *core.RequestEvent, app core.App) er
 
 	// Get user id from the claim (ensure your JWT contains the "id" field)
 	userID, ok := claims["id"].(string)
-	log.Println("User ID from token:", userID)
 	if !ok || userID == "" {
 		re.Response.WriteHeader(http.StatusUnauthorized)
 		return nil
