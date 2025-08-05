@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"database/sql"
@@ -10,96 +10,57 @@ import (
 	"net/http"
 	"strings"
 
+	"bike-map-backend/internal/config"
+	"bike-map-backend/internal/models"
+
 	_ "github.com/lib/pq"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// GPX parsing structures
-type GPX struct {
-	XMLName xml.Name `xml:"gpx"`
-	Tracks  []Track  `xml:"trk"`
-}
-
-type Track struct {
-	Name     string        `xml:"name"`
-	Segments []TrackSegment `xml:"trkseg"`
-}
-
-type TrackSegment struct {
-	Points []TrackPoint `xml:"trkpt"`
-}
-
-type TrackPoint struct {
-	Lat       float64  `xml:"lat,attr"`
-	Lon       float64  `xml:"lon,attr"`
-	Elevation *float64 `xml:"ele,omitempty"`
-}
-
-// Elevation data structure
-type ElevationData struct {
-	Gain    float64 `json:"gain"`
-	Loss    float64 `json:"loss"`
-	Profile []ElevationPoint `json:"profile"`
-}
-
-type ElevationPoint struct {
-	Distance  float64 `json:"distance"`
-	Elevation float64 `json:"elevation"`
-}
-
-// PostGIS configuration
-type PostGISConfig struct {
-	Host     string
-	Port     int
-	Database string
-	User     string
-	Password string
-}
-
-// GPX Importer service
-type GPXImporter struct {
+// GPXService handles GPX file processing and PostGIS operations
+type GPXService struct {
 	db     *sql.DB
-	config PostGISConfig
+	config *config.Config
 }
 
-// NewGPXImporter creates a new GPX importer instance
-func NewGPXImporter(config PostGISConfig) (*GPXImporter, error) {
+// NewGPXService creates a new GPX service instance
+func NewGPXService(cfg *config.Config) (*GPXService, error) {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		config.Host, config.Port, config.User, config.Password, config.Database)
-	
+		cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Database)
+
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to PostGIS: %w", err)
 	}
-	
+
 	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
 	}
-	
-	return &GPXImporter{
+
+	return &GPXService{
 		db:     db,
-		config: config,
+		config: cfg,
 	}, nil
 }
 
 // Close closes the database connection
-func (g *GPXImporter) Close() error {
+func (g *GPXService) Close() error {
 	return g.db.Close()
 }
 
 // ImportTrailFromPocketBase imports a trail from PocketBase to PostGIS
-func (g *GPXImporter) ImportTrailFromPocketBase(app core.App, trailId string) error {
+func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) error {
 	// Get trail record from PocketBase
-	trail, err := app.FindRecordById("trails", trailId)
+	trail, err := app.FindRecordById("trails", trailID)
 	if err != nil {
-		return fmt.Errorf("failed to find trail %s: %w", trailId, err)
+		return fmt.Errorf("failed to find trail %s: %w", trailID, err)
 	}
 
 	// Get GPX file URL
 	gpxFile := trail.GetString("file")
 	if gpxFile == "" {
-		return fmt.Errorf("trail %s has no GPX file", trailId)
+		return fmt.Errorf("trail %s has no GPX file", trailID)
 	}
 
 	// Download and parse GPX file
@@ -118,12 +79,11 @@ func (g *GPXImporter) ImportTrailFromPocketBase(app core.App, trailId string) er
 }
 
 // downloadGPXFromPocketBase downloads GPX file from PocketBase storage
-func (g *GPXImporter) downloadGPXFromPocketBase(app core.App, trail *core.Record, filename string) ([]byte, error) {
-	// Construct file URL (similar to frontend trailCache.ts)
-	baseURL := "http://localhost:8090" // TODO: Make configurable
-	fileUrl := fmt.Sprintf("%s/api/files/trails/%s/%s", baseURL, trail.Id, filename)
-	
-	resp, err := http.Get(fileUrl)
+func (g *GPXService) downloadGPXFromPocketBase(app core.App, trail *core.Record, filename string) ([]byte, error) {
+	// Construct file URL
+	fileURL := fmt.Sprintf("%s/api/files/trails/%s/%s", g.config.Server.BaseURL, trail.Id, filename)
+
+	resp, err := http.Get(fileURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download GPX file: %w", err)
 	}
@@ -137,8 +97,8 @@ func (g *GPXImporter) downloadGPXFromPocketBase(app core.App, trail *core.Record
 }
 
 // parseGPX parses GPX XML data
-func (g *GPXImporter) parseGPX(data []byte) (*GPX, error) {
-	var gpx GPX
+func (g *GPXService) parseGPX(data []byte) (*models.GPX, error) {
+	var gpx models.GPX
 	if err := xml.Unmarshal(data, &gpx); err != nil {
 		return nil, fmt.Errorf("failed to parse GPX XML: %w", err)
 	}
@@ -151,12 +111,12 @@ func (g *GPXImporter) parseGPX(data []byte) (*GPX, error) {
 }
 
 // insertTrailToPostGIS inserts trail data into PostGIS
-func (g *GPXImporter) insertTrailToPostGIS(trail *core.Record, gpx *GPX) error {
+func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) error {
 	// Use the first track (most GPX files have only one track)
 	track := gpx.Tracks[0]
-	
+
 	// Collect all points from all segments
-	var allPoints []TrackPoint
+	var allPoints []models.TrackPoint
 	for _, segment := range track.Segments {
 		allPoints = append(allPoints, segment.Points...)
 	}
@@ -218,17 +178,17 @@ func (g *GPXImporter) insertTrailToPostGIS(trail *core.Record, gpx *GPX) error {
 }
 
 // calculateElevationData calculates elevation gain, loss, and profile
-func (g *GPXImporter) calculateElevationData(points []TrackPoint) (*ElevationData, error) {
-	data := &ElevationData{
-		Profile: make([]ElevationPoint, 0, len(points)),
+func (g *GPXService) calculateElevationData(points []models.TrackPoint) (*models.ElevationData, error) {
+	data := &models.ElevationData{
+		Profile: make([]models.ElevationPoint, 0, len(points)),
 	}
 
 	var totalDistance float64
-	
+
 	for i, point := range points {
 		if i > 0 {
 			prevPoint := points[i-1]
-			
+
 			// Calculate distance using Haversine formula
 			distance := g.haversineDistance(
 				prevPoint.Lat, prevPoint.Lon,
@@ -249,7 +209,7 @@ func (g *GPXImporter) calculateElevationData(points []TrackPoint) (*ElevationDat
 
 		// Add to elevation profile
 		if point.Elevation != nil {
-			data.Profile = append(data.Profile, ElevationPoint{
+			data.Profile = append(data.Profile, models.ElevationPoint{
 				Distance:  totalDistance,
 				Elevation: *point.Elevation,
 			})
@@ -260,27 +220,27 @@ func (g *GPXImporter) calculateElevationData(points []TrackPoint) (*ElevationDat
 }
 
 // haversineDistance calculates distance between two lat/lng points in meters
-func (g *GPXImporter) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
+func (g *GPXService) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
 	const R = 6371000 // Earth's radius in meters
-	
+
 	dLat := (lat2 - lat1) * math.Pi / 180
 	dLng := (lng2 - lng1) * math.Pi / 180
-	
+
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
 		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
 		math.Sin(dLng/2)*math.Sin(dLng/2)
-	
+
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-	
+
 	return R * c
 }
 
 // DeleteTrailFromPostGIS removes a trail from PostGIS
-func (g *GPXImporter) DeleteTrailFromPostGIS(trailId string) error {
+func (g *GPXService) DeleteTrailFromPostGIS(trailID string) error {
 	query := `DELETE FROM trails WHERE id = $1`
-	result, err := g.db.Exec(query, trailId)
+	result, err := g.db.Exec(query, trailID)
 	if err != nil {
-		return fmt.Errorf("failed to delete trail %s from PostGIS: %w", trailId, err)
+		return fmt.Errorf("failed to delete trail %s from PostGIS: %w", trailID, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -289,14 +249,14 @@ func (g *GPXImporter) DeleteTrailFromPostGIS(trailId string) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("trail %s not found in PostGIS", trailId)
+		return fmt.Errorf("trail %s not found in PostGIS", trailID)
 	}
 
 	return nil
 }
 
 // ClearAllTrails removes all trails from PostGIS
-func (g *GPXImporter) ClearAllTrails() error {
+func (g *GPXService) ClearAllTrails() error {
 	query := `DELETE FROM trails`
 	result, err := g.db.Exec(query)
 	if err != nil {
@@ -313,7 +273,7 @@ func (g *GPXImporter) ClearAllTrails() error {
 }
 
 // SyncAllTrails syncs all trails from PocketBase to PostGIS
-func (g *GPXImporter) SyncAllTrails(app core.App) error {
+func (g *GPXService) SyncAllTrails(app core.App) error {
 	// Clear all existing trails from PostGIS first
 	if err := g.ClearAllTrails(); err != nil {
 		return fmt.Errorf("failed to clear existing trails: %w", err)
@@ -329,7 +289,7 @@ func (g *GPXImporter) SyncAllTrails(app core.App) error {
 
 	for i, trail := range trails {
 		fmt.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
-		
+
 		if err := g.ImportTrailFromPocketBase(app, trail.Id); err != nil {
 			fmt.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
 			continue
@@ -338,15 +298,4 @@ func (g *GPXImporter) SyncAllTrails(app core.App) error {
 	}
 
 	return nil
-}
-
-// GetDefaultPostGISConfig returns default PostGIS configuration
-func GetDefaultPostGISConfig() PostGISConfig {
-	return PostGISConfig{
-		Host:     "localhost",
-		Port:     5432,
-		Database: "gis",
-		User:     "gisuser",
-		Password: "gispass",
-	}
 }

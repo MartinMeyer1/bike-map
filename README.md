@@ -1,143 +1,116 @@
-# 🤘 BikeMap
+# 🚵 BikeMap
 
-A lightweight social web app for sharing MTB singletracks among friends. Built with React frontend and PocketBase backend, featuring client-side GPX processing and Swiss topographic maps.
+A professional web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter for high-performance vector tile rendering and optimal user experience.
 
-## ✅ Features
+## 🚀 Features
 
-### 🔐 Authentication
-- ✅ Google OAuth 2.0 authentication (primary)
-- ✅ Role-based permissions (Viewer, Editor, Admin)
-- ✅ Session management using PocketBase JWT (localStorage)
-- ✅ User authentication state management
-- ✅ Automatic admin account creation via environment variables
+### **Trail Management**
+- GPX file upload with metadata (name, difficulty S0-S5, tags, description)
+- Role-based access control (Viewer, Editor, Admin)
+- Trail editing and deletion capabilities
+- **Vector Tile Rendering**: High-performance MVT tiles generated from PostGIS
+- **Real-time Cache Invalidation**: Automatic tile cache updates on data changes
 
-### 📤 Trails management
-- ✅ Upload `.gpx` file via form (Editor/Admin role required)
-- ✅ Input fields:
-  - ✅ Trail name
-  - ✅ Difficulty rating (S0–S5) with color coding
-  - ✅ Tags (Flow, Tech, Steep, etc.)
-  - ✅ Description
-- ✅ Save to PocketBase:
-  - ✅ GPX file storage with automatic URL generation
-  - ✅ Metadata in `trails` collection
-  - ✅ Permission-based access control
-- ✅ Trail editing and deletion
+### **Interactive Mapping**
+- Swiss topographic maps (Swisstopo WMTS)
+- **Vector Tile Layers**: Smooth rendering with zoom-level optimization
+- Real-time route drawing with BRouter pathfinding
+- Elevation profiles and distance tracking
+- GPX export functionality
+- Difficulty-based color coding with dynamic styling
 
-### 🗺️ Interactive Map
-- ✅ Leaflet integration with Swisstopo WMTS layer
-- ✅ Load and display all stored trails
-- ✅ Servere-side route processing with Brouter
-- ✅ Colored tracks by difficulty level (S0-Green → S5-Black)
-- ✅ Trail popups with:
-  - ✅ Trail name and description
-  - ✅ Difficulty level with color coding
-  - ✅ Tags display
-  - ✅ Elevation gain/loss (D+, D-)
-  - ✅ Start/end markers
-
-### 🧭 Route Drawing & Navigation
-- ✅ Interactive route drawing by clicking waypoints on the map
-- ✅ Real-time pathfinding using BRouter engine
-- ✅ Smart route calculation following existing paths (trails, roads, etc.)
-- ✅ Incremental routing for optimal performance
-- ✅ Elevation profile with denivellation (D+/D-) calculation
-- ✅ Distance tracking and display
-- ✅ GPX export with waypoints and detailed route tracks
-- ✅ Route caching for improved performance
-- ✅ Undo/redo waypoint functionality
-
-### 📚 Trail Sidebar
-- ✅ List of all trails with metadata
-- ✅ Authentication status indicator with Google OAuth
-- ✅ Add trail button (Editor/Admin roles only)
-- ✅ Difficulty level legend
-- ✅ Trail click to focus on map
-- ✅ Performance-optimized trail caching and spatial filtering
+### **Authentication & Security**
+- Google OAuth 2.0 integration
+- JWT session management
+- ForwardAuth middleware for service protection
+- CORS enabled for cross-origin requests (configurable for production)
 
 ## 🏗️ Architecture
 
-### Backend (PocketBase + Go)
-- **PocketBase**: Modern backend-as-a-service with SQLite database
-- **Custom Go wrapper**: Collection management and authentication hooks
-- **Google OAuth 2.0**: Secure authentication with role-based permissions
-- **Role system**: Viewer (read-only), Editor (can upload), Admin (full access)
-- **File storage**: GPX files with automatic URL generation and validation
-- **ForwardAuth Middleware**: Traefik-compatible authentication for BRouter
-- **CORS enabled**: For frontend integration
-- **Environment-based configuration**: Admin accounts and OAuth credentials
+### **Backend (PocketBase + Go + PostGIS)**
+- **Clean Architecture**: Professional service-oriented design
+- **Dual Database**: PocketBase (SQLite) for app data + PostGIS for spatial operations
+- **Vector Tiles**: MVT generation with automatic cache invalidation
+- **Spatial Processing**: GPX to PostGIS sync with elevation profile calculation
+- **Authentication**: Google OAuth 2.0 with role-based permissions
+- **ForwardAuth**: Traefik middleware integration
 
-### Routing Engine (BRouter)
-- **BRouter**: High-performance Java-based routing engine
-- **Swiss routing data**: Optimized for Swiss terrain and trails
-- **Multiple routing profiles**: Configurable for different bike types and preferences  
-- **Traefik integration**: Protected by ForwardAuth middleware requiring Editor/Admin roles
-- **Docker containerized**: Easy deployment and scaling
-- **API-based**: RESTful interface for route calculations
+### **Routing Engine (BRouter)**
+- Java-based routing engine optimized for Swiss terrain
+- Protected API requiring Editor/Admin roles
+- Multiple routing profiles for different bike types
 
-### Frontend (React + TypeScript)
-- **React 18**: Modern component-based UI with hooks and context
-- **TypeScript**: Strict type safety with comprehensive interfaces
-- **Leaflet**: Interactive mapping with Swiss topographic tiles
-- **Component Library**: Reusable UI components (Button, Modal, Badge)
-- **Custom Hooks**: Business logic separation (useAuth, useTrails, useDrawing)
-- **CSS Modules**: Scoped styling with shared design system
-- **Centralized Error Handling**: Consistent error management across components
-- **Shared Utilities**: Zero code duplication with common functions and constants
-- **Performance**: Memoized components and optimized re-renders
-- **Client-side GPX**: Real-time trail processing with elevation data
-- **Trail caching**: Performance-optimized data management
-- **Spatial filtering**: Efficient map bounds-based trail loading
+### **Frontend (React + TypeScript)**
+- Modern React 18 with TypeScript for type safety
+- **Vector Tile Integration**: Leaflet with MVT layer support
+- Component library with CSS modules
+- Custom hooks for business logic separation
+- **Hybrid Rendering**: Toggle between vector tiles and individual GPX trails
 
-## 🔧 Configuration
+## ⚙️ Configuration
 
-### Environment Variables
-
-#### Development
+### **Development**
 - `VITE_POCKETBASE_URL`: Backend URL (default: http://localhost:8090)
 
-#### Production
-- `BASE_DOMAIN`: Your domain (e.g., bike-map.ch)
-- `ACME_EMAIL`: Email for Let's Encrypt SSL certificates
-- `GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
-- `ADMIN_EMAIL`: Default admin account email
-- `ADMIN_PASSWORD`: Default admin account password
-- `VITE_API_BASE_URL`: Production API base URL
+### **Production**
+```bash
+# Domain & SSL
+BASE_DOMAIN=bike-map.ch              # Your domain
+ACME_EMAIL=admin@bike-map.ch         # Let's Encrypt email
 
-### File Structure
+# Authentication
+GOOGLE_CLIENT_ID=your_client_id      # Google OAuth client ID
+GOOGLE_CLIENT_SECRET=your_secret     # Google OAuth client secret
+ADMIN_EMAIL=admin@bike-map.ch        # Admin account email
+ADMIN_PASSWORD=secure_password       # Admin account password
+
+# Frontend URLs
+VITE_API_BASE_URL=https://bike-map.ch/api
+VITE_BROUTER_BASE_URL=https://bike-map.ch/brouter
+
+# Backend Configuration
+BASE_URL=http://localhost:8090       # Backend base URL
+
+# Database Configuration
+POSTGRES_HOST=postgis                # PostgreSQL host (Docker service name)
+POSTGRES_PORT=5432                   # PostgreSQL port
+POSTGRES_DB=gis                      # Database name
+POSTGRES_USER=gisuser                # Database user
+POSTGRES_PASSWORD=gispass            # Database password
+```
+
+## 📂 Project Structure
+
 ```
 bike-map/
-├── backend/                 # PocketBase + Go backend
-│   ├── main.go             # Main application with OAuth & ForwardAuth
-│   ├── Dockerfile          # Multi-stage Go build
-│   └── pb_data/            # PocketBase data (gitignored)
-├── frontend/               # React TypeScript frontend
+├── backend/                          # Professional Go backend
+│   ├── main.go                      # Application entry point
+│   ├── internal/
+│   │   ├── config/                  # Configuration management
+│   │   ├── services/                # Business logic services
+│   │   ├── handlers/                # HTTP request handlers
+│   │   ├── models/                  # Data models
+│   │   └── interfaces/              # Service interfaces
+│   └── pb_data/                     # PocketBase data directory
+├── frontend/                        # React TypeScript frontend
 │   ├── src/
-│   │   ├── components/     # React components & UI library
-│   │   │   └── ui/         # Reusable components (Button, Modal, Badge)
-│   │   ├── hooks/          # Custom React hooks (useAuth, useTrails, useDrawing)
-│   │   ├── context/        # React Context providers (AppContext)
-│   │   ├── services/       # API clients (PocketBase, BRouter, trail cache)
-│   │   ├── styles/         # Shared CSS modules and design system
-│   │   ├── utils/          # Shared utilities (colors, constants, error handling)
-│   │   └── types/          # TypeScript definitions and interfaces
-│   ├── Dockerfile          # Multi-stage Node build
-│   ├── nginx.conf          # Production nginx config
-│   └── README.md           # Frontend architecture guide
-├── routing-server/         # BRouter routing engine
-│   ├── brouter/            # BRouter source code and Docker setup
-│   ├── segments/           # Swiss routing data (E5_N45.rd5)
-│   └── README.md          # BRouter setup and configuration guide
-├── scripts/                # Build and deployment scripts
-│   ├── build.sh           # Production build script
-│   └── deploy.sh          # VPS deployment script
-├── docker-compose.yml      # Production orchestration with Traefik
-├── .env.production.example # Production environment template
-└── DEPLOYMENT.md          # Production deployment guide
+│   │   ├── components/              # React components
+│   │   ├── hooks/                   # Custom hooks
+│   │   ├── services/                # API services
+│   │   ├── types/                   # TypeScript types
+│   │   └── utils/                   # Utility functions
+├── routing-server/                  # BRouter routing engine
+├── mvt-server/                      # PostGIS database initialization
+│   ├── initdb/init.sql             # Database schema
+│   └── mvt-demo.html               # MVT testing page
+├── scripts/                         # Build and deployment scripts
+├── docker-compose.yml               # Production orchestration
+├── docker-compose.dev.yml           # Development environment
+├── .env.production.example          # Production environment template
+└── .env.development.example         # Development environment template
 ```
 
-## 🎨 Difficulty Color Scheme
+## Difficulty Rating
 - **S0**: Green - Easy flow trails
 - **S1**: Blue - Beginner technical features  
 - **S2**: Orange - Intermediate challenges
@@ -145,33 +118,56 @@ bike-map/
 - **S4**: Purple - Expert-level obstacles
 - **S5**: Black - Extreme technical difficulty
 
-## 🚀 Production Deployment
+## 🛠️ Development
 
-BikeMap is production-ready with automated deployment:
-
+### **Quick Start**
 ```bash
-# Build for production
-./scripts/build.sh
+# Clone BRouter (first time only)
+cd routing-server && git clone https://github.com/abrensch/brouter.git && cd ..
 
-# Deploy to VPS
-./scripts/deploy.sh
+# Download Swiss routing data (first time only)
+mkdir -p routing-server/segments
+wget -O routing-server/segments/E5_N45.rd5 http://brouter.de/brouter/segments4/E5_N45.rd5
+
+# Start development environment with PostGIS
+docker-compose -f docker-compose.dev.yml up --build
 ```
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+### **Services Available**
+- **Frontend**: http://localhost:3000 - React development server
+- **Backend API**: http://localhost:8090 - PocketBase + Go API
+- **PocketBase Admin**: http://localhost:8090/_/ - Database administration
+- **BRouter**: http://localhost:17777 - Routing engine
+- **PostGIS**: localhost:5432 - Spatial database
+- **MVT Demo**: http://localhost:8080/mvt-demo.html - Vector tile testing
 
-## 🛠️ Service Architecture
+### **Development Features**
+- **Hot Reload**: Frontend auto-reloads on changes
+- **Live Sync**: Backend auto-syncs GPX files to PostGIS
+- **Cache Invalidation**: Vector tiles update automatically
+- **Debug Console**: MVT demo page with tile loading statistics
 
-### Production Deployment
-BikeMap uses a subdomain-based architecture with Traefik as reverse proxy:
+## 🚀 Production Deployment
 
+### **Quick Start**
+```bash
+./scripts/build.sh    # Build for production
+./scripts/deploy.sh   # Deploy to VPS
+```
+
+### **Service Architecture**
 - **Main App**: `https://bike-map.ch` - React frontend
-- **API**: `https://bike-map.ch/api/*` - PocketBase backend API
+- **API**: `https://bike-map.ch/api/*` - PocketBase backend with PostGIS
+- **Vector Tiles**: `https://bike-map.ch/api/tiles/{z}/{x}/{y}.mvt` - MVT endpoints
 - **Admin Panel**: `https://admin.bike-map.ch` - PocketBase admin interface  
 - **Routing Service**: `https://bike-map.ch/brouter/*` - BRouter API
 - **Proxy Dashboard**: `https://proxy.bike-map.ch` - Traefik dashboard
 
-### Security & Authentication
-- **Google OAuth 2.0**: Primary authentication method
-- **Role-based access**: Viewer (read-only), Editor (can upload/route), Admin (full access)
-- **ForwardAuth middleware**: Protects BRouter service using PocketBase JWT validation
-- **SSL/HTTPS**: Automatic Let's Encrypt certificates via Traefik
+### **New Production Features**
+- **PostGIS Integration**: Spatial database for vector tile generation
+- **Automatic Cache Invalidation**: Real-time tile updates
+- **Professional Architecture**: Clean service separation
+- **Environment Configuration**: Comprehensive configuration management
+- **Health Monitoring**: Service health checks and logging
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.

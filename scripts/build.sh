@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# Build script for BikeMap application
+# Build script for BikeMap application with PostGIS integration
 set -e
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Building BikeMap for production...${NC}"
+echo -e "${GREEN}🚵 Building BikeMap for production with PostGIS integration...${NC}"
 
 # Check if .env.production exists
 if [ ! -f ".env.production" ]; then
@@ -20,6 +21,21 @@ fi
 
 # Source environment variables
 export $(grep -v '^#' .env.production | xargs)
+
+# Validate required environment variables
+echo -e "${BLUE}🔍 Validating environment variables...${NC}"
+required_vars=("BASE_DOMAIN" "BASE_URL" "POSTGRES_PASSWORD" "ADMIN_EMAIL" "ADMIN_PASSWORD")
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+        echo -e "${RED}❌ Error: $var is not set in .env.production${NC}"
+        exit 1
+    fi
+done
+
+# Validate PostgreSQL password strength
+if [ ${#POSTGRES_PASSWORD} -lt 12 ]; then
+    echo -e "${YELLOW}⚠️  Warning: POSTGRES_PASSWORD should be at least 12 characters for security${NC}"
+fi
 
 # Generate password hash for Traefik dashboard if not already set
 if [ -z "$ADMIN_PASSWORD_HASH" ]; then
@@ -38,11 +54,13 @@ if [ -z "$ADMIN_PASSWORD_HASH" ]; then
     fi
 fi
 
-echo -e "${GREEN}📦 Building backend image...${NC}"
+echo -e "${GREEN}📦 Building professional backend image...${NC}"
+echo -e "${BLUE}   → Clean architecture with PostGIS integration${NC}"
 docker build -t bikemap-backend:latest ./backend
 
 echo -e "${GREEN}📦 Building frontend image...${NC}"
-# Construct BRouter URL from base domain
+echo -e "${BLUE}   → Vector tile integration with MVT layers${NC}"
+# Build frontend with production API URLs
 docker build \
     --build-arg VITE_API_BASE_URL="$VITE_API_BASE_URL" \
     --build-arg VITE_BROUTER_BASE_URL="$VITE_BROUTER_BASE_URL" \
@@ -71,4 +89,6 @@ docker save brouter:latest | gzip > ./dist/brouter.tar.gz
 
 echo -e "${GREEN}✅ Build complete!${NC}"
 echo -e "${YELLOW}📁 Images saved to ./dist/${NC}"
+echo -e "${BLUE}🏗️  Architecture: Professional Go backend + PostGIS + React frontend${NC}"
+echo -e "${BLUE}🗺️  Features: Vector tiles, cache invalidation, spatial processing${NC}"
 echo -e "${YELLOW}🚀 Run './scripts/deploy.sh' to deploy to your VPS${NC}"

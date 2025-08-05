@@ -1,4 +1,4 @@
-module miobike
+module bike-map-backend
 
 go 1.23.0
 

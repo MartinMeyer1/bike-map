@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deploy script for BikeMap application
+# Deploy script for BikeMap application with PostGIS integration
 set -e
 
 # Colors for output
@@ -8,9 +8,10 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 Deploying BikeMap to production...${NC}"
+echo -e "${GREEN}🚵 Deploying BikeMap with PostGIS to production...${NC}"
 
 # Check if .env.production exists
 if [ ! -f ".env.production" ]; then
@@ -56,6 +57,10 @@ echo -e "${YELLOW}📄 Uploading configuration files...${NC}"
 scp ./docker-compose.yml $VPS_USER@$VPS_IP:/opt/bikemap/
 scp ./.env.production $VPS_USER@$VPS_IP:/opt/bikemap/.env
 
+# Upload PostGIS initialization scripts
+echo -e "${PURPLE}🗃️  Uploading PostGIS database schemas...${NC}"
+scp -r ./mvt-server/ $VPS_USER@$VPS_IP:/opt/bikemap/
+
 # Upload routing data
 echo -e "${YELLOW}🗺️  Uploading routing data...${NC}"
 ssh $VPS_USER@$VPS_IP "mkdir -p /opt/bikemap/routing-server/segments"
@@ -72,20 +77,35 @@ ssh $VPS_USER@$VPS_IP << 'EOF'
 cd /opt/bikemap
 
 # Load docker images
-echo "Loading backend image..."
+echo "📦 Loading backend image..."
 docker load < bikemap-backend.tar.gz
 
-echo "Loading frontend image..."
+echo "📦 Loading frontend image..."
 docker load < bikemap-frontend.tar.gz
 
-echo "Loading BRouter image..."
+echo "📦 Loading BRouter image..."
 docker load < brouter.tar.gz
 
 # Create traefik network if it doesn't exist
 docker network create traefik 2>/dev/null || true
 
-# Start the application
+echo "🗃️  Starting PostGIS database..."
+# Start PostGIS first to ensure it's healthy before backend
+docker compose up -d postgis
+
+echo "⏳ Waiting for PostGIS to be ready..."
+sleep 10
+docker compose logs postgis
+
+echo "🚀 Starting all services..."
 docker compose up -d
+
+echo "🔍 Checking service health..."
+sleep 5
+docker compose ps
+
+echo "📊 PostGIS status:"
+docker compose exec -T postgis psql -U gisuser -d gis -c "SELECT version();" || echo "PostGIS not ready yet"
 
 # Clean up dangling images
 docker image prune -f
@@ -95,10 +115,17 @@ rm -f *.tar.gz
 
 echo "✅ Deployment complete!"
 echo "🌐 Your BikeMap should be available at your domain shortly"
+echo "🗺️  Vector tiles will be served from PostGIS"
 EOF
 
 echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo -e "${YELLOW}🌐 Your BikeMap should be available at https://${BASE_DOMAIN}${NC}"
 echo -e "${YELLOW}🔧 Admin interface: https://admin.${BASE_DOMAIN}${NC}"
-echo -e "${YELLOW}🧭 Routing service: https://routing.${BASE_DOMAIN}${NC}"
+echo -e "${YELLOW}🧭 Routing service: https://${BASE_DOMAIN}/brouter${NC}"
 echo -e "${YELLOW}📊 Traefik dashboard: https://proxy.${BASE_DOMAIN}${NC}"
+echo -e "${PURPLE}🏗️  Architecture: Go backend + PostGIS + React frontend${NC}"
+echo -e "${PURPLE}🗺️  Vector tiles: https://${BASE_DOMAIN}/api/tiles/{z}/{x}/{y}.mvt${NC}"
+echo -e "${BLUE}📝 Next steps:${NC}"
+echo -e "${BLUE}   1. Wait a few minutes for SSL certificates${NC}"
+echo -e "${BLUE}   2. Check service health: docker compose ps${NC}"
+echo -e "${BLUE}   3. Monitor logs: docker compose logs -f backend${NC}"
