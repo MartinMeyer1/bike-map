@@ -1,6 +1,6 @@
 # BikeMap Backend
 
-A professional Go backend service for the BikeMap application, built with PocketBase and PostgreSQL/PostGIS for managing mountain bike trail data with vector tile generation capabilities.
+A Go backend service for the BikeMap application, built with PocketBase and PostgreSQL/PostGIS for managing mountain bike trail data with vector tile generation capabilities.
 
 ## 🏗️ Architecture
 
@@ -38,13 +38,6 @@ backend/
 - **Vector Tiles**: High-performance MVT (Mapbox Vector Tiles) generation using PostGIS
 - **Cache Invalidation**: Automatic cache invalidation system for real-time updates
 - **Spatial Processing**: GPX file parsing with elevation profile calculation
-
-### Technical Features
-- **Clean Architecture**: Separated concerns with interfaces and dependency injection
-- **Configuration Management**: Environment-based configuration with sensible defaults
-- **Error Handling**: Comprehensive error handling with structured logging
-- **CORS Support**: Full cross-origin resource sharing configuration
-- **Thread Safety**: Concurrent-safe operations with proper mutex usage
 
 ## 🛠️ Technology Stack
 
@@ -180,7 +173,7 @@ The server will start on port 8090 and automatically:
 1. **Spatial Query**: PostGIS filters trails within tile bounds
 2. **Geometry Simplification**: Zoom-level appropriate simplification
 3. **MVT Generation**: ST_AsMVT() produces binary vector tiles
-4. **Cache Headers**: ETags and cache-control for optimal performance
+4. **Cache Headers**: ETags and cache-control for performance
 
 ### Cache Invalidation
 - **Automatic**: Cache invalidates on any trail CRUD operation
@@ -253,16 +246,3 @@ The application automatically creates required tables on startup:
 - [ ] Admin credentials strong and unique
 - [ ] CORS properly configured for your domain
 - [ ] HTTPS enabled in production
-
-## 🤝 Contributing
-
-The codebase follows Go best practices:
-- **Interfaces**: Use interfaces for testability
-- **Error Handling**: Always handle errors appropriately
-- **Context**: Use context for cancellation and timeouts
-- **Logging**: Use structured logging with appropriate levels
-- **Comments**: Document public APIs and complex logic
-
-## 📄 License
-
-This project is part of the BikeMap application suite.

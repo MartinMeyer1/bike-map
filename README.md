@@ -1,6 +1,6 @@
 # 🤘 BikeMap
 
-A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter for high-performance vector tile rendering and optimal user experience.
+A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter.
 
 ## Features
 
@@ -8,12 +8,12 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 - GPX file upload with metadata (name, difficulty S0-S5, tags, description)
 - Role-based access control (Viewer, Editor, Admin)
 - Trail editing and deletion capabilities
-- **Vector Tile Rendering**: High-performance MVT tiles generated from PostGIS
-- **Real-time Cache Invalidation**: Automatic tile cache updates on data changes
+- Vector Tile Rendering: MVT tiles generated from PostGIS
+- Real-time Cache Invalidation: Automatic tile cache updates on data changes
 
 ### **Interactive Mapping**
 - Swiss topographic maps (Swisstopo WMTS)
-- **Vector Tile Layers**: Smooth rendering with zoom-level optimization
+- Vector Tile Layers: Smooth rendering with zoom-level optimization
 - Real-time route drawing with BRouter pathfinding
 - Elevation profiles and distance tracking
 - GPX export functionality
@@ -28,7 +28,6 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 ## Architecture
 
 ### **Backend (PocketBase + Go + PostGIS)**
-- **Clean Architecture**: Professional service-oriented design
 - **Dual Database**: PocketBase (SQLite) for app data + PostGIS for spatial operations
 - **Vector Tiles**: MVT generation with automatic cache invalidation
 - **Spatial Processing**: GPX to PostGIS sync with elevation profile calculation
@@ -42,10 +41,9 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 
 ### **Frontend (React + TypeScript)**
 - Modern React 18 with TypeScript for type safety
-- **Vector Tile Integration**: Leaflet with MVT layer support
+- Vector Tile Integration: Leaflet with MVT layer support
 - Component library with CSS modules
 - Custom hooks for business logic separation
-- **Hybrid Rendering**: Toggle between vector tiles and individual GPX trails
 
 ## ⚙️ Configuration
 
@@ -139,13 +137,11 @@ docker-compose -f docker-compose.dev.yml up --build
 - **PocketBase Admin**: http://localhost:8090/_/ - Database administration
 - **BRouter**: http://localhost:17777 - Routing engine
 - **PostGIS**: localhost:5432 - Spatial database
-- **MVT Demo**: http://localhost:8080/mvt-demo.html - Vector tile testing
 
 ### **Development Features**
 - **Hot Reload**: Frontend auto-reloads on changes
 - **Live Sync**: Backend auto-syncs GPX files to PostGIS
 - **Cache Invalidation**: Vector tiles update automatically
-- **Debug Console**: MVT demo page with tile loading statistics
 
 ## Production Deployment
 
@@ -166,8 +162,6 @@ docker-compose -f docker-compose.dev.yml up --build
 ### **New Production Features**
 - **PostGIS Integration**: Spatial database for vector tile generation
 - **Automatic Cache Invalidation**: Real-time tile updates
-- **Professional Architecture**: Clean service separation
 - **Environment Configuration**: Comprehensive configuration management
-- **Health Monitoring**: Service health checks and logging
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
