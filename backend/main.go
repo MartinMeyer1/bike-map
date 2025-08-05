@@ -11,6 +11,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// Global MVT service for cache invalidation
+var globalMVTService *MVTService
+
 func main() {
 	app := pocketbase.New()
 
@@ -91,6 +94,12 @@ func main() {
 					log.Printf("Failed to sync trail %s to PostGIS: %v", e.Record.Id, err)
 				} else {
 					log.Printf("Successfully synced trail %s to PostGIS", e.Record.GetString("name"))
+					
+					// Invalidate MVT cache after successful sync
+					if globalMVTService != nil {
+						globalMVTService.InvalidateCache()
+						log.Printf("MVT cache invalidated after trail creation")
+					}
 				}
 			}()
 		}
@@ -112,6 +121,12 @@ func main() {
 					log.Printf("Failed to sync updated trail %s to PostGIS: %v", e.Record.Id, err)
 				} else {
 					log.Printf("Successfully synced updated trail %s to PostGIS", e.Record.GetString("name"))
+					
+					// Invalidate MVT cache after successful sync
+					if globalMVTService != nil {
+						globalMVTService.InvalidateCache()
+						log.Printf("MVT cache invalidated after trail update")
+					}
 				}
 			}()
 		}
@@ -133,6 +148,12 @@ func main() {
 					log.Printf("Failed to delete trail %s from PostGIS: %v", e.Record.Id, err)
 				} else {
 					log.Printf("Successfully deleted trail %s from PostGIS", e.Record.GetString("name"))
+					
+					// Invalidate MVT cache after successful deletion
+					if globalMVTService != nil {
+						globalMVTService.InvalidateCache()
+						log.Printf("MVT cache invalidated after trail deletion")
+					}
 				}
 			}()
 		}
@@ -163,6 +184,7 @@ func main() {
 			log.Printf("MVT endpoints will not be available")
 		} else {
 			log.Println("✅ MVT service initialized successfully")
+			globalMVTService = mvtService // Set global reference for cache invalidation
 			SetupMVTRoutes(e, mvtService)
 		}
 
@@ -180,6 +202,12 @@ func main() {
 				log.Printf("⚠️  Failed to sync trails at startup: %v", err)
 			} else {
 				log.Println("✅ Successfully synced all trails to PostGIS at startup")
+				
+				// Invalidate MVT cache after startup sync
+				if globalMVTService != nil {
+					globalMVTService.InvalidateCache()
+					log.Printf("MVT cache invalidated after startup sync")
+				}
 			}
 		}()
 

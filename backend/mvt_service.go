@@ -1,20 +1,26 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
 // MVTService handles MVT generation from PostGIS
 type MVTService struct {
-	db     *sql.DB
-	config PostGISConfig
+	db           *sql.DB
+	config       PostGISConfig
+	cacheVersion string     // Random cache version for invalidation
+	versionMutex sync.RWMutex // Thread-safe access
 }
 
 // NewMVTService creates a new MVT service instance
@@ -32,15 +38,48 @@ func NewMVTService(config PostGISConfig) (*MVTService, error) {
 		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
 	}
 	
+	// Generate initial random cache version
+	initialVersion := generateRandomVersion()
+	
 	return &MVTService{
-		db:     db,
-		config: config,
+		db:           db,
+		config:       config,
+		cacheVersion: initialVersion,
 	}, nil
 }
 
 // Close closes the database connection
 func (m *MVTService) Close() error {
 	return m.db.Close()
+}
+
+// generateRandomVersion creates a random version string
+func generateRandomVersion() string {
+	// Generate random 6-digit number
+	max := big.NewInt(999999)
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		// Fallback to timestamp-based if crypto fails
+		return fmt.Sprintf("%d", time.Now().UnixNano()%999999)
+	}
+	return fmt.Sprintf("%06d", n.Int64())
+}
+
+// InvalidateCache generates a new random cache version
+func (m *MVTService) InvalidateCache() {
+	m.versionMutex.Lock()
+	defer m.versionMutex.Unlock()
+	
+	oldVersion := m.cacheVersion
+	m.cacheVersion = generateRandomVersion()
+	log.Printf("MVT cache invalidated: %s → %s", oldVersion, m.cacheVersion)
+}
+
+// getCacheVersion returns the current cache version (thread-safe)
+func (m *MVTService) getCacheVersion() string {
+	m.versionMutex.RLock()
+	defer m.versionMutex.RUnlock()
+	return m.cacheVersion
 }
 
 // GenerateTrailsMVT generates MVT for trails based on zoom level and bounding box
@@ -245,10 +284,14 @@ func handleMVTRequestWithPath(re *core.RequestEvent, mvtService *MVTService) err
 	
 	// Set proper caching headers for tiles
 	re.Response.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
-	re.Response.Header().Set("ETag", fmt.Sprintf(`"mvt-%d-%d-%d"`, z, x, y)) // Simple ETag
+	
+	// Generate ETag with cache version
+	currentVersion := mvtService.getCacheVersion()
+	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, currentVersion, z, x, y)
+	re.Response.Header().Set("ETag", etag)
 	
 	// Check if client has cached version
-	if re.Request.Header.Get("If-None-Match") == fmt.Sprintf(`"mvt-%d-%d-%d"`, z, x, y) {
+	if re.Request.Header.Get("If-None-Match") == etag {
 		re.Response.WriteHeader(http.StatusNotModified)
 		return nil
 	}

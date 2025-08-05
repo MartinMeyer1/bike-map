@@ -154,15 +154,10 @@
         
         <div class="control-group">
             <label style="font-weight: bold; color: #2c3e50; margin-bottom: 10px;">
-                MVT Endpoint Format:
+                MVT Endpoint:
             </label>
-            <label>
-                <input type="radio" name="mvtFormat" value="standard" checked>
-                Standard (/api/tiles/{z}/{x}/{y}.mvt)
-            </label>
-            <label>
-                <input type="radio" name="mvtFormat" value="query">
-                Query Parameters (?z=&x=&y=)
+            <label style="font-size: 12px; color: #7f8c8d;">
+                /api/tiles/{z}/{x}/{y}.mvt
             </label>
         </div>
     </div>
@@ -196,16 +191,12 @@
             maxZoom: 18
         }).addTo(map);
 
-        // Initialize with standard format MVT layer
+        // Create MVT layer
         let currentMVTLayer;
-        let currentFormat = 'standard';
         
-        function createMVTLayer(format) {
-            const url = format === 'standard' 
-                ? 'http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt'
-                : 'http://localhost:8090/api/mvt/trails?z={z}&x={x}&y={y}';
-                
-            console.log(`Creating MVT layer with ${format} format: ${url}`);
+        function createMVTLayer() {
+            const url = 'http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt';
+            console.log('Creating MVT layer:', url);
             
             return L.vectorGrid.protobuf(url, {
                 vectorTileLayerStyles: {
@@ -238,7 +229,7 @@
         }
         
         // Create initial MVT layer
-        currentMVTLayer = createMVTLayer(currentFormat).addTo(map);
+        currentMVTLayer = createMVTLayer().addTo(map);
 
         // Add click handlers for trail information
         function setupLayerEvents(layer) {
@@ -255,7 +246,6 @@
                             <h4>🚵 ${props.name}</h4>
                             <p><strong>Difficulty:</strong> <span class="trail-level" style="background-color: ${levelColors[props.level]}">${props.level}</span></p>
                             <p><strong>Trail ID:</strong> ${props.id}</p>
-                            <p><strong>Format:</strong> ${currentFormat}</p>
                             <p><em>Click and drag to explore the trail route</em></p>
                         </div>
                     `;
@@ -277,10 +267,10 @@
                     Object.keys(e.tile._features).forEach(layerName => {
                         const features = e.tile._features[layerName];
                         tileFeatures += features.length;
-                        console.log(`${currentFormat.toUpperCase()} - Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - Layer '${layerName}': ${features.length} features`);
+                        console.log(`Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - Layer '${layerName}': ${features.length} features`);
                     });
                 } else {
-                    console.log(`${currentFormat.toUpperCase()} - Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - No _features property`);
+                    console.log(`Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - No _features property`);
                 }
                 
                 totalFeatures += tileFeatures;
@@ -289,7 +279,7 @@
 
             // Log tile errors to identify decode failures
             layer.on('tileerror', function(e) {
-                console.error(`${currentFormat.toUpperCase()} - Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
+                console.error(`Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
             });
         }
         
@@ -305,33 +295,6 @@
             }
         });
         
-        // Format switcher
-        document.querySelectorAll('input[name="mvtFormat"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                if (this.checked) {
-                    const newFormat = this.value;
-                    console.log(`Switching MVT format from ${currentFormat} to ${newFormat}`);
-                    
-                    // Remove current layer
-                    map.removeLayer(currentMVTLayer);
-                    
-                    // Reset statistics for new layer
-                    tileLoadCount = 0;
-                    totalFeatures = 0;
-                    updateStats();
-                    
-                    // Create new layer with different format
-                    currentFormat = newFormat;
-                    currentMVTLayer = createMVTLayer(currentFormat);
-                    setupLayerEvents(currentMVTLayer);
-                    
-                    // Add new layer if checkbox is checked
-                    if (document.getElementById('mvtLayer').checked) {
-                        map.addLayer(currentMVTLayer);
-                    }
-                }
-            });
-        });
 
         document.getElementById('opacity').addEventListener('input', function() {
             const opacity = parseFloat(this.value);
@@ -371,10 +334,8 @@
 
         // Log successful initialization
         console.log('🚵 BikeMap MVT Demo initialized successfully!');
-        console.log('Standard API: http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt');
-        console.log('Query API: http://localhost:8090/api/mvt/trails?z={z}&x={x}&y={y}');
+        console.log('MVT API: http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt');
         console.log('Map bounds set to trail area in Swiss Alps');
-        console.log('Current format:', currentFormat);
     </script>
 </body>
 </html>
