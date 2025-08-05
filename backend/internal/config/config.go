@@ -93,6 +93,5 @@ func getEnvInt(key string, defaultValue int) int {
 // Validate checks if required configuration values are present
 func (c *Config) Validate() error {
 	// Add validation logic if needed
-	// For now, we allow empty OAuth credentials (optional feature)
 	return nil
 }

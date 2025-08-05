@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/xml"
 	"time"
 )
 
@@ -30,59 +29,4 @@ type ElevationData struct {
 type ElevationPoint struct {
 	Distance  float64 `json:"distance"`  // Distance in meters from start
 	Elevation float64 `json:"elevation"` // Elevation in meters
-}
-
-// GPX parsing structures
-type GPX struct {
-	XMLName xml.Name `xml:"gpx"`
-	Tracks  []Track  `xml:"trk"`
-}
-
-type Track struct {
-	Name     string         `xml:"name"`
-	Segments []TrackSegment `xml:"trkseg"`
-}
-
-type TrackSegment struct {
-	Points []TrackPoint `xml:"trkpt"`
-}
-
-type TrackPoint struct {
-	Lat       float64  `xml:"lat,attr"`
-	Lon       float64  `xml:"lon,attr"`
-	Elevation *float64 `xml:"ele,omitempty"`
-}
-
-// TileBounds represents tile bounds in Web Mercator projection
-type TileBounds struct {
-	XMin, YMin, XMax, YMax float64
-}
-
-// UserRole represents available user roles
-type UserRole string
-
-const (
-	RoleViewer UserRole = "Viewer"
-	RoleEditor UserRole = "Editor"
-	RoleAdmin  UserRole = "Admin"
-)
-
-// IsValidRole checks if the role is valid
-func (r UserRole) IsValid() bool {
-	switch r {
-	case RoleViewer, RoleEditor, RoleAdmin:
-		return true
-	default:
-		return false
-	}
-}
-
-// CanCreateTrails checks if the role can create trails
-func (r UserRole) CanCreateTrails() bool {
-	return r == RoleEditor || r == RoleAdmin
-}
-
-// CanManageUsers checks if the role can manage other users
-func (r UserRole) CanManageUsers() bool {
-	return r == RoleAdmin
 }

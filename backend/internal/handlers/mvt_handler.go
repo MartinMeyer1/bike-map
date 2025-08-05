@@ -26,13 +26,6 @@ func NewMVTHandler(mvtService interfaces.MVTService) *MVTHandler {
 
 // SetupRoutes adds MVT endpoints to the router
 func (h *MVTHandler) SetupRoutes(e *core.ServeEvent) {
-	// Add OPTIONS handler for CORS preflight
-	e.Router.OPTIONS("/api/mvt/trails", func(re *core.RequestEvent) error {
-		h.setCORSHeaders(re)
-		re.Response.WriteHeader(http.StatusOK)
-		return nil
-	})
-
 	// Add standard MVT endpoints using wildcard pattern since PocketBase doesn't support multi-level parameters
 	// Support standard path format /api/tiles/{z}/{x}/{y}.mvt
 	e.Router.GET("/api/tiles/{path...}", func(re *core.RequestEvent) error {
