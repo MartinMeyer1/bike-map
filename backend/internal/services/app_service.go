@@ -5,6 +5,7 @@ import (
 
 	"bike-map-backend/internal/config"
 	"bike-map-backend/internal/handlers"
+	"bike-map-backend/internal/models"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -164,10 +165,15 @@ func (a *AppService) syncTrailToPostGIS(app core.App, trailID, operation string)
 	} else {
 		log.Printf("Successfully synced trail to PostGIS after %s", operation)
 
-		// Invalidate MVT cache after successful sync
+		// Invalidate specific MVT tiles affected by this trail
 		if a.mvtService != nil {
-			a.mvtService.InvalidateCache()
-			log.Printf("MVT cache invalidated after trail %s", operation)
+			if bbox, err := a.gpxService.GetTrailBoundingBox(trailID); err == nil {
+				a.mvtService.InvalidateTilesForTrail(*bbox)
+				log.Printf("Invalidated MVT tiles for trail %s after %s", trailID, operation)
+			} else {
+				log.Printf("Could not get trail bounding box, falling back to full cache invalidation: %v", err)
+				a.mvtService.InvalidateAllCache()
+			}
 		}
 	}
 }
@@ -178,15 +184,28 @@ func (a *AppService) deleteTrailFromPostGIS(trailID, trailName string) {
 		return
 	}
 
+	// Get bounding box before deletion for targeted cache invalidation
+	var trailBBox *models.BoundingBox
+	if a.mvtService != nil {
+		if bbox, err := a.gpxService.GetTrailBoundingBox(trailID); err == nil {
+			trailBBox = bbox
+		}
+	}
+
 	if err := a.gpxService.DeleteTrailFromPostGIS(trailID); err != nil {
 		log.Printf("Failed to delete trail %s from PostGIS: %v", trailID, err)
 	} else {
 		log.Printf("Successfully deleted trail %s from PostGIS", trailName)
 
-		// Invalidate MVT cache after successful deletion
+		// Invalidate specific MVT tiles affected by the deleted trail
 		if a.mvtService != nil {
-			a.mvtService.InvalidateCache()
-			log.Printf("MVT cache invalidated after trail deletion")
+			if trailBBox != nil {
+				a.mvtService.InvalidateTilesForTrail(*trailBBox)
+				log.Printf("Invalidated MVT tiles for deleted trail %s", trailName)
+			} else {
+				log.Printf("Could not get trail bounding box before deletion, falling back to full cache invalidation")
+				a.mvtService.InvalidateAllCache()
+			}
 		}
 	}
 }
@@ -246,7 +265,7 @@ func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
 
 			// Invalidate MVT cache after startup sync
 			if a.mvtService != nil {
-				a.mvtService.InvalidateCache()
+				a.mvtService.InvalidateAllCache()
 				log.Printf("MVT cache invalidated after startup sync")
 			}
 		}

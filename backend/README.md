@@ -54,9 +54,7 @@ The application uses environment variables for configuration:
 
 ### Server Configuration
 ```bash
-PORT=8090                    # Server port (default: 8090)
 BASE_URL=http://localhost:8090  # Base URL for file downloads
-HOST=localhost               # Server host (default: localhost)
 ```
 
 ### Database Configuration

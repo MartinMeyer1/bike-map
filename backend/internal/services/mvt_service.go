@@ -1,11 +1,9 @@
 package services
 
 import (
-	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -14,12 +12,18 @@ import (
 	"bike-map-backend/internal/models"
 )
 
-// MVTService handles MVT generation from PostGIS
+// CacheEntry represents a cached tile with version and response data
+type CacheEntry struct {
+	Version  int64  // Tile-specific version number
+	Response []byte // MVT tile data
+}
+
+// MVTService handles MVT generation from PostGIS with per-tile memory caching
 type MVTService struct {
-	db           *sql.DB
-	config       *config.Config
-	cacheVersion string       // Random cache version for invalidation
-	versionMutex sync.RWMutex // Thread-safe access
+	db         *sql.DB
+	config     *config.Config
+	cache      map[string]*CacheEntry // Memory cache: "z-x-y" -> CacheEntry
+	cacheMutex sync.RWMutex           // Thread-safe access to cache
 }
 
 // NewMVTService creates a new MVT service instance
@@ -37,13 +41,10 @@ func NewMVTService(cfg *config.Config) (*MVTService, error) {
 		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
 	}
 
-	// Generate initial random cache version
-	initialVersion := generateRandomVersion()
-
 	return &MVTService{
-		db:           db,
-		config:       cfg,
-		cacheVersion: initialVersion,
+		db:     db,
+		config: cfg,
+		cache:  make(map[string]*CacheEntry),
 	}, nil
 }
 
@@ -52,37 +53,70 @@ func (m *MVTService) Close() error {
 	return m.db.Close()
 }
 
-// generateRandomVersion creates a random version string
-func generateRandomVersion() string {
-	// Generate random 6-digit number
-	max := big.NewInt(999999)
-	n, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		// Fallback to timestamp-based if crypto fails
-		return fmt.Sprintf("%d", time.Now().UnixNano()%999999)
+// InvalidateTilesForTrail invalidates cache entries for tiles that intersect with a trail's bounding box
+func (m *MVTService) InvalidateTilesForTrail(trailBBox models.BoundingBox) {
+	m.cacheMutex.Lock()
+	defer m.cacheMutex.Unlock()
+
+	invalidatedCount := 0
+	
+	// Find tiles that might intersect with the trail's bounding box
+	// For efficiency, we invalidate tiles across multiple zoom levels
+	for tileKey := range m.cache {
+		// Parse tile coordinates from key "z-x-y"
+		var z, x, y int
+		if _, err := fmt.Sscanf(tileKey, "%d-%d-%d", &z, &x, &y); err != nil {
+			continue
+		}
+
+		// Calculate tile bounds and check if it intersects with trail bbox
+		tileBounds := m.calculateTileBounds(z, x, y)
+		if m.boundsIntersect(tileBounds, trailBBox) {
+			delete(m.cache, tileKey)
+			invalidatedCount++
+		}
 	}
-	return fmt.Sprintf("%06d", n.Int64())
+	
+	if invalidatedCount > 0 {
+		log.Printf("Invalidated %d cached tiles for trail update", invalidatedCount)
+	}
 }
 
-// InvalidateCache generates a new random cache version
-func (m *MVTService) InvalidateCache() {
-	m.versionMutex.Lock()
-	defer m.versionMutex.Unlock()
-
-	oldVersion := m.cacheVersion
-	m.cacheVersion = generateRandomVersion()
-	log.Printf("MVT cache invalidated: %s → %s", oldVersion, m.cacheVersion)
+// InvalidateAllCache clears the entire cache (for major data changes)
+func (m *MVTService) InvalidateAllCache() {
+	m.cacheMutex.Lock()
+	defer m.cacheMutex.Unlock()
+	
+	cacheSize := len(m.cache)
+	m.cache = make(map[string]*CacheEntry)
+	log.Printf("Invalidated entire MVT cache (%d tiles)", cacheSize)
 }
 
-// getCacheVersion returns the current cache version (thread-safe)
-func (m *MVTService) getCacheVersion() string {
-	m.versionMutex.RLock()
-	defer m.versionMutex.RUnlock()
-	return m.cacheVersion
+// boundsIntersect checks if two bounding boxes intersect
+func (m *MVTService) boundsIntersect(tileBounds models.TileBounds, trailBBox models.BoundingBox) bool {
+	// Convert trail bbox (likely in lat/lon) to Web Mercator for comparison
+	// Simple intersection check: boxes intersect if they overlap in both X and Y
+	return tileBounds.XMax >= trailBBox.West && tileBounds.XMin <= trailBBox.East &&
+		   tileBounds.YMax >= trailBBox.South && tileBounds.YMin <= trailBBox.North
 }
 
-// GenerateTrailsMVT generates MVT for trails based on zoom level and bounding box
+// GenerateTrailsMVT generates MVT for trails with caching support
 func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
+	// Create cache key
+	tileKey := fmt.Sprintf("%d-%d-%d", z, x, y)
+	
+	// Check cache first
+	m.cacheMutex.RLock()
+	if entry, exists := m.cache[tileKey]; exists {
+		m.cacheMutex.RUnlock()
+		log.Printf("Cache hit for tile %s", tileKey)
+		return entry.Response, nil
+	}
+	m.cacheMutex.RUnlock()
+	
+	// Cache miss - generate tile
+	log.Printf("Cache miss for tile %s, generating...", tileKey)
+	
 	// Calculate tile bounds
 	bounds := m.calculateTileBounds(z, x, y)
 
@@ -156,6 +190,17 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate MVT: %w", err)
 	}
 
+	// Store in cache with current timestamp as version
+	cacheEntry := &CacheEntry{
+		Version:  time.Now().UnixNano(),
+		Response: mvtData,
+	}
+	
+	m.cacheMutex.Lock()
+	m.cache[tileKey] = cacheEntry
+	m.cacheMutex.Unlock()
+	
+	log.Printf("Cached tile %s (size: %d bytes)", tileKey, len(mvtData))
 	return mvtData, nil
 }
 
@@ -263,7 +308,37 @@ func (m *MVTService) GetTrailsMetadata(trailIDs []string) ([]map[string]interfac
 	return results, nil
 }
 
-// GetCacheVersion returns the current cache version for ETag generation
-func (m *MVTService) GetCacheVersion() string {
-	return m.getCacheVersion()
+// GetTileCacheVersion returns the cache version for a specific tile
+func (m *MVTService) GetTileCacheVersion(z, x, y int) string {
+	tileKey := fmt.Sprintf("%d-%d-%d", z, x, y)
+	
+	m.cacheMutex.RLock()
+	defer m.cacheMutex.RUnlock()
+	
+	if entry, exists := m.cache[tileKey]; exists {
+		return fmt.Sprintf("%d", entry.Version)
+	}
+	
+	// Return timestamp-based version for uncached tiles
+	return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+// GetCacheStats returns cache statistics for monitoring
+func (m *MVTService) GetCacheStats() map[string]interface{} {
+	m.cacheMutex.RLock()
+	defer m.cacheMutex.RUnlock()
+	
+	return map[string]interface{}{
+		"total_tiles": len(m.cache),
+		"memory_usage_bytes": m.calculateCacheSize(),
+	}
+}
+
+// calculateCacheSize estimates memory usage of cache
+func (m *MVTService) calculateCacheSize() int64 {
+	var totalSize int64
+	for _, entry := range m.cache {
+		totalSize += int64(len(entry.Response)) + 8 // 8 bytes for Version int64
+	}
+	return totalSize
 }

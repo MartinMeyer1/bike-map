@@ -30,3 +30,11 @@ type ElevationPoint struct {
 	Distance  float64 `json:"distance"`  // Distance in meters from start
 	Elevation float64 `json:"elevation"` // Elevation in meters
 }
+
+// BoundingBox represents a geographical bounding box
+type BoundingBox struct {
+	North float64 `json:"north"` // Maximum latitude
+	South float64 `json:"south"` // Minimum latitude
+	East  float64 `json:"east"`  // Maximum longitude
+	West  float64 `json:"west"`  // Minimum longitude
+}

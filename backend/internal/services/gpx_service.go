@@ -49,6 +49,30 @@ func (g *GPXService) Close() error {
 	return g.db.Close()
 }
 
+// GetTrailBoundingBox retrieves the bounding box of a trail from PostGIS
+func (g *GPXService) GetTrailBoundingBox(trailID string) (*models.BoundingBox, error) {
+	query := `
+		SELECT 
+			ST_XMin(bbox) as west,
+			ST_YMin(bbox) as south, 
+			ST_XMax(bbox) as east,
+			ST_YMax(bbox) as north
+		FROM trails 
+		WHERE id = $1 AND geom IS NOT NULL
+	`
+	
+	var bbox models.BoundingBox
+	err := g.db.QueryRow(query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("trail %s not found or has no geometry", trailID)
+		}
+		return nil, fmt.Errorf("failed to get trail bounding box: %w", err)
+	}
+	
+	return &bbox, nil
+}
+
 // ImportTrailFromPocketBase imports a trail from PocketBase to PostGIS
 func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) error {
 	// Get trail record from PocketBase

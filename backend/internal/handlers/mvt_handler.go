@@ -136,15 +136,15 @@ func (h *MVTHandler) setMVTHeaders(re *core.RequestEvent, z, x, y int) {
 	// Set proper caching headers for tiles
 	re.Response.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
 
-	// Generate ETag with cache version
-	currentVersion := h.mvtService.GetCacheVersion()
-	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, currentVersion, z, x, y)
+	// Generate ETag with tile-specific cache version
+	tileVersion := h.mvtService.GetTileCacheVersion(z, x, y)
+	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, tileVersion, z, x, y)
 	re.Response.Header().Set("ETag", etag)
 }
 
 // checkClientCache checks if the client has a valid cached version
 func (h *MVTHandler) checkClientCache(re *core.RequestEvent, z, x, y int) bool {
-	currentVersion := h.mvtService.GetCacheVersion()
-	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, currentVersion, z, x, y)
+	tileVersion := h.mvtService.GetTileCacheVersion(z, x, y)
+	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, tileVersion, z, x, y)
 	return re.Request.Header.Get("If-None-Match") == etag
 }
