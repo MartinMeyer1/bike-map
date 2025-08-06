@@ -133,7 +133,50 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 				SELECT 
 					id,
 					name,
+					description,
 					level,
+					tags,
+					owner_id,
+					created_at,
+					updated_at,
+					gpx_file,
+					-- Phase 1: Bounding box coordinates
+					ST_XMin(bbox) as bbox_west,
+					ST_YMin(bbox) as bbox_south,
+					ST_XMax(bbox) as bbox_east,
+					ST_YMax(bbox) as bbox_north,
+					-- Phase 2: Start/End points
+					ST_X(ST_StartPoint(geom)) as start_lng,
+					ST_Y(ST_StartPoint(geom)) as start_lat,
+					ST_X(ST_EndPoint(geom)) as end_lng,
+					ST_Y(ST_EndPoint(geom)) as end_lat,
+					-- Phase 2: Trail statistics
+					distance_m,
+					-- Phase 2: Elevation data (extract key metrics)
+					COALESCE((elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
+					COALESCE((elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
+					-- Phase 2: Min/Max elevation from profile data
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+						ELSE NULL
+					END as min_elevation_meters,
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+						ELSE NULL
+					END as max_elevation_meters,
+					-- Start and end elevation
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(elevation_data->'profile'->0->>'elevation')::REAL
+						ELSE NULL
+					END as elevation_start_meters,
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(elevation_data->'profile'->-1->>'elevation')::REAL
+						ELSE NULL
+					END as elevation_end_meters,
 					-- Simplify geometry based on zoom level
 					ST_AsMVTGeom(
 						ST_Transform(
@@ -162,7 +205,50 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 				SELECT 
 					id,
 					name,
+					description,
 					level,
+					tags,
+					owner_id,
+					created_at,
+					updated_at,
+					gpx_file,
+					-- Phase 1: Bounding box coordinates
+					ST_XMin(bbox) as bbox_west,
+					ST_YMin(bbox) as bbox_south,
+					ST_XMax(bbox) as bbox_east,
+					ST_YMax(bbox) as bbox_north,
+					-- Phase 2: Start/End points
+					ST_X(ST_StartPoint(geom)) as start_lng,
+					ST_Y(ST_StartPoint(geom)) as start_lat,
+					ST_X(ST_EndPoint(geom)) as end_lng,
+					ST_Y(ST_EndPoint(geom)) as end_lat,
+					-- Phase 2: Trail statistics
+					distance_m,
+					-- Phase 2: Elevation data (extract key metrics)
+					COALESCE((elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
+					COALESCE((elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
+					-- Phase 2: Min/Max elevation from profile data
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+						ELSE NULL
+					END as min_elevation_meters,
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+						ELSE NULL
+					END as max_elevation_meters,
+					-- Start and end elevation
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(elevation_data->'profile'->0->>'elevation')::REAL
+						ELSE NULL
+					END as elevation_start_meters,
+					CASE 
+						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
+							(elevation_data->'profile'->-1->>'elevation')::REAL
+						ELSE NULL
+					END as elevation_end_meters,
 					-- No simplification
 					ST_AsMVTGeom(
 						ST_Transform(geom, 3857),

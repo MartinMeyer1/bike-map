@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS trails (
     owner_id TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    -- GPX file reference for downloads
+    gpx_file TEXT,
     -- Geometry column for the trail track (SRID 4326 = WGS84)
     geom GEOMETRY(LineString, 4326),
     -- Bounding box for spatial filtering

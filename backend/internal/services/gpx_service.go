@@ -175,14 +175,15 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 
 	// Insert into PostGIS
 	query := `
-		INSERT INTO trails (id, name, description, level, tags, owner_id, geom, elevation_data)
-		VALUES ($1, $2, $3, $4, $5, $6, ST_GeomFromText($7, 4326), $8)
+		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			level = EXCLUDED.level,
 			tags = EXCLUDED.tags,
 			owner_id = EXCLUDED.owner_id,
+			gpx_file = EXCLUDED.gpx_file,
 			geom = EXCLUDED.geom,
 			elevation_data = EXCLUDED.elevation_data,
 			updated_at = NOW()`
@@ -194,6 +195,7 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 		trail.GetString("level"),
 		tagsJSON,
 		trail.GetString("owner"),
+		trail.GetString("file"), // GPX file name
 		lineString,
 		string(elevationJSON),
 	)
