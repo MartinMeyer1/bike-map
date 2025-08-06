@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { User } from '../types';
-import { CachedTrail } from '../services/trailCache';
+import { User, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
 import { TrailCard } from './TrailCard';
@@ -10,19 +9,19 @@ import { Button, Badge } from './ui';
 import styles from './TrailSidebar.module.css';
 
 interface TrailSidebarProps {
-  trails: CachedTrail[];
-  visibleTrails: CachedTrail[];
-  selectedTrail: CachedTrail | null;
+  trails: Trail[];
+  visibleTrails: Trail[];
+  selectedTrail: Trail | null;
   mapMoveEndTrigger: number;
   user: User | null;
-  onTrailClick: (trail: CachedTrail) => void;
+  onTrailClick: (trail: Trail) => void;
   onAddTrailClick: () => void;
-  onEditTrailClick: (trail: CachedTrail) => void;
+  onEditTrailClick: (trail: Trail) => void;
 }
 
 const TrailSidebar: React.FC<TrailSidebarProps> = memo(({ 
-  trails, 
-  visibleTrails, 
+  trails,
+  visibleTrails,
   selectedTrail,
   mapMoveEndTrigger,
   user, 
@@ -35,7 +34,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleDownloadGPX = useCallback((trail: CachedTrail) => {
+  const handleDownloadGPX = useCallback((trail: Trail) => {
     const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     const link = document.createElement('a');
     link.href = fileUrl;
@@ -45,7 +44,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     document.body.removeChild(link);
   }, []);
 
-  const handleShowQRCode = useCallback((trail: CachedTrail) => {
+  const handleShowQRCode = useCallback((trail: Trail) => {
     const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     setShowQRCode(fileUrl);
   }, []);

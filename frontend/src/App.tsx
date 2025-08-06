@@ -19,7 +19,6 @@ const AppContent: React.FC = () => {
     trails,
     visibleTrails,
     selectedTrail,
-    isTrailsLoading,
     
     // UI state
     isUploadPanelVisible,
@@ -37,7 +36,6 @@ const AppContent: React.FC = () => {
     // Methods
     updateVisibleTrails,
     selectTrail,
-    handleTrailCreated,
     handleTrailUpdated,
     handleTrailDeleted,
     showUploadPanel,
@@ -54,9 +52,9 @@ const AppContent: React.FC = () => {
   } = useAppContext();
 
   // Handle trail creation
-  const handleTrailCreatedComplete = async (newTrail: Trail) => {
-    await handleTrailCreated(newTrail);
+  const handleTrailCreatedComplete = async (_newTrail: Trail) => {
     hideUploadPanel();
+    // Trail will appear automatically via MVT
   };
 
   // Handle trail update
@@ -110,7 +108,7 @@ const AppContent: React.FC = () => {
     incrementMapMoveTrigger();
   }, [incrementMapMoveTrigger]);
 
-  if (isAuthLoading || isTrailsLoading) {
+  if (isAuthLoading) {
     return (
       <div style={{
         height: '100vh',
@@ -160,7 +158,6 @@ const AppContent: React.FC = () => {
 
       {/* Main map */}
       <Map 
-        trails={isDrawingActive ? [] : trails}
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={selectTrail}

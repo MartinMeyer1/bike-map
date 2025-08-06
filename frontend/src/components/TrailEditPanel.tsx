@@ -289,7 +289,7 @@ export default function TrailEditPanel({
             )}
             {!formData.file && !drawnGpxContent && (
               <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                Current file: {trail?.file || 'Unknown'}
+                Current file: {trail?.gpx_file || 'Unknown'}
               </div>
             )}
           </div>

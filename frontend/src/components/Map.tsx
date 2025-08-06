@@ -1,10 +1,9 @@
 import { useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapBounds } from '../types';
-import { CachedTrail } from '../services/trailCache';
+import { MapBounds, Trail } from '../types';
 import { setupLeafletCompatibility } from '../utils/browserCompat';
-import GPXTrail from './GPXTrail';
+import MVTTrailLayer from './MVTTrailLayer';
 import RouteDrawer from './RouteDrawer';
 
 // Set up browser compatibility once
@@ -19,10 +18,9 @@ L.Icon.Default.mergeOptions({
 });
 
 interface MapProps {
-  trails: CachedTrail[];
-  selectedTrail: CachedTrail | null;
+  selectedTrail: Trail | null;
   onBoundsChange: (bounds: MapBounds) => void;
-  onTrailClick: (trail: CachedTrail | null) => void;
+  onTrailClick: (trail: Trail | null) => void;
   onMapMoveEnd?: () => void;
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
@@ -33,12 +31,10 @@ interface MapProps {
 // Component to handle map events and trail zoom
 function MapEvents({ 
   onBoundsChange, 
-  selectedTrail,
   onMapClick,
   onMapMoveEnd
 }: { 
   onBoundsChange: (bounds: MapBounds) => void;
-  selectedTrail: CachedTrail | null;
   onMapClick: () => void;
   onMapMoveEnd?: () => void;
 }) {
@@ -76,47 +72,13 @@ function MapEvents({
     };
   }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
 
-  // Handle trail zoom when selectedTrail changes
-  useEffect(() => {
-    if (selectedTrail && selectedTrail.bounds) {
-      const bounds = selectedTrail.bounds;
-      
-      // Create Leaflet bounds object
-      const leafletBounds = L.latLngBounds(
-        [bounds.south, bounds.west],
-        [bounds.north, bounds.east]
-      );
-      
-      // Store reference to any open popup to reopen it after zoom
-      let openPopup: L.Layer | null = null;
-      map.eachLayer((layer: L.Layer) => {
-        if ('isPopupOpen' in layer && typeof layer.isPopupOpen === 'function' && layer.isPopupOpen()) {
-          openPopup = layer;
-        }
-      });
-      
-      // Always zoom to trail bounds for consistent behavior
-      map.fitBounds(leafletBounds, { 
-        padding: [20, 20],
-        maxZoom: 16 
-      });
-      
-      // Reopen popup after zoom animation
-      if (openPopup) {
-        setTimeout(() => {
-          if (openPopup && map.hasLayer(openPopup) && 'openPopup' in openPopup && typeof openPopup.openPopup === 'function') {
-            openPopup.openPopup();
-          }
-        }, 500);
-      }
-    }
-  }, [map, selectedTrail]);
+  // Note: Trail zoom functionality removed since MVT doesn't provide bounds directly
+  // TODO: Could be re-implemented by querying trail geometry API if needed
 
   return null;
 }
 
 export default function Map({ 
-  trails, 
   selectedTrail, 
   onBoundsChange, 
   onTrailClick, 
@@ -126,7 +88,7 @@ export default function Map({
   onDrawingCancel,
   initialGpxContent
 }: MapProps) {
-  const handleTrailClick = useCallback((trail: CachedTrail) => {
+  const handleTrailClick = useCallback((trail: Trail | null) => {
     onTrailClick(trail);
   }, [onTrailClick]);
 
@@ -152,17 +114,13 @@ export default function Map({
 
 
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
+      <MapEvents onBoundsChange={onBoundsChange} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
-      {/* Render GPX trails */}
-      {trails.map((trail) => (
-        <GPXTrail
-          key={trail.id}
-          trail={trail}
-          isSelected={selectedTrail?.id === trail.id}
-          onTrailClick={handleTrailClick}
-        />
-      ))}
+      {/* MVT Trail Layer - replaces individual GPX trail rendering */}
+      <MVTTrailLayer 
+        onTrailClick={handleTrailClick}
+        selectedTrail={selectedTrail}
+      />
 
       {/* Route drawer */}
       <RouteDrawer

@@ -134,7 +134,7 @@ export class PocketBaseService {
 
   static getTrailFileUrl(trail: Trail): string {
     // Construct the file URL manually since we have the trail ID and file name
-    return `${pb.baseUrl}/api/files/trails/${trail.id}/${trail.file}`;
+    return `${pb.baseUrl}/api/files/trails/${trail.id}/${trail.gpx_file}`;
   }
 
   static async updateUser(id: string, data: { name?: string }): Promise<User> {
@@ -167,7 +167,9 @@ export class PocketBaseService {
       description: record.description,
       level: record.level,
       tags: record.tags || [],
-      file: record.file,
+      gpx_file: record.file,
+      collectionId: record.collectionId,
+      collectionName: record.collectionName,
       owner: record.expand?.owner || record.owner,
       created: record.created,
       updated: record.updated,

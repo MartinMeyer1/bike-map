@@ -1,18 +1,17 @@
 import React, { memo } from 'react';
-import { CachedTrail } from '../services/trailCache';
-import { User } from '../types';
+import { Trail, User } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { Button, Badge } from './ui';
 import styles from './TrailCard.module.css';
 
 interface TrailCardProps {
-  trail: CachedTrail;
+  trail: Trail;
   isSelected: boolean;
   user: User | null;
-  onTrailClick: (trail: CachedTrail) => void;
-  onEditTrailClick: (trail: CachedTrail) => void;
-  onDownloadGPX: (trail: CachedTrail) => void;
-  onShowQRCode: (trail: CachedTrail) => void;
+  onTrailClick: (trail: Trail) => void;
+  onEditTrailClick: (trail: Trail) => void;
+  onDownloadGPX: (trail: Trail) => void;
+  onShowQRCode: (trail: Trail) => void;
 }
 
 export const TrailCard: React.FC<TrailCardProps> = memo(({
@@ -24,7 +23,7 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
   onDownloadGPX,
   onShowQRCode
 }) => {
-  const ownerInfo = trail.ownerInfo;
+  const ownerInfo = (trail as any).ownerInfo; // Owner info comes from MVT extractor
 
   const handleClick = () => {
     onTrailClick(trail);
@@ -84,15 +83,15 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
 
       {/* Trail stats */}
       <div className={`${styles.stats} ${isSelected ? styles.expanded : ''}`}>
-        {trail.elevation ? (
+        {(trail as any).elevation ? (
           <>
             <div className={styles.elevationGain}>
               <span>▲</span>
-              <span>{Math.round(trail.elevation.gain)}m</span>
+              <span>{Math.round((trail as any).elevation.gain)}m</span>
             </div>
             <div className={styles.elevationLoss}>
               <span>▼</span>
-              <span>{Math.round(trail.elevation.loss)}m</span>
+              <span>{Math.round((trail as any).elevation.loss)}m</span>
             </div>
           </>
         ) : (
