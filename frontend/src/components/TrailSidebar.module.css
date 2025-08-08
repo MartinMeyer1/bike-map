@@ -1,0 +1,108 @@
+.sidebar {
+  position: fixed !important;
+  top: 10px !important;
+  left: 10px !important;
+  width: 320px !important;
+  height: calc(100vh - 20px) !important;
+  background: white !important;
+  border: 1px solid #ddd !important;
+  border-radius: 8px !important;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  z-index: 1000 !important;
+}
+
+.header {
+  flex-shrink: 0;
+  padding: 15px;
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.visibleTrailsTitle {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.scrollContainer {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 15px;
+}
+
+.emptyState {
+  padding: 15px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  border: 1px dashed #dee2e6;
+  border-radius: 4px;
+}
+
+.trailsContainer {
+  padding-top: 2px;
+}
+
+.footer {
+  flex-shrink: 0;
+  margin-top: 15px;
+  padding: 15px;
+}
+
+.legend {
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
+  position: relative;
+}
+
+.legendTitle {
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.legendBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.infoButton {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #6c757d;
+  transition: all 0.2s;
+}
+
+.infoButton:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+  color: #495057;
+}

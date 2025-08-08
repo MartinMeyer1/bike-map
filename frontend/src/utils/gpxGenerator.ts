@@ -60,10 +60,9 @@ export function parseGPXDetailed(gpxContent: string): ParsedGPX {
       }
     });
     
-    console.log(`Parsed GPX: ${waypoints.length} waypoints, ${route.length} route points`);
     return { waypoints, route };
-  } catch (error) {
-    console.warn('Failed to parse GPX content:', error);
+  } catch {
+    // GPX parsing failed - return empty arrays
     return { waypoints: [], route: [] };
   }
 }

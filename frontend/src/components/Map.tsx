@@ -1,43 +1,29 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapBounds } from '../types';
-import { CachedTrail } from '../services/trailCache';
-import GPXTrail from './GPXTrail';
+import { MapBounds, MVTTrail } from '../types';
+import { setupLeafletCompatibility } from '../utils/browserCompat';
+import { MVTTrailService } from '../services/mvtTrails';
 import RouteDrawer from './RouteDrawer';
 
+// Set up browser compatibility once
+setupLeafletCompatibility();
+
 // Fix for default markers in react-leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
+delete ((L as any).Icon.Default.prototype as any)._getIconUrl;
+(L as any).Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Configure Leaflet to avoid deprecated Mozilla properties
-if (typeof window !== 'undefined') {
-  // Override the deprecated property access in MouseEvent prototype
-  // This prevents Leaflet from accessing mozPressure and mozInputSource
-  const originalMouseEvent = window.MouseEvent;
-  if (originalMouseEvent && originalMouseEvent.prototype) {
-    // Define getters that return undefined instead of throwing deprecation warnings
-    Object.defineProperty(originalMouseEvent.prototype, 'mozPressure', {
-      get: function() { return undefined; },
-      configurable: true
-    });
-    Object.defineProperty(originalMouseEvent.prototype, 'mozInputSource', {
-      get: function() { return undefined; },
-      configurable: true
-    });
-  }
-}
-
 interface MapProps {
-  trails: CachedTrail[];
-  selectedTrail: CachedTrail | null;
+  selectedTrail: MVTTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
-  onTrailClick: (trail: CachedTrail | null) => void;
+  onTrailClick: (trail: MVTTrail | null) => void;
+  onTrailsLoaded?: (trails: MVTTrail[]) => void;
   onMapMoveEnd?: () => void;
+  refreshTrigger?: number; // Increment this to trigger MVT refresh
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
@@ -52,26 +38,32 @@ function MapEvents({
   onMapMoveEnd
 }: { 
   onBoundsChange: (bounds: MapBounds) => void;
-  selectedTrail: CachedTrail | null;
+  selectedTrail: MVTTrail | null;
   onMapClick: () => void;
   onMapMoveEnd?: () => void;
 }) {
   const map = useMap();
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    
     const handleMoveEnd = () => {
-      const bounds = map.getBounds();
-      onBoundsChange({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-      
-      // Notify that map movement has ended
-      if (onMapMoveEnd) {
-        onMapMoveEnd();
-      }
+      // Debounce map movements to reduce excessive re-renders
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const bounds = map.getBounds();
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        });
+        
+        // Notify that map movement has ended
+        if (onMapMoveEnd) {
+          onMapMoveEnd();
+        }
+      }, 100); // 100ms debounce
     };
 
     const handleMapClick = () => {
@@ -79,13 +71,16 @@ function MapEvents({
     };
 
     map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleMoveEnd);  // Also listen to zoom events
     map.on('click', handleMapClick);
     
     // Initial bounds
     handleMoveEnd();
 
     return () => {
+      clearTimeout(debounceTimer);
       map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
   }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
@@ -96,15 +91,15 @@ function MapEvents({
       const bounds = selectedTrail.bounds;
       
       // Create Leaflet bounds object
-      const leafletBounds = L.latLngBounds(
+      const leafletBounds = (L as any).latLngBounds(
         [bounds.south, bounds.west],
         [bounds.north, bounds.east]
       );
       
       // Store reference to any open popup to reopen it after zoom
-      let openPopup: any = null;
-      map.eachLayer((layer: any) => {
-        if (layer.isPopupOpen && layer.isPopupOpen()) {
+      let openPopup: L.Layer | null = null;
+      map.eachLayer((layer: L.Layer) => {
+        if ('isPopupOpen' in layer && typeof layer.isPopupOpen === 'function' && layer.isPopupOpen()) {
           openPopup = layer;
         }
       });
@@ -118,7 +113,7 @@ function MapEvents({
       // Reopen popup after zoom animation
       if (openPopup) {
         setTimeout(() => {
-          if (openPopup && map.hasLayer(openPopup)) {
+          if (openPopup && map.hasLayer(openPopup) && 'openPopup' in openPopup && typeof openPopup.openPopup === 'function') {
             openPopup.openPopup();
           }
         }, 500);
@@ -129,54 +124,120 @@ function MapEvents({
   return null;
 }
 
+// Component to manage MVT trail layer
+function MVTTrailLayer({
+  selectedTrail,
+  onTrailClick,
+  onTrailsLoaded,
+  isDrawingActive,
+  refreshTrigger
+}: {
+  selectedTrail: MVTTrail | null;
+  onTrailClick: (trail: MVTTrail | null) => void;
+  onTrailsLoaded?: (trails: MVTTrail[]) => void;
+  isDrawingActive?: boolean;
+  refreshTrigger?: number;
+}) {
+  const map = useMap();
+  const mvtServiceRef = useRef<MVTTrailService | null>(null);
+
+  useEffect(() => {
+    // Initialize MVT service
+    if (!mvtServiceRef.current) {
+      mvtServiceRef.current = new MVTTrailService(map);
+      mvtServiceRef.current.setEvents({
+        onTrailClick: onTrailClick,
+        onTrailsLoaded: onTrailsLoaded,
+      });
+    }
+
+    // Add MVT layer to map (unless drawing is active)
+    if (!isDrawingActive) {
+      mvtServiceRef.current.addToMap();
+    } else {
+      mvtServiceRef.current.removeFromMap();
+    }
+
+    return () => {
+      if (mvtServiceRef.current) {
+        mvtServiceRef.current.removeFromMap();
+      }
+    };
+  }, [map, onTrailClick, onTrailsLoaded, isDrawingActive]);
+
+  // Update selected trail
+  useEffect(() => {
+    if (mvtServiceRef.current) {
+      mvtServiceRef.current.selectTrail(selectedTrail?.id || null);
+    }
+  }, [selectedTrail]);
+
+  // Refresh MVT layer when trigger changes
+  useEffect(() => {
+    if (refreshTrigger && mvtServiceRef.current) {
+      mvtServiceRef.current.refreshMVTLayer();
+    }
+  }, [refreshTrigger]);
+
+  return null;
+}
+
 export default function Map({ 
-  trails, 
   selectedTrail, 
   onBoundsChange, 
   onTrailClick, 
+  onTrailsLoaded,
   onMapMoveEnd,
+  refreshTrigger,
   isDrawingActive = false,
   onRouteComplete,
   onDrawingCancel,
   initialGpxContent
 }: MapProps) {
-  const handleTrailClick = useCallback((trail: CachedTrail) => {
+  const trailClickedRef = useRef(false);
+
+  const handleTrailClick = useCallback((trail: MVTTrail | null) => {
+    trailClickedRef.current = true;
     onTrailClick(trail);
+    // Reset flag after a short delay
+    setTimeout(() => {
+      trailClickedRef.current = false;
+    }, 50);
   }, [onTrailClick]);
 
   const handleMapClick = useCallback(() => {
-    // Clear selection when clicking on empty map area
-    if (selectedTrail) {
-      onTrailClick(null as any);
+    // Only clear selection if no trail was clicked recently
+    if (!trailClickedRef.current && selectedTrail) {
+      onTrailClick(null);
     }
   }, [selectedTrail, onTrailClick]);
 
   return (
     <MapContainer
-      center={[46.2, 7.65]} // Center on Valais, Switzerland
-      zoom={10}
+      {...{ center: [46.2, 7.65], zoom: 10 } as any} // Center on Valais, Switzerland
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Swisstopo base layer */}
       <TileLayer
-        url="https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg"
-        attribution='&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>'
-        maxZoom={18}
+        {...{
+          url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg",
+          attribution: '&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>',
+          maxZoom: 18
+        } as any}
       />
 
 
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
-      {/* Render GPX trails */}
-      {trails.map((trail) => (
-        <GPXTrail
-          key={trail.id}
-          trail={trail}
-          isSelected={selectedTrail?.id === trail.id}
-          onTrailClick={handleTrailClick}
-        />
-      ))}
+      {/* MVT Trail Layer */}
+      <MVTTrailLayer
+        selectedTrail={selectedTrail}
+        onTrailClick={handleTrailClick}
+        onTrailsLoaded={onTrailsLoaded}
+        isDrawingActive={isDrawingActive}
+        refreshTrigger={refreshTrigger}
+      />
 
       {/* Route drawer */}
       <RouteDrawer

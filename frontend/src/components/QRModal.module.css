@@ -1,0 +1,31 @@
+.content {
+  padding: 24px;
+  text-align: center;
+}
+
+.qrContainer {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  display: inline-block;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.qrImage {
+  width: 200px;
+  height: 200px;
+  display: block;
+  border-radius: 8px;
+}
+
+.description {
+  font-size: 14px;
+  color: #6c757d;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.closeButton {
+  width: 100%;
+}

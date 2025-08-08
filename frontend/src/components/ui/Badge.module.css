@@ -1,0 +1,39 @@
+.badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
+.s0 {
+  background: #28a745;
+  color: white;
+}
+
+.s1 {
+  background: #007bff;
+  color: white;
+}
+
+.s2 {
+  background: #fd7e14;
+  color: white;
+}
+
+.s3 {
+  background: #dc3545;
+  color: white;
+}
+
+.s4 {
+  background: #6f42c1;
+  color: white;
+}
+
+.s5 {
+  background: #495057;
+  color: white;
+}

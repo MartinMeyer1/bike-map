@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { User } from '../types';
-import { PocketBaseService } from '../services/pocketbase';
+import { useAppContext } from '../hooks/useAppContext';
+import { getErrorMessage } from '../utils/errorHandling';
 import UsernameEditModal from './UsernameEditModal';
 
 interface UserSectionProps {
   user: User | null;
-  onAuthChange: (user: User | null) => void;
 }
 
-export default function UserSection({ user, onAuthChange }: UserSectionProps) {
+export default function UserSection({ user }: UserSectionProps) {
+  const { login, logout, updateUser, setError } = useAppContext();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showUsernameEdit, setShowUsernameEdit] = useState(false);
 
   const handleUserUpdated = (updatedUser: User) => {
-    onAuthChange(updatedUser);
+    updateUser(updatedUser);
   };
 
   if (!user) {
@@ -47,11 +48,10 @@ export default function UserSection({ user, onAuthChange }: UserSectionProps) {
           <button 
             onClick={async () => {
               try {
-                const user = await PocketBaseService.loginWithGoogle();
-                onAuthChange(user);
+                await login();
               } catch (error) {
                 console.error('Login failed:', error);
-                alert('Login failed. Please try again.');
+                setError(getErrorMessage(error));
               }
             }}
             style={{ 
@@ -243,8 +243,7 @@ export default function UserSection({ user, onAuthChange }: UserSectionProps) {
             
             <button 
               onClick={() => {
-                PocketBaseService.logout();
-                onAuthChange(null);
+                logout();
               }}
               style={{ 
                 width: '100%',

@@ -47,15 +47,47 @@ services:
       - traefik
     restart: unless-stopped  
 
+  postgis:
+    image: postgis/postgis:17-3.5-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-gis}
+      - POSTGRES_USER=${POSTGRES_USER:-gisuser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gispass}
+    volumes:
+      - "./mvt-server/initdb:/docker-entrypoint-initdb.d"
+      - "postgis_data:/var/lib/postgresql/data"
+    ports:
+      - "5432:5432"
+    networks:
+      - traefik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gisuser} -d ${POSTGRES_DB:-gis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     image: bikemap-backend:latest
     environment:
+      # Authentication
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      # Server Configuration
+      - BASE_URL=${BASE_URL:-http://localhost:8090}
+      # Database Configuration
+      - POSTGRES_HOST=postgis
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-gis}
+      - POSTGRES_USER=${POSTGRES_USER:-gisuser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gispass}
     volumes:
       - "./pb_data:/pb_data"
+    depends_on:
+      postgis:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       # API routes on main domain
@@ -128,4 +160,6 @@ networks:
 
 volumes:
   letsencrypt:
+    driver: local
+  postgis_data:
     driver: local

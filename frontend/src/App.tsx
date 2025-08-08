@@ -1,226 +1,118 @@
-import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import TrailEditPanel from './components/TrailEditPanel';
-import { Trail, User, MapBounds } from './types';
-import { PocketBaseService } from './services/pocketbase';
-import trailCache, { CachedTrail } from './services/trailCache';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { AppProvider } from './context/AppContext';
+import { useAppContext } from './hooks/useAppContext';
+import { Trail } from './types';
 import './App.css';
 
-function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [trails, setTrails] = useState<CachedTrail[]>([]);
-  const [visibleTrails, setVisibleTrails] = useState<CachedTrail[]>([]);
-  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
-  const [isUploadPanelVisible, setIsUploadPanelVisible] = useState(false);
-  const [isEditPanelVisible, setIsEditPanelVisible] = useState(false);
-  const [trailToEdit, setTrailToEdit] = useState<CachedTrail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
-  const [isDrawingActive, setIsDrawingActive] = useState(false);
-  const [drawnGpxContent, setDrawnGpxContent] = useState<string>('');
-  const [previousGpxContent, setPreviousGpxContent] = useState<string>('');
-  const [editDrawnGpxContent, setEditDrawnGpxContent] = useState<string>('');
-  const [editPreviousGpxContent, setEditPreviousGpxContent] = useState<string>('');
-  const [drawingMode, setDrawingMode] = useState<'upload' | 'edit' | null>(null);
-  const [mapMoveEndTrigger, setMapMoveEndTrigger] = useState(0);
-
-  // Initialize app - check auth and initialize trail cache
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        // Check if user is already authenticated
-        const currentUser = PocketBaseService.getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-        }
-
-        // Initialize trail cache (loads and processes all trails)
-        await trailCache.initialize();
-        
-        // Load cached trails into state
-        const cachedTrails = trailCache.getAllTrails();
-        setTrails(cachedTrails);
-        setVisibleTrails(cachedTrails); // Initially show all trails
-      } catch (err: any) {
-        console.error('Failed to initialize app:', err);
-        setError('Failed to load application data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeApp();
-  }, []);
-
-  // Listen for auth store changes to keep React state in sync
-  useEffect(() => {
-    const unsubscribe = PocketBaseService.onAuthChange((newUser) => {
-      setUser(newUser);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // Refresh trails from cache (used after uploads)
-  const refreshTrails = useCallback(() => {
-    const cachedTrails = trailCache.getAllTrails();
-    setTrails(cachedTrails);
+const AppContent: React.FC = () => {
+  const {
+    // Auth state
+    user,
+    isAuthLoading,
     
-    // Update visible trails based on current bounds
-    if (mapBounds) {
-      const boundsFiltered = trailCache.getTrailsInBounds(mapBounds);
-      setVisibleTrails(boundsFiltered);
-    } else {
-      setVisibleTrails(cachedTrails);
-    }
-  }, [mapBounds]);
-
-  // Update visible trails when map bounds change
-  const updateVisibleTrails = useCallback((bounds: MapBounds) => {
-    setMapBounds(bounds);
+    // Trail state
+    trails,
+    visibleTrails,
+    selectedTrail,
+    isTrailsLoading,
     
-    // Use cached spatial filtering for better performance
-    const boundsFiltered = trailCache.getTrailsInBounds(bounds);
-    setVisibleTrails(boundsFiltered);
-  }, []);
-
-  // Handle authentication changes
-  const handleAuthChange = (newUser: User | null) => {
-    setUser(newUser);
-  };
+    // UI state
+    isUploadPanelVisible,
+    isEditPanelVisible,
+    trailToEdit,
+    
+    // Drawing state
+    isDrawingActive,
+    drawingMode,
+    
+    // General state
+    error,
+    mapMoveEndTrigger,
+    mvtRefreshTrigger,
+    
+    // Methods
+    updateVisibleTrails,
+    updateVisibleTrailsFromMVT,
+    selectTrail,
+    handleTrailCreated,
+    handleTrailUpdated,
+    handleTrailDeleted,
+    showUploadPanel,
+    hideUploadPanel,
+    showEditPanel,
+    hideEditPanel,
+    startDrawing,
+    completeDrawing,
+    cancelDrawing,
+    getGpxContent,
+    getPreviousGpxContent,
+    clearError,
+    incrementMapMoveTrigger
+  } = useAppContext();
 
   // Handle trail creation
-  const handleTrailCreated = async (newTrail: Trail) => {
-    try {
-      // Add trail to cache (will process GPX automatically)
-      await trailCache.addTrail(newTrail);
-      
-      // Refresh trails from cache after a short delay to allow backend processing
-      setTimeout(() => {
-        refreshTrails();
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to add trail to cache:', error);
-      setError('Failed to process uploaded trail');
-    }
+  const handleTrailCreatedComplete = async (newTrail: Trail) => {
+    await handleTrailCreated(newTrail);
+    hideUploadPanel();
   };
 
   // Handle trail update
-  const handleTrailUpdated = async (updatedTrail: Trail) => {
-    try {
-      // Update trail in cache
-      await trailCache.updateTrail(updatedTrail);
-      
-      // Refresh trails from cache after a short delay to allow backend processing
-      // (especially important if GPX file was updated)
-      setTimeout(() => {
-        refreshTrails();
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to update trail in cache:', error);
-      setError('Failed to update trail');
-    }
+  const handleTrailUpdatedComplete = async (updatedTrail: Trail) => {
+    await handleTrailUpdated(updatedTrail);
+    hideEditPanel();
   };
 
   // Handle trail deletion
-  const handleTrailDeleted = (trailId: string) => {
-    try {
-      // Remove trail from cache
-      trailCache.removeTrail(trailId);
-      
-      // Clear selection if deleted trail was selected
-      if (selectedTrail?.id === trailId) {
-        setSelectedTrail(null);
-      }
-      
-      // Refresh trails from cache
-      refreshTrails();
-      
-      // Close edit panel
-      setIsEditPanelVisible(false);
-      setTrailToEdit(null);
-    } catch (error) {
-      console.error('Failed to remove trail from cache:', error);
-      setError('Failed to remove trail');
-    }
+  const handleTrailDeletedComplete = (trailId: string) => {
+    handleTrailDeleted(trailId);
+    hideEditPanel();
   };
-
-  // Handle edit trail click
-  const handleEditTrailClick = (trail: CachedTrail) => {
-    setTrailToEdit(trail);
-    setIsEditPanelVisible(true);
-  };
-
-  // Handle trail updated
-  const handleTrailUpdatedComplete = (updatedTrail: Trail) => {
-    handleTrailUpdated(updatedTrail);
-    setIsEditPanelVisible(false);
-    setTrailToEdit(null);
-  };
-
-  // Handle trail selection and deselection
-  const handleTrailClick = useCallback((trail: CachedTrail | null) => {
-    setSelectedTrail(trail);
-  }, []);
 
   // Handle start drawing
   const handleStartDrawing = () => {
-    // Preserve current GPX content to restore on cancel
-    setPreviousGpxContent(drawnGpxContent);
-    setIsDrawingActive(true);
-    setDrawingMode('upload');
-    setIsUploadPanelVisible(false);
+    startDrawing('upload');
   };
 
   // Handle route drawing completed
   const handleRouteComplete = (gpxContent: string) => {
-    setDrawnGpxContent(gpxContent);
-    setIsDrawingActive(false);
-    setDrawingMode(null);
-    setIsUploadPanelVisible(true);
+    completeDrawing(gpxContent);
+    showUploadPanel();
   };
 
   // Handle drawing cancelled
   const handleDrawingCancel = () => {
-    setIsDrawingActive(false);
-    setDrawingMode(null);
-    setIsUploadPanelVisible(true);
+    cancelDrawing();
+    showUploadPanel();
   };
 
   // Handle start drawing for edit panel
   const handleEditStartDrawing = () => {
-    // Preserve current GPX content to restore on cancel
-    setEditPreviousGpxContent(editDrawnGpxContent);
-    setIsDrawingActive(true);
-    setDrawingMode('edit');
-    setIsEditPanelVisible(false);
+    startDrawing('edit');
   };
 
   // Handle route drawing completed for edit panel
   const handleEditRouteComplete = (gpxContent: string) => {
-    setEditDrawnGpxContent(gpxContent);
-    setIsDrawingActive(false);
-    setDrawingMode(null);
-    setIsEditPanelVisible(true);
+    completeDrawing(gpxContent);
+    showEditPanel(trailToEdit!);
   };
 
   // Handle drawing cancelled for edit panel
   const handleEditDrawingCancel = () => {
-    setIsDrawingActive(false);
-    setDrawingMode(null);
-    setIsEditPanelVisible(true);
+    cancelDrawing();
+    showEditPanel(trailToEdit!);
   };
 
   // Handle map movement end
-  const handleMapMoveEnd = useCallback(() => {
-    setMapMoveEndTrigger(prev => prev + 1);
-  }, []);
+  const handleMapMoveEnd = React.useCallback(() => {
+    incrementMapMoveTrigger();
+  }, [incrementMapMoveTrigger]);
 
-
-  if (isLoading) {
+  if (isAuthLoading || isTrailsLoading) {
     return (
       <div style={{
         height: '100vh',
@@ -253,7 +145,7 @@ function App() {
         }}>
           {error}
           <button 
-            onClick={() => setError('')}
+            onClick={clearError}
             style={{ 
               marginLeft: '10px', 
               background: 'none', 
@@ -270,15 +162,16 @@ function App() {
 
       {/* Main map */}
       <Map 
-        trails={isDrawingActive ? [] : trails}
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
-        onTrailClick={handleTrailClick}
+        onTrailClick={selectTrail}
+        onTrailsLoaded={updateVisibleTrailsFromMVT}
         onMapMoveEnd={handleMapMoveEnd}
+        refreshTrigger={mvtRefreshTrigger}
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
-        initialGpxContent={drawingMode === 'edit' ? editPreviousGpxContent : previousGpxContent}
+        initialGpxContent={getPreviousGpxContent(drawingMode || 'upload')}
       />
 
       {/* Trail sidebar - hidden during drawing mode */}
@@ -287,44 +180,44 @@ function App() {
           trails={trails}
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
-          mapBounds={mapBounds}
           mapMoveEndTrigger={mapMoveEndTrigger}
           user={user}
-          onTrailClick={handleTrailClick}
-          onAddTrailClick={() => setIsUploadPanelVisible(true)}
-          onAuthChange={handleAuthChange}
-          onEditTrailClick={handleEditTrailClick}
+          onTrailClick={selectTrail}
+          onAddTrailClick={showUploadPanel}
+          onEditTrailClick={showEditPanel}
         />
       )}
-
 
       {/* Upload panel */}
       <UploadPanel
         isVisible={isUploadPanelVisible}
-        onClose={() => {
-          setIsUploadPanelVisible(false);
-          setDrawnGpxContent('');
-        }}
-        onTrailCreated={handleTrailCreated}
+        onClose={hideUploadPanel}
+        onTrailCreated={handleTrailCreatedComplete}
         onStartDrawing={handleStartDrawing}
-        drawnGpxContent={drawnGpxContent}
+        drawnGpxContent={getGpxContent('upload')}
       />
 
       {/* Edit panel */}
       <TrailEditPanel
         isVisible={isEditPanelVisible}
         trail={trailToEdit}
-        onClose={() => {
-          setIsEditPanelVisible(false);
-          setTrailToEdit(null);
-          setEditDrawnGpxContent('');
-        }}
+        onClose={hideEditPanel}
         onTrailUpdated={handleTrailUpdatedComplete}
-        onTrailDeleted={handleTrailDeleted}
+        onTrailDeleted={handleTrailDeletedComplete}
         onStartDrawing={handleEditStartDrawing}
-        drawnGpxContent={editDrawnGpxContent}
+        drawnGpxContent={getGpxContent('edit')}
       />
     </div>
+  );
+};
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

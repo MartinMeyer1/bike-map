@@ -1,5 +1,6 @@
 import PocketBase from 'pocketbase';
-import { Trail, User } from '../types';
+import { Trail, User, MVTTrail } from '../types';
+import { handleApiError } from '../utils/errorHandling';
 
 // Initialize PocketBase client with configurable base URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
@@ -73,45 +74,8 @@ export class PocketBaseService {
     try {
       const record = await pb.collection('trails').create(formData);
       return this.formatTrail(record);
-    } catch (error: any) {
-      // Handle specific error responses
-      if (error?.status) {
-        switch (error.status) {
-          case 400:
-            if (error.data?.message) {
-              throw new Error(`Invalid data: ${error.data.message}`);
-            }
-            throw new Error('Invalid trail data. Please check your input and try again.');
-          case 401:
-            throw new Error('Authentication required. Please log in and try again.');
-          case 403:
-            throw new Error('You do not have permission to create trails. Only Editor and Admin users can create trails.');
-          case 413:
-            throw new Error('File too large. Please use a smaller GPX file (max 5MB).');
-          case 415:
-            throw new Error('Invalid file type. Please upload a valid GPX file.');
-          case 422:
-            if (error.data?.data) {
-              const fieldErrors = Object.entries(error.data.data)
-                .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
-                .join('; ');
-              throw new Error(`Validation errors: ${fieldErrors}`);
-            }
-            throw new Error('Validation failed. Please check your input and try again.');
-          case 500:
-            throw new Error('Server error. Please try again later.');
-          default:
-            throw new Error(`Upload failed with status ${error.status}. Please try again.`);
-        }
-      }
-      
-      // Handle network or other errors
-      if (error.name === 'NetworkError' || !navigator.onLine) {
-        throw new Error('Network error. Please check your connection and try again.');
-      }
-      
-      // Fallback error message
-      throw new Error(error.message || 'Failed to create trail. Please try again.');
+    } catch (error) {
+      throw handleApiError(error);
     }
   }
 
@@ -147,47 +111,8 @@ export class PocketBaseService {
         expand: 'owner'
       });
       return this.formatTrail(record);
-    } catch (error: any) {
-      // Handle specific error responses
-      if (error?.status) {
-        switch (error.status) {
-          case 400:
-            if (error.data?.message) {
-              throw new Error(`Invalid data: ${error.data.message}`);
-            }
-            throw new Error('Invalid trail data. Please check your input and try again.');
-          case 401:
-            throw new Error('Authentication required. Please log in and try again.');
-          case 403:
-            throw new Error('You do not have permission to edit this trail. Only the owner or Admin users can edit trails.');
-          case 404:
-            throw new Error('Trail not found. It may have been deleted.');
-          case 413:
-            throw new Error('File too large. Please use a smaller GPX file (max 5MB).');
-          case 415:
-            throw new Error('Invalid file type. Please upload a valid GPX file.');
-          case 422:
-            if (error.data?.data) {
-              const fieldErrors = Object.entries(error.data.data)
-                .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
-                .join('; ');
-              throw new Error(`Validation errors: ${fieldErrors}`);
-            }
-            throw new Error('Validation failed. Please check your input and try again.');
-          case 500:
-            throw new Error('Server error. Please try again later.');
-          default:
-            throw new Error(`Update failed with status ${error.status}. Please try again.`);
-        }
-      }
-      
-      // Handle network or other errors
-      if (error.name === 'NetworkError' || !navigator.onLine) {
-        throw new Error('Network error. Please check your connection and try again.');
-      }
-      
-      // Fallback error message
-      throw new Error(error.message || 'Failed to update trail. Please try again.');
+    } catch (error) {
+      throw handleApiError(error);
     }
   }
 
@@ -198,30 +123,8 @@ export class PocketBaseService {
     
     try {
       await pb.collection('trails').delete(id);
-    } catch (error: any) {
-      // Handle specific error responses
-      if (error?.status) {
-        switch (error.status) {
-          case 401:
-            throw new Error('Authentication required. Please log in and try again.');
-          case 403:
-            throw new Error('You do not have permission to delete this trail. Only the owner or Admin users can delete trails.');
-          case 404:
-            throw new Error('Trail not found. It may have already been deleted.');
-          case 500:
-            throw new Error('Server error. Please try again later.');
-          default:
-            throw new Error(`Delete failed with status ${error.status}. Please try again.`);
-        }
-      }
-      
-      // Handle network or other errors
-      if (error.name === 'NetworkError' || !navigator.onLine) {
-        throw new Error('Network error. Please check your connection and try again.');
-      }
-      
-      // Fallback error message
-      throw new Error(error.message || 'Failed to delete trail. Please try again.');
+    } catch (error) {
+      throw handleApiError(error);
     }
   }
 
@@ -229,9 +132,10 @@ export class PocketBaseService {
     return pb.files.getUrl(record, filename);
   }
 
-  static getTrailFileUrl(trail: Trail): string {
-    // Construct the file URL manually since we have the trail ID and file name
-    return `${pb.baseUrl}/api/files/trails/${trail.id}/${trail.file}`;
+  static getTrailFileUrl(trail: Trail | { id: string; file?: string }): string {
+    // For MVT trails, reconstruct the file name from ID
+    const fileName = 'file' in trail && trail.file ? trail.file : `${trail.id}.gpx`;
+    return `${pb.baseUrl}/api/files/trails/${trail.id}/${fileName}`;
   }
 
   static async updateUser(id: string, data: { name?: string }): Promise<User> {
@@ -250,11 +154,10 @@ export class PocketBaseService {
     };
   }
 
-  static canEditTrail(trail: Trail, user: User | null): boolean {
+  static canEditTrail(trail: Trail | MVTTrail, user: User | null): boolean {
     if (!user) return false;
     if (user.role === 'Admin') return true;
-    if (typeof trail.owner === 'object' && trail.owner.id === user.id) return true;
-    if (typeof trail.owner === 'string' && trail.owner === user.id) return true;
+    if (trail.owner === user.id) return true;
     return false;
   }
 

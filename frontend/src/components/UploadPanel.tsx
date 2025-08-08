@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { DIFFICULTY_LEVELS, AVAILABLE_TAGS } from '../utils/constants';
+import { handleApiError } from '../utils/errorHandling';
 
 interface UploadPanelProps {
   isVisible: boolean;
@@ -10,18 +12,6 @@ interface UploadPanelProps {
   drawnGpxContent?: string;
 }
 
-const DIFFICULTY_LEVELS = [
-  { value: 'S0', label: 'S0 (Green - Easy)' },
-  { value: 'S1', label: 'S1 (Blue - Easy)' },
-  { value: 'S2', label: 'S2 (Orange - Intermediate)' },
-  { value: 'S3', label: 'S3 (Red - Advanced)' },
-  { value: 'S4', label: 'S4 (Purple - Expert)' },
-  { value: 'S5', label: 'S5 (Black - Extreme)' },
-];
-
-const AVAILABLE_TAGS = [
-  'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 'Drop', 'Bermed', 'Natural', "Switchbacks", "Loose", "Sketchy"
-];
 
 export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStartDrawing, drawnGpxContent }: UploadPanelProps) {
   const [formData, setFormData] = useState({
@@ -147,17 +137,10 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStar
       // Close panel immediately
       onClose();
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Trail upload error:', err);
-      
-      // Check if user lost authentication during upload
-      if (err.message.includes('Authentication required')) {
-        setError('Session expired. Please log in again and try uploading your trail.');
-      } else if (err.message.includes('permission')) {
-        setError('You need Editor or Admin permissions to create trails. Please contact an administrator.');
-      } else {
-        setError(err.message || 'Failed to upload trail. Please try again.');
-      }
+      const appError = handleApiError(err);
+      setError(appError.message);
     } finally {
       setIsLoading(false);
     }
