@@ -102,6 +102,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_TRAILS':
       return { ...state, trails: action.payload };
     case 'SET_VISIBLE_TRAILS':
+      // Optimize: only update if trail IDs actually changed
+      const currentIds = new Set(state.visibleTrails.map(t => t.id));
+      const newIds = new Set(action.payload.map(t => t.id));
+      
+      const hasChanged = currentIds.size !== newIds.size || 
+        [...currentIds].some(id => !newIds.has(id));
+      
+      if (!hasChanged) return state; // Skip update if no changes
+      
       return { ...state, visibleTrails: action.payload };
     case 'SET_SELECTED_TRAIL':
       return { ...state, selectedTrail: action.payload };
@@ -291,7 +300,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const updateVisibleTrailsFromMVT = useCallback((mvtTrails: MVTTrail[]) => {
-    // Just set the visible trails directly - don't accumulate in allMVTTrails
+    // Optimize: only update if trails actually changed (simple approach)
     dispatch({ type: 'SET_VISIBLE_TRAILS', payload: mvtTrails });
   }, []);
 

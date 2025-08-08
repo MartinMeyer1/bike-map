@@ -45,19 +45,25 @@ function MapEvents({
   const map = useMap();
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout>;
+    
     const handleMoveEnd = () => {
-      const bounds = map.getBounds();
-      onBoundsChange({
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      });
-      
-      // Notify that map movement has ended
-      if (onMapMoveEnd) {
-        onMapMoveEnd();
-      }
+      // Debounce map movements to reduce excessive re-renders
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const bounds = map.getBounds();
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        });
+        
+        // Notify that map movement has ended
+        if (onMapMoveEnd) {
+          onMapMoveEnd();
+        }
+      }, 100); // 100ms debounce
     };
 
     const handleMapClick = () => {
@@ -72,6 +78,7 @@ function MapEvents({
     handleMoveEnd();
 
     return () => {
+      clearTimeout(debounceTimer);
       map.off('moveend', handleMoveEnd);
       map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);

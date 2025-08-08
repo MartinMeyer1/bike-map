@@ -59,6 +59,15 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     setShowQRCode(fileUrl);
   }, []);
 
+  // Memoize callback props to prevent TrailCard re-renders
+  const memoizedOnTrailClick = useCallback((trail: MVTTrail) => {
+    onTrailClick(trail);
+  }, [onTrailClick]);
+
+  const memoizedOnEditTrailClick = useCallback((trail: MVTTrail) => {
+    onEditTrailClick(trail);
+  }, [onEditTrailClick]);
+
   const handleCloseQRCode = useCallback(() => {
     setShowQRCode(null);
   }, []);
@@ -89,18 +98,22 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     }
   }, [mapMoveEndTrigger, selectedTrail]);
 
-  // Sort trails to put selected trail first
+  // Sort trails to put selected trail first - memoized with stable sorting
   const sortedTrails = React.useMemo(() => {
-    const sorted = [...visibleTrails];
-    if (selectedTrail) {
-      const selectedIndex = sorted.findIndex(t => t.id === selectedTrail.id);
-      if (selectedIndex > 0) {
-        const [selected] = sorted.splice(selectedIndex, 1);
-        sorted.unshift(selected);
-      }
-    }
+    if (!visibleTrails.length) return [];
+    
+    // Use a more stable sort to prevent unnecessary re-renders
+    const sorted = [...visibleTrails].sort((a, b) => {
+      // Selected trail always first
+      if (selectedTrail?.id === a.id) return -1;
+      if (selectedTrail?.id === b.id) return 1;
+      
+      // Then sort by name for stable ordering
+      return a.name.localeCompare(b.name);
+    });
+    
     return sorted;
-  }, [visibleTrails, selectedTrail]);
+  }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
   return (
     <div className={styles.sidebar}>
@@ -150,8 +163,8 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
                   trail={trail}
                   isSelected={selectedTrail?.id === trail.id}
                   user={user}
-                  onTrailClick={onTrailClick}
-                  onEditTrailClick={onEditTrailClick}
+                  onTrailClick={memoizedOnTrailClick}
+                  onEditTrailClick={memoizedOnEditTrailClick}
                   onDownloadGPX={handleDownloadGPX}
                   onShowQRCode={handleShowQRCode}
                 />

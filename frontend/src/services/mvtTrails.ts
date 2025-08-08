@@ -113,16 +113,21 @@ export class MVTTrailService {
     });
 
 
-    // Handle tile loading events
+    // Handle tile loading events with throttling
+    let tileLoadThrottleTimer: ReturnType<typeof setTimeout>;
     (layer as any).on('tileload', () => {
       this.events.onTileLoad?.();
       
-      // After tiles load, clean up trails that are no longer visible
-      this.cleanupInvisibleTrails();
-      
-      // Notify about loaded trails (only currently visible ones)
-      const trails = Array.from(this.loadedTrails.values());
-      this.events.onTrailsLoaded?.(trails);
+      // Throttle expensive operations to avoid overwhelming the UI
+      clearTimeout(tileLoadThrottleTimer);
+      tileLoadThrottleTimer = setTimeout(() => {
+        // After tiles load, clean up trails that are no longer visible
+        this.cleanupInvisibleTrails();
+        
+        // Notify about loaded trails (only currently visible ones)
+        const trails = Array.from(this.loadedTrails.values());
+        this.events.onTrailsLoaded?.(trails);
+      }, 100); // 100ms throttle
     });
 
     return layer;
