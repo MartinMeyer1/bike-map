@@ -310,11 +310,11 @@ func (m *MVTService) calculateSimplificationTolerance(z int) float64 {
 	// More aggressive simplification at lower zoom levels
 	switch {
 	case z <= 8:
-		return 0.5 // Very simplified for country/regional view
+		return 0.05 // Very simplified for country/regional view
 	case z <= 10:
-		return 0.1 // Simplified for regional view
+		return 0.01 // Simplified for regional view
 	case z <= 11:
-		return 0.01 // Moderate simplification for city view
+		return 0.001 // Moderate simplification for city view
 	case z <= 12:
 		return 0.0005 // Light simplification for neighborhood view
 	default:
