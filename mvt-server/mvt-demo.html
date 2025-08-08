@@ -3,8 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BikeMap MVT Demo</title>
+    <title>BikeMap MVT Enhanced Demo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!--
+    BikeMap MVT Enhanced Demo
+    
+    This demo demonstrates the complete integration of enhanced Mapbox Vector Tiles (MVT) 
+    with trail start/end markers. It serves as a reference implementation for the main frontend.
+    
+    Key Features:
+    - Loads trail data from MVT tiles with complete metadata
+    - Automatically creates start/end markers for all trails
+    - Interactive popups showing comprehensive trail information
+    - Real-time trail statistics and controls
+    
+    Important Technical Notes:
+    1. Marker Creation: Markers MUST be created inside the vectorTileLayerStyles function,
+       not in click events or tile loading events, due to Leaflet.VectorGrid limitations.
+    2. The styling function gets called for each feature and has access to properties.
+    3. This is the ONLY reliable way to access feature data for marker creation.
+    -->
     <style>
         body { 
             margin: 0; 
@@ -123,15 +142,15 @@
     <div id="map"></div>
     
     <div class="demo-header">
-        <h2>🚵 BikeMap MVT Demo (Enhanced)</h2>
-        <p>Interactive demonstration of Enhanced Mountain Bike Vector Tiles with <strong>complete metadata</strong> served by Go backend with PostGIS storage.</p>
-        <p><strong>Enhanced Features:</strong> Trail statistics, elevation profiles, geographic data, start/end points, bounding boxes, creation dates, and more!</p>
-        <p><em>🎯 Click on any trail to see:</em></p>
+        <h2>🚵 BikeMap MVT Enhanced Demo</h2>
+        <p>Reference implementation showing enhanced Mountain Bike Vector Tiles with automatic trail markers.</p>
+        <p><strong>Features:</strong> Trails with metadata, automatic start/end markers, interactive popups, and real-time statistics.</p>
+        <p><em>Automatic markers:</em></p>
         <ul style="margin: 8px 0; padding-left: 20px; font-size: 13px;">
-            <li><strong>🚀 Start Marker</strong> (Green) - Trail starting point</li>
-            <li><strong>🏁 End Marker</strong> (Red) - Trail ending point</li>
-            <li><strong>📦 Bounding Box</strong> (Blue dashed) - Geographic extent</li>
-            <li><strong>📊 Complete Metadata</strong> - All enhanced backend data</li>
+            <li><strong>🚀 Green circles</strong> - Trail start points</li>
+            <li><strong>🏁 Red circles</strong> - Trail end points</li>
+            <li><strong>📊 Click trails</strong> - View complete metadata</li>
+            <li><strong>📍 Click markers</strong> - View coordinates</li>
         </ul>
     </div>
     
@@ -171,7 +190,7 @@
     
     <div class="stats" id="stats">
         <div>Tiles loaded: <span id="tileCount">0</span></div>
-        <div>Features found: <span id="featureCount">0</span></div>
+        <div>Trail markers: <span id="featureCount">0</span></div>
         <div>Backend: localhost:8090</div>
     </div>
 
@@ -179,15 +198,29 @@
     <script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
     
     <script>
+        /*
+         * BikeMap MVT Enhanced Demo - JavaScript Implementation
+         * 
+         * This script demonstrates the proper way to integrate MVT trails with automatic markers.
+         * 
+         * Architecture:
+         * 1. Initialize Leaflet map with Swiss coordinates
+         * 2. Add Swiss topographic base layer  
+         * 3. Create MVT layer with proper styling function
+         * 4. CRITICAL: Create markers inside the styling function (see createMarkersForTrail)
+         * 5. Handle click events for detailed trail information
+         * 
+         * Key Technical Insights:
+         * - Leaflet.VectorGrid only provides feature access in the styling function
+         * - Attempting to create markers in tile events or click handlers fails
+         * - The styling function is called once per feature and has reliable property access
+         */
+
         // Statistics tracking
         let tileLoadCount = 0;
-        let totalFeatures = 0;
         
-        // Initialize map centered on actual trail area (from PostGIS bounds)
+        // Initialize map centered on trail area (Swiss Alps coordinates)
         const map = L.map('map').fitBounds([[46.029985, 6.93462], [46.28743, 7.832396]]);
-
-        // Will create trail markers after MVT tiles load to get all trail data
-        console.log('🚀 Trail markers will be created after MVT data loads...');
 
 
         // Add Swiss topographic base layer
@@ -245,7 +278,7 @@
             return layer;
         }
         
-        // Create initial MVT layer
+        // Initialize and add MVT layer to map
         currentMVTLayer = createMVTLayer().addTo(map);
 
         // Helper functions for formatting
@@ -276,16 +309,43 @@
             return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
         }
 
-        // Storage for all trail markers
-        const allTrailMarkers = new Map(); // Map of trail ID -> {startMarker, endMarker}
+        /*
+         * TRAIL MARKER SYSTEM
+         * 
+         * This system automatically creates start/end markers for all trails loaded from MVT.
+         * 
+         * CRITICAL IMPLEMENTATION NOTE:
+         * The createMarkersForTrail function MUST be called from within the vectorTileLayerStyles
+         * function below. This is the ONLY way to reliably access feature properties in 
+         * Leaflet.VectorGrid. Other approaches (tile events, click handlers) will fail.
+         */
         
-        // Function to create start/end markers for a single trail
+        // Storage for trail markers to prevent duplicates
+        const allTrailMarkers = new Map(); // trail ID -> {startMarker, endMarker}
+        
+        /**
+         * Creates start and end markers for a single trail
+         * 
+         * @param {Object} props - Trail properties from MVT feature
+         * @param {string} props.id - Unique trail identifier
+         * @param {string} props.name - Trail name
+         * @param {number} props.start_lat - Start point latitude
+         * @param {number} props.start_lng - Start point longitude  
+         * @param {number} props.end_lat - End point latitude
+         * @param {number} props.end_lng - End point longitude
+         */
         function createMarkersForTrail(props) {
+            // Validate required properties
             if (!props.id || !props.start_lat || !props.start_lng || !props.end_lat || !props.end_lng) {
-                return; // Skip trails without required coordinates
+                return;
             }
             
-            // Create start marker (green)
+            // Prevent duplicate markers for the same trail
+            if (allTrailMarkers.has(props.id)) {
+                return;
+            }
+            
+            // Create start marker (green circle)
             const startMarker = L.marker([props.start_lat, props.start_lng], {
                 title: `${props.name} - Start`,
                 icon: L.divIcon({
@@ -303,7 +363,7 @@
                 </div>
             `);
 
-            // Create end marker (red)
+            // Create end marker (red circle)
             const endMarker = L.marker([props.end_lat, props.end_lng], {
                 title: `${props.name} - End`,
                 icon: L.divIcon({
@@ -321,25 +381,20 @@
                 </div>
             `);
 
-            // Store markers for this trail
+            // Store markers to prevent duplicates and enable management
             allTrailMarkers.set(props.id, { startMarker, endMarker });
-            console.log(`📍 Created markers for trail: ${props.name}`);
         }
 
-        // Add click handlers for trail information with ALL METADATA
+        /*
+         * TRAIL CLICK HANDLER
+         * 
+         * Handles clicks on trail lines to show detailed information popup.
+         * This displays all enhanced metadata from the MVT backend.
+         */
         function setupLayerEvents(layer) {
             layer.on('click', function(e) {
                 if (e.layer && e.layer.properties) {
                     const props = e.layer.properties;
-                    console.log('🚵 Trail clicked - All properties:', props); // Debug log
-                    console.log('🔍 Available property keys:', Object.keys(props));
-                    console.log('📊 Metadata check:');
-                    console.log('  - distance_m:', props.distance_m);
-                    console.log('  - elevation_gain_meters:', props.elevation_gain_meters);
-                    console.log('  - start_lat:', props.start_lat);
-                    console.log('  - bbox_north:', props.bbox_north);
-                    console.log('  - created_at:', props.created_at);
-                    console.log('  - owner_id:', props.owner_id);
                     
                     const levelColors = {
                         'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
@@ -428,17 +483,15 @@
                 }
             });
 
-            // Track tile loading statistics  
+            // Track tile loading statistics
             layer.on('tileload', function(e) {
                 tileLoadCount++;
-                console.log(`🗺️ Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} loaded`);
                 updateStats();
             });
 
-            // Log tile errors to identify decode failures
+            // Handle tile loading errors
             layer.on('tileerror', function(e) {
-                console.error(`❌ Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
-                console.error('Error details:', e);
+                console.error(`Tile loading failed for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
             });
 
             // Add tile loading start event
@@ -448,7 +501,7 @@
             });
         }
         
-        // Setup events for initial layer
+        // Setup click events for trail information
         setupLayerEvents(currentMVTLayer);
 
 
@@ -495,31 +548,13 @@
         // Update statistics display
         function updateStats() {
             document.getElementById('tileCount').textContent = tileLoadCount;
-            document.getElementById('featureCount').textContent = totalFeatures;
+            document.getElementById('featureCount').textContent = allTrailMarkers.size;
         }
 
-        // Log successful initialization
-        console.log('🚵 BikeMap MVT Demo initialized successfully!');
-        console.log('MVT API: http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt');
-        console.log('Map bounds set to trail area in Swiss Alps');
-        console.log('🎯 Expected tile with data: 10/532/363 - http://localhost:8090/api/tiles/10/532/363.mvt');
-        
-        // Test the specific tile we know has data
-        fetch('http://localhost:8090/api/tiles/10/532/363.mvt')
-            .then(response => {
-                console.log('🌐 Tile 10/532/363 response status:', response.status);
-                console.log('🌐 Tile 10/532/363 content-length:', response.headers.get('content-length'));
-                return response.arrayBuffer();
-            })
-            .then(buffer => {
-                console.log('🌐 Tile 10/532/363 actual size:', buffer.byteLength, 'bytes');
-                if (buffer.byteLength > 0) {
-                    console.log('✅ Tile contains data - MVT tiles are being generated correctly');
-                } else {
-                    console.log('❌ Tile is empty - check PostGIS query or tile coordinates');
-                }
-            })
-            .catch(error => console.error('❌ Error fetching test tile:', error));
+        // Initialization complete
+        console.log('BikeMap MVT Enhanced Demo initialized');
+        console.log('Backend API:', 'http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt');
+        console.log('Trail markers will appear automatically as tiles load');
     </script>
 </body>
 </html>
