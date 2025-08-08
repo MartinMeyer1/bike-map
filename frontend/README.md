@@ -14,9 +14,7 @@ src/
 │   ├── UploadPanel.tsx  # Trail upload form
 │   └── *.module.css     # Component-specific styles
 ├── hooks/               # Custom React hooks
-│   ├── useAuth.ts       # Authentication state
-│   ├── useTrails.ts     # Trail data management
-│   └── useDrawing.ts    # Route drawing state
+│   └── useAppContext.ts # App context hook
 ├── context/             # React Context providers
 │   └── AppContext.tsx   # Global app state
 ├── services/            # API and data services
@@ -39,12 +37,12 @@ src/
 ## Key Features
 
 - **Component Library**: Reusable UI components with CSS modules
-- **Custom Hooks**: Business logic separated into composable hooks
+- **MVT Tile System**: High-performance vector tile rendering with cache management
 - **Type Safety**: Strict TypeScript with proper interfaces
-- **Centralized Error Handling**: Consistent error handling across components
-- **Shared Utilities**: No code duplication with shared colors and constants
-- **Performance**: Memoized components and optimized re-renders
-- **State Management**: React Context with useReducer
+- **Centralized State**: React Context with useReducer for global state
+- **Performance Optimized**: Debounced map events, memoized components, throttled tile loading
+- **Smart Caching**: Browser cache with version-based invalidation
+- **Error Boundary**: Comprehensive error handling and user feedback
 
 ## Development
 

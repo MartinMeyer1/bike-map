@@ -101,7 +101,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
     // Trail actions
     case 'SET_TRAILS':
       return { ...state, trails: action.payload };
-    case 'SET_VISIBLE_TRAILS':
+    case 'SET_VISIBLE_TRAILS': {
       // Optimize: only update if trail IDs actually changed
       const currentIds = new Set(state.visibleTrails.map(t => t.id));
       const newIds = new Set(action.payload.map(t => t.id));
@@ -112,6 +112,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       if (!hasChanged) return state; // Skip update if no changes
       
       return { ...state, visibleTrails: action.payload };
+    }
     case 'SET_SELECTED_TRAIL':
       return { ...state, selectedTrail: action.payload };
     case 'SET_MAP_BOUNDS':

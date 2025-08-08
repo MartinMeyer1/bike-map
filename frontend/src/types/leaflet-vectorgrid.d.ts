@@ -17,7 +17,10 @@ declare module 'leaflet' {
 
     interface ProtobufOptions extends VectorGridOptions {
       subdomains?: string | string[];
-      fetchOptions?: RequestInit;
+      fetchOptions?: {
+        cache?: string;
+        headers?: Record<string, string>;
+      };
     }
 
     function protobuf(url: string, options?: ProtobufOptions): L.Layer;

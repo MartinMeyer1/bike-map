@@ -77,7 +77,6 @@ export class MVTTrailService {
   // Generate a new cache version for cache busting
   private generateCacheVersion(): void {
     this.cacheVersion = `v${Date.now()}`;
-    console.log(`🔄 Generated new MVT cache version: ${this.cacheVersion}`);
   }
 
   createMVTLayer(): any {
@@ -252,8 +251,6 @@ export class MVTTrailService {
   }
 
   refreshMVTLayer(): void {
-    console.log(`🔄 Refreshing MVT layer - generating new cache version`);
-    
     // Generate new cache version to invalidate all cached tiles
     this.generateCacheVersion();
     
@@ -279,7 +276,6 @@ export class MVTTrailService {
       // Recreate and add the MVT layer with new cache version
       this.mvtLayer = this.createMVTLayer();
       this.map.addLayer(this.mvtLayer);
-      console.log(`✅ MVT layer refreshed with cache version: ${this.cacheVersion}`);
     }, 100);
   }
 
