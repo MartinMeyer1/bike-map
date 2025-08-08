@@ -1,18 +1,17 @@
 import React, { memo } from 'react';
-import { CachedTrail } from '../services/trailCache';
-import { User } from '../types';
+import { MVTTrail, User } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { Button, Badge } from './ui';
 import styles from './TrailCard.module.css';
 
 interface TrailCardProps {
-  trail: CachedTrail;
+  trail: MVTTrail;
   isSelected: boolean;
   user: User | null;
-  onTrailClick: (trail: CachedTrail) => void;
-  onEditTrailClick: (trail: CachedTrail) => void;
-  onDownloadGPX: (trail: CachedTrail) => void;
-  onShowQRCode: (trail: CachedTrail) => void;
+  onTrailClick: (trail: MVTTrail) => void;
+  onEditTrailClick: (trail: MVTTrail) => void;
+  onDownloadGPX: (trail: MVTTrail) => void;
+  onShowQRCode: (trail: MVTTrail) => void;
 }
 
 export const TrailCard: React.FC<TrailCardProps> = memo(({

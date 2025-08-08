@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Trail } from '../types';
+import { Trail, MVTTrail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { DIFFICULTY_LEVELS, AVAILABLE_TAGS } from '../utils/constants';
 import { handleApiError } from '../utils/errorHandling';
 
 interface TrailEditPanelProps {
   isVisible: boolean;
-  trail: Trail | null;
+  trail: MVTTrail | null;
   onClose: () => void;
   onTrailUpdated: (trail: Trail) => void;
   onTrailDeleted: (trailId: string) => void;
@@ -289,7 +289,7 @@ export default function TrailEditPanel({
             )}
             {!formData.file && !drawnGpxContent && (
               <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                Current file: {trail?.file || 'Unknown'}
+                Current file: {trail ? `${trail.id}.gpx` : 'Unknown'}
               </div>
             )}
           </div>

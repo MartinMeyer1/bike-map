@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { User } from '../types';
+import { User, MVTTrail } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
@@ -10,14 +10,14 @@ import { Button, Badge } from './ui';
 import styles from './TrailSidebar.module.css';
 
 interface TrailSidebarProps {
-  trails: CachedTrail[];
-  visibleTrails: CachedTrail[];
-  selectedTrail: CachedTrail | null;
+  trails: CachedTrail[]; // For CRUD operations (upload/edit)
+  visibleTrails: MVTTrail[]; // From MVT layer
+  selectedTrail: MVTTrail | null;
   mapMoveEndTrigger: number;
   user: User | null;
-  onTrailClick: (trail: CachedTrail) => void;
+  onTrailClick: (trail: MVTTrail) => void;
   onAddTrailClick: () => void;
-  onEditTrailClick: (trail: CachedTrail) => void;
+  onEditTrailClick: (trail: MVTTrail) => void;
 }
 
 const TrailSidebar: React.FC<TrailSidebarProps> = memo(({ 
@@ -35,8 +35,13 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleDownloadGPX = useCallback((trail: CachedTrail) => {
-    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
+  const handleDownloadGPX = useCallback((trail: MVTTrail) => {
+    // Create a trail-like object for PocketBase service
+    const trailForDownload = {
+      ...trail,
+      file: `${trail.id}.gpx` // Reconstruct file name
+    };
+    const fileUrl = PocketBaseService.getTrailFileUrl(trailForDownload as any);
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = `${trail.name}.gpx`;
@@ -45,8 +50,12 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     document.body.removeChild(link);
   }, []);
 
-  const handleShowQRCode = useCallback((trail: CachedTrail) => {
-    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
+  const handleShowQRCode = useCallback((trail: MVTTrail) => {
+    const trailForDownload = {
+      ...trail,
+      file: `${trail.id}.gpx`
+    };
+    const fileUrl = PocketBaseService.getTrailFileUrl(trailForDownload as any);
     setShowQRCode(fileUrl);
   }, []);
 

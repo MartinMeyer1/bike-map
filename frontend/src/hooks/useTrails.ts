@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Trail, MapBounds } from '../types';
+import { Trail, MapBounds, MVTTrail } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import trailCache from '../services/trailCache';
 
 export const useTrails = () => {
-  const [trails, setTrails] = useState<CachedTrail[]>([]);
-  const [visibleTrails, setVisibleTrails] = useState<CachedTrail[]>([]);
-  const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
+  const [trails, setTrails] = useState<CachedTrail[]>([]); // For CRUD operations
+  const [visibleTrails, setVisibleTrails] = useState<MVTTrail[]>([]); // From MVT
+  const [selectedTrail, setSelectedTrail] = useState<MVTTrail | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -16,8 +16,8 @@ export const useTrails = () => {
       setIsLoading(true);
       await trailCache.initialize();
       const cachedTrails = trailCache.getAllTrails();
-      setTrails(cachedTrails);
-      setVisibleTrails(cachedTrails);
+      setTrails(cachedTrails); // For CRUD operations only
+      // visibleTrails will be populated by MVT layer
     } catch (err: unknown) {
       console.error('Failed to initialize trails:', err);
       setError('Failed to load trails');
@@ -29,19 +29,17 @@ export const useTrails = () => {
   const refreshTrails = useCallback(() => {
     const cachedTrails = trailCache.getAllTrails();
     setTrails(cachedTrails);
-    
-    if (mapBounds) {
-      const boundsFiltered = trailCache.getTrailsInBounds(mapBounds);
-      setVisibleTrails(boundsFiltered);
-    } else {
-      setVisibleTrails(cachedTrails);
-    }
-  }, [mapBounds]);
+    // visibleTrails managed by MVT layer now
+  }, []);
 
   const updateVisibleTrails = useCallback((bounds: MapBounds) => {
     setMapBounds(bounds);
-    const boundsFiltered = trailCache.getTrailsInBounds(bounds);
-    setVisibleTrails(boundsFiltered);
+    // Spatial filtering now handled automatically by MVT tiles
+  }, []);
+
+  // New method to handle trails loaded from MVT
+  const updateVisibleTrailsFromMVT = useCallback((mvtTrails: MVTTrail[]) => {
+    setVisibleTrails(mvtTrails);
   }, []);
 
   const handleTrailCreated = useCallback(async (newTrail: Trail) => {
@@ -83,7 +81,7 @@ export const useTrails = () => {
     }
   }, [selectedTrail, refreshTrails]);
 
-  const selectTrail = useCallback((trail: CachedTrail | null) => {
+  const selectTrail = useCallback((trail: MVTTrail | null) => {
     setSelectedTrail(trail);
   }, []);
 
@@ -104,6 +102,7 @@ export const useTrails = () => {
     error,
     selectTrail,
     updateVisibleTrails,
+    updateVisibleTrailsFromMVT,
     handleTrailCreated,
     handleTrailUpdated,
     handleTrailDeleted,

@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, useCallback, useEffect } from 'react';
-import { User, MapBounds, Trail } from '../types';
+import { User, MapBounds, Trail, MVTTrail } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import trailCache from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
@@ -11,16 +11,16 @@ interface AppState {
   isAuthLoading: boolean;
   
   // Trail state
-  trails: CachedTrail[];
-  visibleTrails: CachedTrail[];
-  selectedTrail: CachedTrail | null;
+  trails: CachedTrail[]; // For CRUD operations
+  visibleTrails: MVTTrail[]; // From MVT layer
+  selectedTrail: MVTTrail | null;
   mapBounds: MapBounds | null;
   isTrailsLoading: boolean;
   
   // UI state
   isUploadPanelVisible: boolean;
   isEditPanelVisible: boolean;
-  trailToEdit: CachedTrail | null;
+  trailToEdit: MVTTrail | null;
   
   // Drawing state
   isDrawingActive: boolean;
@@ -39,15 +39,15 @@ type AppAction =
   
   // Trail actions
   | { type: 'SET_TRAILS'; payload: CachedTrail[] }
-  | { type: 'SET_VISIBLE_TRAILS'; payload: CachedTrail[] }
-  | { type: 'SET_SELECTED_TRAIL'; payload: CachedTrail | null }
+  | { type: 'SET_VISIBLE_TRAILS'; payload: MVTTrail[] }
+  | { type: 'SET_SELECTED_TRAIL'; payload: MVTTrail | null }
   | { type: 'SET_MAP_BOUNDS'; payload: MapBounds | null }
   | { type: 'SET_TRAILS_LOADING'; payload: boolean }
   
   // UI actions
   | { type: 'SET_UPLOAD_PANEL_VISIBLE'; payload: boolean }
   | { type: 'SET_EDIT_PANEL_VISIBLE'; payload: boolean }
-  | { type: 'SET_TRAIL_TO_EDIT'; payload: CachedTrail | null }
+  | { type: 'SET_TRAIL_TO_EDIT'; payload: MVTTrail | null }
   
   // Drawing actions
   | { type: 'START_DRAWING'; payload: 'upload' | 'edit' }
@@ -171,7 +171,8 @@ interface AppContextValue extends AppState {
   initializeTrails: () => Promise<void>;
   refreshTrails: () => void;
   updateVisibleTrails: (bounds: MapBounds) => void;
-  selectTrail: (trail: CachedTrail | null) => void;
+  updateVisibleTrailsFromMVT: (trails: MVTTrail[]) => void;
+  selectTrail: (trail: MVTTrail | null) => void;
   handleTrailCreated: (newTrail: Trail) => Promise<void>;
   handleTrailUpdated: (updatedTrail: Trail) => Promise<void>;
   handleTrailDeleted: (trailId: string) => void;
@@ -179,7 +180,7 @@ interface AppContextValue extends AppState {
   // UI methods
   showUploadPanel: () => void;
   hideUploadPanel: () => void;
-  showEditPanel: (trail: CachedTrail) => void;
+  showEditPanel: (trail: MVTTrail) => void;
   hideEditPanel: () => void;
   
   // Drawing methods
@@ -208,7 +209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await trailCache.initialize();
       const cachedTrails = trailCache.getAllTrails();
       dispatch({ type: 'SET_TRAILS', payload: cachedTrails });
-      dispatch({ type: 'SET_VISIBLE_TRAILS', payload: cachedTrails });
+      // visibleTrails will be populated by MVT layer
     } catch (err) {
       console.error('Failed to initialize trails:', err);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load trails' });
@@ -274,22 +275,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshTrails = useCallback(() => {
     const cachedTrails = trailCache.getAllTrails();
     dispatch({ type: 'SET_TRAILS', payload: cachedTrails });
-    
-    if (state.mapBounds) {
-      const boundsFiltered = trailCache.getTrailsInBounds(state.mapBounds);
-      dispatch({ type: 'SET_VISIBLE_TRAILS', payload: boundsFiltered });
-    } else {
-      dispatch({ type: 'SET_VISIBLE_TRAILS', payload: cachedTrails });
-    }
-  }, [state.mapBounds]);
+    // visibleTrails managed by MVT layer now
+  }, []);
 
   const updateVisibleTrails = useCallback((bounds: MapBounds) => {
     dispatch({ type: 'SET_MAP_BOUNDS', payload: bounds });
-    const boundsFiltered = trailCache.getTrailsInBounds(bounds);
-    dispatch({ type: 'SET_VISIBLE_TRAILS', payload: boundsFiltered });
+    // Spatial filtering now handled by MVT automatically
   }, []);
 
-  const selectTrail = useCallback((trail: CachedTrail | null) => {
+  const updateVisibleTrailsFromMVT = useCallback((mvtTrails: MVTTrail[]) => {
+    dispatch({ type: 'SET_VISIBLE_TRAILS', payload: mvtTrails });
+  }, []);
+
+  const selectTrail = useCallback((trail: MVTTrail | null) => {
     dispatch({ type: 'SET_SELECTED_TRAIL', payload: trail });
   }, []);
 
@@ -342,7 +340,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     dispatch({ type: 'CLEAR_DRAWN_CONTENT', payload: 'upload' });
   }, []);
 
-  const showEditPanel = useCallback((trail: CachedTrail) => {
+  const showEditPanel = useCallback((trail: MVTTrail) => {
     dispatch({ type: 'SET_TRAIL_TO_EDIT', payload: trail });
     dispatch({ type: 'SET_EDIT_PANEL_VISIBLE', payload: true });
   }, []);
@@ -401,6 +399,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initializeTrails,
     refreshTrails,
     updateVisibleTrails,
+    updateVisibleTrailsFromMVT,
     selectTrail,
     handleTrailCreated,
     handleTrailUpdated,

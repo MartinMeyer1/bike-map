@@ -19,8 +19,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const [waypoints, setWaypoints] = useState<PathPoint[]>([]);
   const [routePoints, setRoutePoints] = useState<PathPoint[]>([]);
   const [routeSegments, setRouteSegments] = useState<Array<Array<{lat: number, lng: number, ele?: number}>>>([]);
-  const [routeLayer, setRouteLayer] = useState<L.LayerGroup | null>(null);
-  const [waypointLayer, setWaypointLayer] = useState<L.LayerGroup | null>(null);
+  const [routeLayer, setRouteLayer] = useState<any | null>(null);
+  const [waypointLayer, setWaypointLayer] = useState<any | null>(null);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const [routePointsWithElevation, setRoutePointsWithElevation] = useState<Array<{lat: number, lng: number, ele?: number}>>([]);
@@ -121,8 +121,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const rLayer = new L.LayerGroup();
-    const wLayer = new L.LayerGroup();
+    const rLayer = new (L as any).LayerGroup();
+    const wLayer = new (L as any).LayerGroup();
     
     map.addLayer(rLayer);
     map.addLayer(wLayer);
@@ -141,7 +141,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const handleMapClick = (e: L.LeafletMouseEvent) => {
+    const handleMapClick = (e: any) => {
       if (isUndoingRef.current) {
         return;
       }
@@ -327,7 +327,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
     // Draw waypoints
     waypoints.forEach((point, index) => {
-      const marker = L.circleMarker([point.lat, point.lng], {
+      const marker = (L as any).circleMarker([point.lat, point.lng], {
         radius: 8,
         fillColor: index === 0 ? '#28a745' : index === waypoints.length - 1 ? '#dc3545' : '#007bff',
         color: '#fff',
@@ -344,7 +344,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     if (routePoints.length >= 2) {
       const isComputedRoute = routePoints.length > waypoints.length;
       
-      const polyline = L.polyline(
+      const polyline = (L as any).polyline(
         routePoints.map(p => [p.lat, p.lng]),
         {
           color: isComputedRoute ? '#dc3545' : '#dc3545',

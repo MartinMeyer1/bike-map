@@ -36,6 +36,7 @@ const AppContent: React.FC = () => {
     
     // Methods
     updateVisibleTrails,
+    updateVisibleTrailsFromMVT,
     selectTrail,
     handleTrailCreated,
     handleTrailUpdated,
@@ -160,10 +161,10 @@ const AppContent: React.FC = () => {
 
       {/* Main map */}
       <Map 
-        trails={isDrawingActive ? [] : trails}
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={selectTrail}
+        onTrailsLoaded={updateVisibleTrailsFromMVT}
         onMapMoveEnd={handleMapMoveEnd}
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}

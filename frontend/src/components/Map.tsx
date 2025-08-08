@@ -1,28 +1,27 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapBounds } from '../types';
-import { CachedTrail } from '../services/trailCache';
+import { MapBounds, MVTTrail } from '../types';
 import { setupLeafletCompatibility } from '../utils/browserCompat';
-import GPXTrail from './GPXTrail';
+import { MVTTrailService } from '../services/mvtTrails';
 import RouteDrawer from './RouteDrawer';
 
 // Set up browser compatibility once
 setupLeafletCompatibility();
 
 // Fix for default markers in react-leaflet
-delete (L.Icon.Default.prototype as L.Icon.Default & { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
+delete ((L as any).Icon.Default.prototype as any)._getIconUrl;
+(L as any).Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
 interface MapProps {
-  trails: CachedTrail[];
-  selectedTrail: CachedTrail | null;
+  selectedTrail: MVTTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
-  onTrailClick: (trail: CachedTrail | null) => void;
+  onTrailClick: (trail: MVTTrail | null) => void;
+  onTrailsLoaded?: (trails: MVTTrail[]) => void;
   onMapMoveEnd?: () => void;
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
@@ -38,7 +37,7 @@ function MapEvents({
   onMapMoveEnd
 }: { 
   onBoundsChange: (bounds: MapBounds) => void;
-  selectedTrail: CachedTrail | null;
+  selectedTrail: MVTTrail | null;
   onMapClick: () => void;
   onMapMoveEnd?: () => void;
 }) {
@@ -82,7 +81,7 @@ function MapEvents({
       const bounds = selectedTrail.bounds;
       
       // Create Leaflet bounds object
-      const leafletBounds = L.latLngBounds(
+      const leafletBounds = (L as any).latLngBounds(
         [bounds.south, bounds.west],
         [bounds.north, bounds.east]
       );
@@ -115,18 +114,67 @@ function MapEvents({
   return null;
 }
 
+// Component to manage MVT trail layer
+function MVTTrailLayer({
+  selectedTrail,
+  onTrailClick,
+  onTrailsLoaded,
+  isDrawingActive
+}: {
+  selectedTrail: MVTTrail | null;
+  onTrailClick: (trail: MVTTrail | null) => void;
+  onTrailsLoaded?: (trails: MVTTrail[]) => void;
+  isDrawingActive?: boolean;
+}) {
+  const map = useMap();
+  const mvtServiceRef = useRef<MVTTrailService | null>(null);
+
+  useEffect(() => {
+    // Initialize MVT service
+    if (!mvtServiceRef.current) {
+      mvtServiceRef.current = new MVTTrailService(map);
+      mvtServiceRef.current.setEvents({
+        onTrailClick: onTrailClick,
+        onTrailsLoaded: onTrailsLoaded,
+      });
+    }
+
+    // Add MVT layer to map (unless drawing is active)
+    if (!isDrawingActive) {
+      mvtServiceRef.current.addToMap();
+    } else {
+      mvtServiceRef.current.removeFromMap();
+    }
+
+    return () => {
+      if (mvtServiceRef.current) {
+        mvtServiceRef.current.removeFromMap();
+      }
+    };
+  }, [map, onTrailClick, onTrailsLoaded, isDrawingActive]);
+
+  // Update selected trail
+  useEffect(() => {
+    if (mvtServiceRef.current) {
+      mvtServiceRef.current.selectTrail(selectedTrail?.id || null);
+    }
+  }, [selectedTrail]);
+
+  return null;
+}
+
 export default function Map({ 
-  trails, 
   selectedTrail, 
   onBoundsChange, 
   onTrailClick, 
+  onTrailsLoaded,
   onMapMoveEnd,
   isDrawingActive = false,
   onRouteComplete,
   onDrawingCancel,
   initialGpxContent
 }: MapProps) {
-  const handleTrailClick = useCallback((trail: CachedTrail) => {
+  const handleTrailClick = useCallback((trail: MVTTrail | null) => {
     onTrailClick(trail);
   }, [onTrailClick]);
 
@@ -139,30 +187,29 @@ export default function Map({
 
   return (
     <MapContainer
-      center={[46.2, 7.65]} // Center on Valais, Switzerland
-      zoom={10}
+      {...{ center: [46.2, 7.65], zoom: 10 } as any} // Center on Valais, Switzerland
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Swisstopo base layer */}
       <TileLayer
-        url="https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg"
-        attribution='&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>'
-        maxZoom={18}
+        {...{
+          url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg",
+          attribution: '&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>',
+          maxZoom: 18
+        } as any}
       />
 
 
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
-      {/* Render GPX trails */}
-      {trails.map((trail) => (
-        <GPXTrail
-          key={trail.id}
-          trail={trail}
-          isSelected={selectedTrail?.id === trail.id}
-          onTrailClick={handleTrailClick}
-        />
-      ))}
+      {/* MVT Trail Layer */}
+      <MVTTrailLayer
+        selectedTrail={selectedTrail}
+        onTrailClick={handleTrailClick}
+        onTrailsLoaded={onTrailsLoaded}
+        isDrawingActive={isDrawingActive}
+      />
 
       {/* Route drawer */}
       <RouteDrawer

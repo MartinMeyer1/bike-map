@@ -1,5 +1,5 @@
 import PocketBase from 'pocketbase';
-import { Trail, User } from '../types';
+import { Trail, User, MVTTrail } from '../types';
 import { handleApiError } from '../utils/errorHandling';
 
 // Initialize PocketBase client with configurable base URL
@@ -132,9 +132,10 @@ export class PocketBaseService {
     return pb.files.getUrl(record, filename);
   }
 
-  static getTrailFileUrl(trail: Trail): string {
-    // Construct the file URL manually since we have the trail ID and file name
-    return `${pb.baseUrl}/api/files/trails/${trail.id}/${trail.file}`;
+  static getTrailFileUrl(trail: Trail | { id: string; file?: string }): string {
+    // For MVT trails, reconstruct the file name from ID
+    const fileName = 'file' in trail && trail.file ? trail.file : `${trail.id}.gpx`;
+    return `${pb.baseUrl}/api/files/trails/${trail.id}/${fileName}`;
   }
 
   static async updateUser(id: string, data: { name?: string }): Promise<User> {
@@ -153,7 +154,7 @@ export class PocketBaseService {
     };
   }
 
-  static canEditTrail(trail: Trail, user: User | null): boolean {
+  static canEditTrail(trail: Trail | MVTTrail, user: User | null): boolean {
     if (!user) return false;
     if (user.role === 'Admin') return true;
     if (trail.owner === user.id) return true;
