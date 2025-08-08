@@ -64,6 +64,7 @@ function MapEvents({
     };
 
     map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleMoveEnd);  // Also listen to zoom events
     map.on('click', handleMapClick);
     
     // Initial bounds
@@ -71,6 +72,7 @@ function MapEvents({
 
     return () => {
       map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
   }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);

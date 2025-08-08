@@ -113,7 +113,10 @@ export class MVTTrailService {
     (layer as any).on('tileload', () => {
       this.events.onTileLoad?.();
       
-      // Notify about loaded trails
+      // After tiles load, clean up trails that are no longer visible
+      this.cleanupInvisibleTrails();
+      
+      // Notify about loaded trails (only currently visible ones)
       const trails = Array.from(this.loadedTrails.values());
       this.events.onTrailsLoaded?.(trails);
     });
@@ -180,6 +183,46 @@ export class MVTTrailService {
     
     this.trailMarkers.clear();
     this.loadedTrails.clear();
+  }
+
+  private cleanupInvisibleTrails(): void {
+    const mapBounds = this.map.getBounds();
+    const currentBounds = {
+      north: mapBounds.getNorth(),
+      south: mapBounds.getSouth(),
+      east: mapBounds.getEast(),
+      west: mapBounds.getWest()
+    };
+
+    // Find trails that are no longer visible (outside current bounds)
+    const trailsToRemove: string[] = [];
+    
+    this.loadedTrails.forEach((trail, trailId) => {
+      // Check if trail bounds intersect with current map bounds
+      const isVisible = !(
+        trail.bounds.south > currentBounds.north ||
+        trail.bounds.north < currentBounds.south ||
+        trail.bounds.east < currentBounds.west ||
+        trail.bounds.west > currentBounds.east
+      );
+      
+      if (!isVisible) {
+        trailsToRemove.push(trailId);
+      }
+    });
+
+    // Remove invisible trails and their markers
+    trailsToRemove.forEach(trailId => {
+      this.loadedTrails.delete(trailId);
+      
+      // Remove markers for this trail
+      const markers = this.trailMarkers.get(trailId);
+      if (markers) {
+        this.map.removeLayer(markers.start);
+        this.map.removeLayer(markers.end);
+        this.trailMarkers.delete(trailId);
+      }
+    });
   }
 
   selectTrail(trailId: string | null): void {

@@ -12,7 +12,7 @@ interface AppState {
   
   // Trail state
   trails: CachedTrail[]; // For CRUD operations
-  visibleTrails: MVTTrail[]; // From MVT layer
+  visibleTrails: MVTTrail[]; // From MVT layer - only currently visible tiles
   selectedTrail: MVTTrail | null;
   mapBounds: MapBounds | null;
   isTrailsLoading: boolean;
@@ -278,12 +278,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // visibleTrails managed by MVT layer now
   }, []);
 
+
   const updateVisibleTrails = useCallback((bounds: MapBounds) => {
     dispatch({ type: 'SET_MAP_BOUNDS', payload: bounds });
-    // Spatial filtering now handled by MVT automatically
+    // Don't filter here - MVT tiles already contain the right trails for the bounds
   }, []);
 
   const updateVisibleTrailsFromMVT = useCallback((mvtTrails: MVTTrail[]) => {
+    // Just set the visible trails directly - don't accumulate in allMVTTrails
     dispatch({ type: 'SET_VISIBLE_TRAILS', payload: mvtTrails });
   }, []);
 
