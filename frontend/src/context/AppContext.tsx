@@ -30,6 +30,7 @@ interface AppState {
   // General state
   error: string;
   mapMoveEndTrigger: number;
+  mvtRefreshTrigger: number;
 }
 
 type AppAction =
@@ -58,7 +59,8 @@ type AppAction =
   // General actions
   | { type: 'SET_ERROR'; payload: string }
   | { type: 'CLEAR_ERROR' }
-  | { type: 'INCREMENT_MAP_MOVE_TRIGGER' };
+  | { type: 'INCREMENT_MAP_MOVE_TRIGGER' }
+  | { type: 'INCREMENT_MVT_REFRESH_TRIGGER' };
 
 const initialState: AppState = {
   // Auth state
@@ -84,7 +86,8 @@ const initialState: AppState = {
   
   // General state
   error: '',
-  mapMoveEndTrigger: 0
+  mapMoveEndTrigger: 0,
+  mvtRefreshTrigger: 0
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -155,6 +158,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, error: '' };
     case 'INCREMENT_MAP_MOVE_TRIGGER':
       return { ...state, mapMoveEndTrigger: state.mapMoveEndTrigger + 1 };
+    case 'INCREMENT_MVT_REFRESH_TRIGGER':
+      return { ...state, mvtRefreshTrigger: state.mvtRefreshTrigger + 1 };
     
     default:
       return state;
@@ -195,6 +200,7 @@ interface AppContextValue extends AppState {
   setError: (error: string) => void;
   clearError: () => void;
   incrementMapMoveTrigger: () => void;
+  refreshMVTLayer: () => void;
 }
 
 export const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -298,6 +304,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await trailCache.addTrail(newTrail);
       setTimeout(() => {
         refreshTrails();
+        dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
       }, 1000);
     } catch (error) {
       console.error('Failed to add trail to cache:', error);
@@ -310,6 +317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await trailCache.updateTrail(updatedTrail);
       setTimeout(() => {
         refreshTrails();
+        dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
       }, 1000);
     } catch (error) {
       console.error('Failed to update trail in cache:', error);
@@ -325,7 +333,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dispatch({ type: 'SET_SELECTED_TRAIL', payload: null });
       }
       
-      refreshTrails();
+      setTimeout(() => {
+        refreshTrails();
+        dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
+      }, 1000);
     } catch (error) {
       console.error('Failed to remove trail from cache:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to remove trail' });
@@ -393,6 +404,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     dispatch({ type: 'INCREMENT_MAP_MOVE_TRIGGER' });
   }, []);
 
+  const refreshMVTLayer = useCallback(() => {
+    dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
+  }, []);
+
   const contextValue: AppContextValue = {
     ...state,
     login,
@@ -418,7 +433,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     getPreviousGpxContent,
     setError,
     clearError,
-    incrementMapMoveTrigger
+    incrementMapMoveTrigger,
+    refreshMVTLayer
   };
 
   return (

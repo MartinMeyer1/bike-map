@@ -33,6 +33,7 @@ const AppContent: React.FC = () => {
     // General state
     error,
     mapMoveEndTrigger,
+    mvtRefreshTrigger,
     
     // Methods
     updateVisibleTrails,
@@ -166,6 +167,7 @@ const AppContent: React.FC = () => {
         onTrailClick={selectTrail}
         onTrailsLoaded={updateVisibleTrailsFromMVT}
         onMapMoveEnd={handleMapMoveEnd}
+        refreshTrigger={mvtRefreshTrigger}
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}

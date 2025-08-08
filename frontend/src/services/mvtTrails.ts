@@ -74,6 +74,10 @@ export class MVTTrailService {
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt`;
     
     const layer = L.vectorGrid.protobuf(url, {
+      // Always force HTTP requests to validate ETags with server
+      fetchOptions: {
+        cache: 'no-cache'
+      },
       vectorTileLayerStyles: {
         'trails': (properties: MVTTrailProperties) => {
           // Convert and store trail data
@@ -235,6 +239,35 @@ export class MVTTrailService {
     }
   }
 
+  refreshMVTLayer(): void {
+    console.log(`🔄 Refreshing MVT layer - all requests will validate ETags with server`);
+    
+    // Remove the current MVT layer
+    if (this.mvtLayer) {
+      this.map.removeLayer(this.mvtLayer);
+      this.mvtLayer = null;
+    }
+
+    // Remove selection overlay as well
+    this.removeSelectionOverlay();
+
+    // Clear loaded trails and markers
+    this.loadedTrails.clear();
+    this.trailMarkers.forEach(({ start, end }) => {
+      this.map.removeLayer(start);
+      this.map.removeLayer(end);
+    });
+    this.trailMarkers.clear();
+
+    // Add a small delay to ensure cleanup is complete
+    setTimeout(() => {
+      // Recreate and add the MVT layer - all requests validate ETags
+      this.mvtLayer = this.createMVTLayer();
+      this.map.addLayer(this.mvtLayer);
+      console.log(`✅ MVT layer refreshed - all tile requests validate with server`);
+    }, 100);
+  }
+
   private removeSelectionOverlay(): void {
     if (this.selectedOverlayLayer) {
       this.map.removeLayer(this.selectedOverlayLayer);
@@ -252,6 +285,10 @@ export class MVTTrailService {
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt`;
     
     this.selectedOverlayLayer = L.vectorGrid.protobuf(url, {
+      // Always force HTTP requests to validate ETags with server
+      fetchOptions: {
+        cache: 'no-cache'
+      },
       vectorTileLayerStyles: {
         'trails': (properties: MVTTrailProperties) => {
           // Only style the selected trail
@@ -262,9 +299,9 @@ export class MVTTrailService {
           const trackColor = getLevelColor(trail.level);
           
           return {
-            weight: 12,
+            weight: 16,
             color: trackColor,
-            opacity: 0.8,
+            opacity: 0.6,
             lineCap: 'round',
             lineJoin: 'round'
           };

@@ -23,6 +23,7 @@ interface MapProps {
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   onMapMoveEnd?: () => void;
+  refreshTrigger?: number; // Increment this to trigger MVT refresh
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
@@ -121,12 +122,14 @@ function MVTTrailLayer({
   selectedTrail,
   onTrailClick,
   onTrailsLoaded,
-  isDrawingActive
+  isDrawingActive,
+  refreshTrigger
 }: {
   selectedTrail: MVTTrail | null;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   isDrawingActive?: boolean;
+  refreshTrigger?: number;
 }) {
   const map = useMap();
   const mvtServiceRef = useRef<MVTTrailService | null>(null);
@@ -162,6 +165,13 @@ function MVTTrailLayer({
     }
   }, [selectedTrail]);
 
+  // Refresh MVT layer when trigger changes
+  useEffect(() => {
+    if (refreshTrigger && mvtServiceRef.current) {
+      mvtServiceRef.current.refreshMVTLayer();
+    }
+  }, [refreshTrigger]);
+
   return null;
 }
 
@@ -171,6 +181,7 @@ export default function Map({
   onTrailClick, 
   onTrailsLoaded,
   onMapMoveEnd,
+  refreshTrigger,
   isDrawingActive = false,
   onRouteComplete,
   onDrawingCancel,
@@ -218,6 +229,7 @@ export default function Map({
         onTrailClick={handleTrailClick}
         onTrailsLoaded={onTrailsLoaded}
         isDrawingActive={isDrawingActive}
+        refreshTrigger={refreshTrigger}
       />
 
       {/* Route drawer */}
