@@ -176,13 +176,20 @@ export default function Map({
   onDrawingCancel,
   initialGpxContent
 }: MapProps) {
+  const trailClickedRef = useRef(false);
+
   const handleTrailClick = useCallback((trail: MVTTrail | null) => {
+    trailClickedRef.current = true;
     onTrailClick(trail);
+    // Reset flag after a short delay
+    setTimeout(() => {
+      trailClickedRef.current = false;
+    }, 50);
   }, [onTrailClick]);
 
   const handleMapClick = useCallback(() => {
-    // Clear selection when clicking on empty map area
-    if (selectedTrail) {
+    // Only clear selection if no trail was clicked recently
+    if (!trailClickedRef.current && selectedTrail) {
       onTrailClick(null);
     }
   }, [selectedTrail, onTrailClick]);
