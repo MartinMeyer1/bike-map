@@ -54,32 +54,33 @@ func (m *MVTService) Close() error {
 }
 
 // InvalidateTilesForTrail invalidates cache entries for tiles that intersect with a trail's bounding box
-func (m *MVTService) InvalidateTilesForTrail(trailBBox models.BoundingBox) {
-	m.cacheMutex.Lock()
-	defer m.cacheMutex.Unlock()
+ func (m *MVTService) InvalidateTilesForTrail(trailBBox models.BoundingBox) {
+	m.InvalidateAllCache() //TODO only invalidate the trail's tiles
+// 	m.cacheMutex.Lock()
+// 	defer m.cacheMutex.Unlock()
 
-	invalidatedCount := 0
+	// invalidatedCount := 0
 	
-	// Find tiles that might intersect with the trail's bounding box
-	// For efficiency, we invalidate tiles across multiple zoom levels
-	for tileKey := range m.cache {
-		// Parse tile coordinates from key "z-x-y"
-		var z, x, y int
-		if _, err := fmt.Sscanf(tileKey, "%d-%d-%d", &z, &x, &y); err != nil {
-			continue
-		}
+	// // Find tiles that might intersect with the trail's bounding box
+	// // For efficiency, we invalidate tiles across multiple zoom levels
+	// for tileKey := range m.cache {
+	// 	// Parse tile coordinates from key "z-x-y"
+	// 	var z, x, y int
+	// 	if _, err := fmt.Sscanf(tileKey, "%d-%d-%d", &z, &x, &y); err != nil {
+	// 		continue
+	// 	}
 
-		// Calculate tile bounds and check if it intersects with trail bbox
-		tileBounds := m.calculateTileBounds(z, x, y)
-		if m.boundsIntersect(tileBounds, trailBBox) {
-			delete(m.cache, tileKey)
-			invalidatedCount++
-		}
-	}
+	// 	// Calculate tile bounds and check if it intersects with trail bbox
+	// 	tileBounds := m.calculateTileBounds(z, x, y)
+	// 	if m.boundsIntersect(tileBounds, trailBBox) {
+	// 		delete(m.cache, tileKey)
+	// 		invalidatedCount++
+	// 	}
+	// }
 	
-	if invalidatedCount > 0 {
-		log.Printf("Invalidated %d cached tiles for trail update", invalidatedCount)
-	}
+	// if invalidatedCount > 0 {
+	// 	log.Printf("Invalidated %d cached tiles for trail update", invalidatedCount)
+	// }
 }
 
 // InvalidateAllCache clears the entire cache (for major data changes)
