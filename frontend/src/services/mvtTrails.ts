@@ -60,24 +60,31 @@ export class MVTTrailService {
   private trailMarkers = new Map<string, { start: any; end: any }>(); // L.Marker
   private events: MVTTrailEvents = {};
   private baseUrl: string;
+  private cacheVersion: string = ''; // Persistent cache version for all requests
 
   constructor(map: any, baseUrl?: string) { // L.Map
     this.map = map;
     this.baseUrl = baseUrl || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
+    
+    // Initialize with current timestamp as initial cache version
+    this.generateCacheVersion();
   }
 
   setEvents(events: MVTTrailEvents) {
     this.events = events;
   }
 
+  // Generate a new cache version for cache busting
+  private generateCacheVersion(): void {
+    this.cacheVersion = `v${Date.now()}`;
+    console.log(`🔄 Generated new MVT cache version: ${this.cacheVersion}`);
+  }
+
   createMVTLayer(): any {
-    const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt`;
+    // Add cache version to all tile requests
+    const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt?cache=${this.cacheVersion}`;
     
     const layer = L.vectorGrid.protobuf(url, {
-      // Always force HTTP requests to validate ETags with server
-      fetchOptions: {
-        cache: 'no-cache'
-      },
       vectorTileLayerStyles: {
         'trails': (properties: MVTTrailProperties) => {
           // Convert and store trail data
@@ -245,7 +252,10 @@ export class MVTTrailService {
   }
 
   refreshMVTLayer(): void {
-    console.log(`🔄 Refreshing MVT layer - all requests will validate ETags with server`);
+    console.log(`🔄 Refreshing MVT layer - generating new cache version`);
+    
+    // Generate new cache version to invalidate all cached tiles
+    this.generateCacheVersion();
     
     // Remove the current MVT layer
     if (this.mvtLayer) {
@@ -266,10 +276,10 @@ export class MVTTrailService {
 
     // Add a small delay to ensure cleanup is complete
     setTimeout(() => {
-      // Recreate and add the MVT layer - all requests validate ETags
+      // Recreate and add the MVT layer with new cache version
       this.mvtLayer = this.createMVTLayer();
       this.map.addLayer(this.mvtLayer);
-      console.log(`✅ MVT layer refreshed - all tile requests validate with server`);
+      console.log(`✅ MVT layer refreshed with cache version: ${this.cacheVersion}`);
     }, 100);
   }
 
@@ -287,13 +297,9 @@ export class MVTTrailService {
     }
     
     // Create a new MVT layer filtered to only show the selected trail
-    const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt`;
+    const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt?cache=${this.cacheVersion}`;
     
     this.selectedOverlayLayer = L.vectorGrid.protobuf(url, {
-      // Always force HTTP requests to validate ETags with server
-      fetchOptions: {
-        cache: 'no-cache'
-      },
       vectorTileLayerStyles: {
         'trails': (properties: MVTTrailProperties) => {
           // Only style the selected trail
