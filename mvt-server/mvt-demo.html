@@ -126,7 +126,13 @@
         <h2>🚵 BikeMap MVT Demo (Enhanced)</h2>
         <p>Interactive demonstration of Enhanced Mountain Bike Vector Tiles with <strong>complete metadata</strong> served by Go backend with PostGIS storage.</p>
         <p><strong>Enhanced Features:</strong> Trail statistics, elevation profiles, geographic data, start/end points, bounding boxes, creation dates, and more!</p>
-        <p><em>Click on any trail to see ALL metadata from Phase 1 & 2 backend implementation.</em></p>
+        <p><em>🎯 Click on any trail to see:</em></p>
+        <ul style="margin: 8px 0; padding-left: 20px; font-size: 13px;">
+            <li><strong>🚀 Start Marker</strong> (Green) - Trail starting point</li>
+            <li><strong>🏁 End Marker</strong> (Red) - Trail ending point</li>
+            <li><strong>📦 Bounding Box</strong> (Blue dashed) - Geographic extent</li>
+            <li><strong>📊 Complete Metadata</strong> - All enhanced backend data</li>
+        </ul>
     </div>
     
     <div class="controls">
@@ -180,11 +186,9 @@
         // Initialize map centered on actual trail area (from PostGIS bounds)
         const map = L.map('map').fitBounds([[46.029985, 6.93462], [46.28743, 7.832396]]);
 
-        // Add trail center marker for reference
-        const trailMarker = L.marker([46.19157912229649, 7.383407800118581], {
-            title: 'Trail Center'
-        }).addTo(map)
-        .bindPopup('<div class="trail-popup"><h4>🎯 Trail Center</h4><p>This marker shows the calculated center of the trail geometry.</p></div>');
+        // Will create trail markers after MVT tiles load to get all trail data
+        console.log('🚀 Trail markers will be created after MVT data loads...');
+
 
         // Add Swiss topographic base layer
         const baseLayer = L.tileLayer('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg', {
@@ -214,6 +218,10 @@
                 vectorTileLayerStyles: {
                     'trails': function(properties, zoom) {
                         console.log('🎨 Styling trail:', properties);
+                        
+                        // Create markers for this trail when it's being styled
+                        createMarkersForTrail(properties);
+                        
                         const levelColors = {
                             'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
                             'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
@@ -266,6 +274,56 @@
         function formatCoordinate(lat, lng) {
             if (lat === undefined || lng === undefined) return 'N/A';
             return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+
+        // Storage for all trail markers
+        const allTrailMarkers = new Map(); // Map of trail ID -> {startMarker, endMarker}
+        
+        // Function to create start/end markers for a single trail
+        function createMarkersForTrail(props) {
+            if (!props.id || !props.start_lat || !props.start_lng || !props.end_lat || !props.end_lng) {
+                return; // Skip trails without required coordinates
+            }
+            
+            // Create start marker (green)
+            const startMarker = L.marker([props.start_lat, props.start_lng], {
+                title: `${props.name} - Start`,
+                icon: L.divIcon({
+                    className: 'trail-start-marker',
+                    html: '<div style="background: #22c55e; border: 2px solid white; border-radius: 50%; width: 16px; height: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8],
+                })
+            }).addTo(map)
+            .bindPopup(`
+                <div style="text-align: center;">
+                    <strong>🚀 ${props.name}</strong><br>
+                    <em>Trail Start</em><br>
+                    <small>${props.start_lat.toFixed(6)}, ${props.start_lng.toFixed(6)}</small>
+                </div>
+            `);
+
+            // Create end marker (red)
+            const endMarker = L.marker([props.end_lat, props.end_lng], {
+                title: `${props.name} - End`,
+                icon: L.divIcon({
+                    className: 'trail-end-marker',
+                    html: '<div style="background: #ef4444; border: 2px solid white; border-radius: 50%; width: 16px; height: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8],
+                })
+            }).addTo(map)
+            .bindPopup(`
+                <div style="text-align: center;">
+                    <strong>🏁 ${props.name}</strong><br>
+                    <em>Trail End</em><br>
+                    <small>${props.end_lat.toFixed(6)}, ${props.end_lng.toFixed(6)}</small>
+                </div>
+            `);
+
+            // Store markers for this trail
+            allTrailMarkers.set(props.id, { startMarker, endMarker });
+            console.log(`📍 Created markers for trail: ${props.name}`);
         }
 
         // Add click handlers for trail information with ALL METADATA
@@ -373,34 +431,7 @@
             // Track tile loading statistics  
             layer.on('tileload', function(e) {
                 tileLoadCount++;
-                
                 console.log(`🗺️ Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} loaded`);
-                console.log(`🔍 Tile object keys:`, Object.keys(e.tile));
-                console.log(`🔍 Tile src:`, e.tile.src);
-                
-                // Count features in this tile
-                let tileFeatures = 0;
-                if (e.tile._features) {
-                    Object.keys(e.tile._features).forEach(layerName => {
-                        const features = e.tile._features[layerName];
-                        tileFeatures += features.length;
-                        console.log(`✅ Layer '${layerName}': ${features.length} features`);
-                        
-                        // Log first feature properties for debugging
-                        if (features.length > 0) {
-                            console.log(`🎯 First feature properties:`, features[0].properties);
-                        }
-                    });
-                } else {
-                    console.log(`⚠️ No _features property - checking tile._vectorTileFeatures...`);
-                    if (e.tile._vectorTileFeatures) {
-                        console.log(`🔍 _vectorTileFeatures keys:`, Object.keys(e.tile._vectorTileFeatures));
-                    } else {
-                        console.log(`❌ No vector tile features found at all`);
-                    }
-                }
-                
-                totalFeatures += tileFeatures;
                 updateStats();
             });
 
@@ -419,6 +450,7 @@
         
         // Setup events for initial layer
         setupLayerEvents(currentMVTLayer);
+
 
         // Control handlers
         document.getElementById('mvtLayer').addEventListener('change', function() {
