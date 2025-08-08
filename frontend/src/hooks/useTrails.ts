@@ -1,65 +1,113 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Trail, MapBounds } from '../types';
-import { mvtTrailExtractor } from '../services/mvtTrailExtractor';
+import { CachedTrail } from '../services/trailCache';
+import trailCache from '../services/trailCache';
 
-/**
- * useTrails - Manages trail state from MVT tiles
- */
 export const useTrails = () => {
-  const [trails, setTrails] = useState<Trail[]>([]);
-  const [selectedTrail, setSelectedTrail] = useState<Trail | null>(null);
+  const [trails, setTrails] = useState<CachedTrail[]>([]);
+  const [visibleTrails, setVisibleTrails] = useState<CachedTrail[]>([]);
+  const [selectedTrail, setSelectedTrail] = useState<CachedTrail | null>(null);
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Listen to MVT trail extractor updates
-  useEffect(() => {
-    const updateTrails = () => {
-      const extractedTrails = mvtTrailExtractor.getAllTrails();
-      setTrails(extractedTrails);
-    };
-
-    updateTrails();
-    mvtTrailExtractor.addListener(updateTrails);
-
-    return () => {
-      mvtTrailExtractor.removeListener(updateTrails);
-    };
+  const initializeTrails = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await trailCache.initialize();
+      const cachedTrails = trailCache.getAllTrails();
+      setTrails(cachedTrails);
+      setVisibleTrails(cachedTrails);
+    } catch (err: unknown) {
+      console.error('Failed to initialize trails:', err);
+      setError('Failed to load trails');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  const refreshTrails = useCallback(() => {
+    const cachedTrails = trailCache.getAllTrails();
+    setTrails(cachedTrails);
+    
+    if (mapBounds) {
+      const boundsFiltered = trailCache.getTrailsInBounds(mapBounds);
+      setVisibleTrails(boundsFiltered);
+    } else {
+      setVisibleTrails(cachedTrails);
+    }
+  }, [mapBounds]);
 
   const updateVisibleTrails = useCallback((bounds: MapBounds) => {
     setMapBounds(bounds);
+    const boundsFiltered = trailCache.getTrailsInBounds(bounds);
+    setVisibleTrails(boundsFiltered);
   }, []);
 
-  const selectTrail = useCallback((trail: Trail | null) => {
-    setSelectedTrail(trail);
-  }, []);
-
-  const handleTrailUpdated = useCallback((updatedTrail: Trail) => {
-    if (selectedTrail?.id === updatedTrail.id) {
-      setSelectedTrail(updatedTrail);
+  const handleTrailCreated = useCallback(async (newTrail: Trail) => {
+    try {
+      await trailCache.addTrail(newTrail);
+      setTimeout(() => {
+        refreshTrails();
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to add trail to cache:', error);
+      setError('Failed to process uploaded trail');
     }
-  }, [selectedTrail]);
+  }, [refreshTrails]);
+
+  const handleTrailUpdated = useCallback(async (updatedTrail: Trail) => {
+    try {
+      await trailCache.updateTrail(updatedTrail);
+      setTimeout(() => {
+        refreshTrails();
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to update trail in cache:', error);
+      setError('Failed to update trail');
+    }
+  }, [refreshTrails]);
 
   const handleTrailDeleted = useCallback((trailId: string) => {
-    if (selectedTrail?.id === trailId) {
-      setSelectedTrail(null);
+    try {
+      trailCache.removeTrail(trailId);
+      
+      if (selectedTrail?.id === trailId) {
+        setSelectedTrail(null);
+      }
+      
+      refreshTrails();
+    } catch (error) {
+      console.error('Failed to remove trail from cache:', error);
+      setError('Failed to remove trail');
     }
-  }, [selectedTrail]);
+  }, [selectedTrail, refreshTrails]);
+
+  const selectTrail = useCallback((trail: CachedTrail | null) => {
+    setSelectedTrail(trail);
+  }, []);
 
   const clearError = useCallback(() => {
     setError('');
   }, []);
 
+  useEffect(() => {
+    initializeTrails();
+  }, [initializeTrails]);
+
   return {
     trails,
-    visibleTrails: trails, // MVT handles filtering
+    visibleTrails,
     selectedTrail,
     mapBounds,
+    isLoading,
     error,
     selectTrail,
     updateVisibleTrails,
+    handleTrailCreated,
     handleTrailUpdated,
     handleTrailDeleted,
+    refreshTrails,
     clearError
   };
 };

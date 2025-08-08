@@ -1,15 +1,14 @@
 export interface Trail {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   level: 'S0' | 'S1' | 'S2' | 'S3' | 'S4' | 'S5';
   tags: string[];
-  gpx_file: string;
+  file: string;
   owner: string; // Owner ID reference
   created: string;
   updated: string;
-  collectionId: string;
-  collectionName: string;
+  elevation_profile?: Array<{ distance: number; elevation: number }>;
 }
 
 export interface GeoJsonGeometry {

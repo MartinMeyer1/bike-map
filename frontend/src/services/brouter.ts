@@ -36,7 +36,7 @@ export class BRouterService {
   private static baseUrl: string;
 
   static initialize(baseUrl?: string) {
-    this.baseUrl = baseUrl || import.meta.env.VITE_BROUTER_URL || this.DEFAULT_BASE_URL;
+    this.baseUrl = baseUrl || import.meta.env.VITE_BROUTER_BASE_URL || this.DEFAULT_BASE_URL;
   }
 
   static getBaseUrl(): string {
