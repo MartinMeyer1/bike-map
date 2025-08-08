@@ -110,13 +110,11 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 	m.cacheMutex.RLock()
 	if entry, exists := m.cache[tileKey]; exists {
 		m.cacheMutex.RUnlock()
-		log.Printf("Cache hit for tile %s", tileKey)
 		return entry.Response, nil
 	}
 	m.cacheMutex.RUnlock()
 	
 	// Cache miss - generate tile
-	log.Printf("Cache miss for tile %s, generating...", tileKey)
 	
 	// Calculate tile bounds
 	bounds := m.calculateTileBounds(z, x, y)
@@ -287,7 +285,6 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 	m.cache[tileKey] = cacheEntry
 	m.cacheMutex.Unlock()
 	
-	log.Printf("Cached tile %s (size: %d bytes)", tileKey, len(mvtData))
 	return mvtData, nil
 }
 
