@@ -8,12 +8,13 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 - GPX file upload with metadata (name, difficulty S0-S5, tags, description)
 - Role-based access control (Viewer, Editor, Admin)
 - Trail editing and deletion capabilities
-- Vector Tile Rendering: MVT tiles generated from PostGIS
+- Vector Tile Rendering: Efficient MVT tiles generated from PostGIS
 - Real-time Cache Invalidation: Automatic tile cache updates on data changes
 
 ### **Interactive Mapping**
 - Swiss topographic maps (Swisstopo WMTS)
 - Vector Tile Layers: Smooth rendering with zoom-level optimization
+- Trail selection highlighting with filtered MVT layers
 - Real-time route drawing with BRouter pathfinding
 - Elevation profiles and distance tracking
 - GPX export functionality
@@ -41,7 +42,8 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 
 ### **Frontend (React + TypeScript)**
 - Modern React 18 with TypeScript for type safety
-- Vector Tile Integration: Leaflet with MVT layer support
+- Vector Tile Integration: Leaflet with efficient MVT layer support
+- Trail selection highlighting using filtered MVT layers
 - Component library with CSS modules
 - Custom hooks for business logic separation
 

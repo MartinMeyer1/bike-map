@@ -1,9 +1,11 @@
 // Type definitions for leaflet.vectorgrid
+import * as L from 'leaflet';
+
 declare module 'leaflet' {
   namespace vectorGrid {
-    interface VectorGridOptions extends LayerOptions {
+    interface VectorGridOptions extends L.LayerOptions {
       vectorTileLayerStyles?: {
-        [layerName: string]: (properties: any, zoom: number) => PathOptions;
+        [layerName: string]: (properties: any, zoom: number) => L.PathOptions;
       };
       interactive?: boolean;
       getFeatureId?: (feature: any) => string | number;
@@ -18,7 +20,7 @@ declare module 'leaflet' {
       fetchOptions?: RequestInit;
     }
 
-    function protobuf(url: string, options?: ProtobufOptions): Layer;
+    function protobuf(url: string, options?: ProtobufOptions): L.Layer;
   }
 
   interface Layer {

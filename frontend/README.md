@@ -22,6 +22,7 @@ src/
 ├── services/            # API and data services
 │   ├── pocketbase.ts    # Backend API client
 │   ├── trailCache.ts    # Trail data caching
+│   ├── mvtTrails.ts     # MVT trail rendering service
 │   └── brouter.ts       # BRouter routing service
 ├── styles/              # Shared CSS modules
 │   └── common.module.css # Common styles (modals, forms, buttons)
@@ -58,6 +59,6 @@ npm run lint      # Run ESLint
 
 - **React 18** - UI framework
 - **TypeScript** - Type safety
-- **Leaflet** - Interactive maps
+- **Leaflet** - Interactive maps with MVT support
 - **PocketBase** - Backend client
 - **Chart.js** - Elevation charts

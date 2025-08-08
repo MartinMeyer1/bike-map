@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet.vectorgrid';
 import { MVTTrailProperties, MVTTrail, MapBounds } from '../types';
-import { getLevelColor, hexToRgb } from '../utils/colors';
+import { getLevelColor } from '../utils/colors';
 
 export interface MVTTrailEvents {
   onTrailClick?: (trail: MVTTrail) => void;
@@ -51,16 +51,6 @@ export function convertMVTPropertiesToTrail(props: MVTTrailProperties): MVTTrail
   };
 }
 
-// Darken color for selected trail effect
-function darkenColor(hex: string, amount: number): string {
-  const rgb = hexToRgb(hex);
-  const r = Math.round(rgb.r * (1 - amount));
-  const g = Math.round(rgb.g * (1 - amount));
-  const b = Math.round(rgb.b * (1 - amount));
-  
-  const toHex = (n: number) => n.toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
 
 export class MVTTrailService {
   private map: any; // L.Map
@@ -120,7 +110,7 @@ export class MVTTrailService {
 
 
     // Handle tile loading events
-    (layer as any).on('tileload', (e: any) => {
+    (layer as any).on('tileload', () => {
       this.events.onTileLoad?.();
       
       // Notify about loaded trails
@@ -212,11 +202,8 @@ export class MVTTrailService {
   private createSelectedTrailLayer(trailId: string): void {
     const trail = this.loadedTrails.get(trailId);
     if (!trail) {
-      console.warn('❌ Trail not found:', trailId);
       return;
     }
-
-    console.log('🎨 Creating selected trail layer for:', trailId);
     
     // Create a new MVT layer filtered to only show the selected trail
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt`;
@@ -226,11 +213,9 @@ export class MVTTrailService {
         'trails': (properties: MVTTrailProperties) => {
           // Only style the selected trail
           if (properties.id !== trailId) {
-            // Hide other trails by making them transparent
             return { opacity: 0, fillOpacity: 0, weight: 0 };
           }
 
-          // Style the selected trail with gradient effect
           const trackColor = getLevelColor(trail.level);
           
           return {
@@ -238,14 +223,11 @@ export class MVTTrailService {
             color: trackColor,
             opacity: 0.8,
             lineCap: 'round',
-            lineJoin: 'round',
-            // Add a slight shadow effect
-            shadowColor: '#000000',
-            shadowBlur: 3
+            lineJoin: 'round'
           };
         }
       },
-      interactive: false, // Don't need interaction on selection layer
+      interactive: false,
       maxZoom: 18,
       attribution: 'BikeMap Selection'
     });
