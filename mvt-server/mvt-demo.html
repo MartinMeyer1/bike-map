@@ -123,9 +123,10 @@
     <div id="map"></div>
     
     <div class="demo-header">
-        <h2>🚵 BikeMap MVT Demo</h2>
-        <p>Interactive demonstration of Mountain Bike Vector Tiles served by Go backend with PostGIS storage.</p>
-        <p><strong>Features:</strong> Real-time tile rendering, Swiss topographic basemap, trail difficulty levels.</p>
+        <h2>🚵 BikeMap MVT Demo (Enhanced)</h2>
+        <p>Interactive demonstration of Enhanced Mountain Bike Vector Tiles with <strong>complete metadata</strong> served by Go backend with PostGIS storage.</p>
+        <p><strong>Enhanced Features:</strong> Trail statistics, elevation profiles, geographic data, start/end points, bounding boxes, creation dates, and more!</p>
+        <p><em>Click on any trail to see ALL metadata from Phase 1 & 2 backend implementation.</em></p>
     </div>
     
     <div class="controls">
@@ -176,8 +177,8 @@
         let tileLoadCount = 0;
         let totalFeatures = 0;
         
-        // Initialize map centered on trail location
-        const map = L.map('map').fitBounds([[46.127811, 7.329435], [46.2277, 7.447113]]);
+        // Initialize map centered on actual trail area (from PostGIS bounds)
+        const map = L.map('map').fitBounds([[46.029985, 6.93462], [46.28743, 7.832396]]);
 
         // Add trail center marker for reference
         const trailMarker = L.marker([46.19157912229649, 7.383407800118581], {
@@ -196,25 +197,32 @@
         
         function createMVTLayer() {
             const url = 'http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt';
-            console.log('Creating MVT layer:', url);
+            console.log('🔧 Creating MVT layer with URL:', url);
             
-            return L.vectorGrid.protobuf(url, {
+            // Test a direct fetch to verify connectivity
+            fetch('http://localhost:8090/api/tiles/10/532/363.mvt')
+                .then(response => {
+                    console.log('🌐 Direct fetch test - Status:', response.status, 'Size:', response.headers.get('content-length'));
+                    if (!response.ok) {
+                        console.error('❌ Direct fetch failed:', response.statusText);
+                    }
+                })
+                .catch(error => console.error('❌ Direct fetch error:', error));
+            
+            console.log('🔧 Creating L.vectorGrid.protobuf...');
+            const layer = L.vectorGrid.protobuf(url, {
                 vectorTileLayerStyles: {
                     'trails': function(properties, zoom) {
-                        // Style trails based on difficulty level with flashy colors
+                        console.log('🎨 Styling trail:', properties);
                         const levelColors = {
-                            'S0': '#00ff88', // Bright Green - Easy
-                            'S1': '#ffff00', // Bright Yellow - Moderate  
-                            'S2': '#ff8800', // Bright Orange - Difficult
-                            'S3': '#ff0044', // Bright Red - Very Difficult
-                            'S4': '#cc00ff', // Bright Purple - Extreme
-                            'S5': '#ff0099'  // Hot Pink - Expert Only
+                            'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
+                            'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
                         };
                         
                         return {
-                            weight: Math.max(5, 12 - zoom * 0.4), // Much thicker lines
-                            color: levelColors[properties.level] || '#00ccff', // Bright cyan fallback
-                            opacity: 0.9, // Higher opacity for better visibility
+                            weight: 6,
+                            color: levelColors[properties.level] || '#00ccff',
+                            opacity: 0.9,
                             lineCap: 'round',
                             lineJoin: 'round'
                         };
@@ -222,35 +230,140 @@
                 },
                 interactive: true,
                 maxZoom: 18,
-                getFeatureId: function(f) {
-                    return f.properties.id;
-                }
+                attribution: 'BikeMap Enhanced MVT Backend'
             });
+            
+            console.log('✅ L.vectorGrid.protobuf created');
+            return layer;
         }
         
         // Create initial MVT layer
         currentMVTLayer = createMVTLayer().addTo(map);
 
-        // Add click handlers for trail information
+        // Helper functions for formatting
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            try {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        function formatDistance(meters) {
+            if (!meters) return 'N/A';
+            return meters >= 1000 ? `${(meters/1000).toFixed(1)} km` : `${Math.round(meters)} m`;
+        }
+
+        function formatElevation(meters) {
+            return meters !== undefined && meters !== null ? `${Math.round(meters)}m` : 'N/A';
+        }
+
+        function formatCoordinate(lat, lng) {
+            if (lat === undefined || lng === undefined) return 'N/A';
+            return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+
+        // Add click handlers for trail information with ALL METADATA
         function setupLayerEvents(layer) {
             layer.on('click', function(e) {
                 if (e.layer && e.layer.properties) {
                     const props = e.layer.properties;
+                    console.log('🚵 Trail clicked - All properties:', props); // Debug log
+                    console.log('🔍 Available property keys:', Object.keys(props));
+                    console.log('📊 Metadata check:');
+                    console.log('  - distance_m:', props.distance_m);
+                    console.log('  - elevation_gain_meters:', props.elevation_gain_meters);
+                    console.log('  - start_lat:', props.start_lat);
+                    console.log('  - bbox_north:', props.bbox_north);
+                    console.log('  - created_at:', props.created_at);
+                    console.log('  - owner_id:', props.owner_id);
+                    
                     const levelColors = {
                         'S0': '#00ff88', 'S1': '#ffff00', 'S2': '#ff8800',
                         'S3': '#ff0044', 'S4': '#cc00ff', 'S5': '#ff0099'
                     };
                     
                     const popupContent = `
-                        <div class="trail-popup">
-                            <h4>🚵 ${props.name}</h4>
-                            <p><strong>Difficulty:</strong> <span class="trail-level" style="background-color: ${levelColors[props.level]}">${props.level}</span></p>
-                            <p><strong>Trail ID:</strong> ${props.id}</p>
-                            <p><em>Click and drag to explore the trail route</em></p>
+                        <div style="font-family: Arial, sans-serif; max-width: 400px; line-height: 1.4;">
+                            <div style="border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 12px;">
+                                <h3 style="margin: 0; color: #2c3e50;">${props.name || 'Unnamed Trail'}</h3>
+                                <span class="trail-level" style="background-color: ${levelColors[props.level]}; display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; margin-top: 4px;">
+                                    ${props.level || 'Unknown'}
+                                </span>
+                            </div>
+
+                            ${props.description ? `
+                                <div style="margin-bottom: 12px;">
+                                    <strong>Description:</strong><br>
+                                    <span style="color: #666; font-size: 12px;">${props.description}</span>
+                                </div>
+                            ` : ''}
+
+                            <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; margin-bottom: 12px;">
+                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #2c3e50;">📊 Trail Statistics</h4>
+                                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                                    ${props.distance_m ? `
+                                        <div><strong>📏 Distance:</strong> ${formatDistance(props.distance_m)}</div>
+                                    ` : ''}
+                                    ${props.elevation_gain_meters ? `
+                                        <div><strong>⬆️ Gain:</strong> +${formatElevation(props.elevation_gain_meters)}</div>
+                                    ` : ''}
+                                    ${props.elevation_loss_meters ? `
+                                        <div><strong>⬇️ Loss:</strong> -${formatElevation(props.elevation_loss_meters)}</div>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <div style="background: #e8f4f8; padding: 8px; border-radius: 4px; margin-bottom: 12px;">
+                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #2c3e50;">🏔️ Elevation Profile</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+                                    <div><strong>Min:</strong> ${formatElevation(props.min_elevation_meters)}</div>
+                                    <div><strong>Max:</strong> ${formatElevation(props.max_elevation_meters)}</div>
+                                    <div><strong>Start:</strong> ${formatElevation(props.elevation_start_meters)}</div>
+                                    <div><strong>End:</strong> ${formatElevation(props.elevation_end_meters)}</div>
+                                </div>
+                            </div>
+
+                            <div style="background: #f0f8f0; padding: 8px; border-radius: 4px; margin-bottom: 12px;">
+                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #2c3e50;">📍 Geographic Data</h4>
+                                <div style="font-size: 12px;">
+                                    <div><strong>Start Point:</strong> ${formatCoordinate(props.start_lat, props.start_lng)}</div>
+                                    <div><strong>End Point:</strong> ${formatCoordinate(props.end_lat, props.end_lng)}</div>
+                                    <div style="margin-top: 4px;"><strong>Bounding Box:</strong></div>
+                                    <div style="margin-left: 8px;">
+                                        N: ${props.bbox_north ? props.bbox_north.toFixed(6) : 'N/A'} | 
+                                        S: ${props.bbox_south ? props.bbox_south.toFixed(6) : 'N/A'}<br>
+                                        E: ${props.bbox_east ? props.bbox_east.toFixed(6) : 'N/A'} | 
+                                        W: ${props.bbox_west ? props.bbox_west.toFixed(6) : 'N/A'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="background: #fff8e1; padding: 8px; border-radius: 4px; font-size: 12px;">
+                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #2c3e50;">ℹ️ Metadata</h4>
+                                <div><strong>ID:</strong> ${props.id || 'N/A'}</div>
+                                <div><strong>Owner ID:</strong> ${props.owner_id || 'N/A'}</div>
+                                <div><strong>Created:</strong> ${formatDate(props.created_at)}</div>
+                                <div><strong>Updated:</strong> ${formatDate(props.updated_at)}</div>
+                                ${props.gpx_file ? `<div><strong>GPX File:</strong> ${props.gpx_file}</div>` : ''}
+                                ${props.tags ? `<div><strong>Tags:</strong> ${props.tags}</div>` : ''}
+                            </div>
+
+                            <div style="margin-top: 8px; font-size: 10px; color: #888; text-align: center;">
+                                Enhanced MVT Backend - All metadata included in tiles
+                            </div>
                         </div>
                     `;
                     
-                    L.popup()
+                    L.popup({
+                        maxWidth: 450,
+                        className: 'enhanced-trail-popup'
+                    })
                         .setLatLng(e.latlng)
                         .setContent(popupContent)
                         .openOn(map);
@@ -261,16 +374,30 @@
             layer.on('tileload', function(e) {
                 tileLoadCount++;
                 
+                console.log(`🗺️ Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} loaded`);
+                console.log(`🔍 Tile object keys:`, Object.keys(e.tile));
+                console.log(`🔍 Tile src:`, e.tile.src);
+                
                 // Count features in this tile
                 let tileFeatures = 0;
                 if (e.tile._features) {
                     Object.keys(e.tile._features).forEach(layerName => {
                         const features = e.tile._features[layerName];
                         tileFeatures += features.length;
-                        console.log(`Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - Layer '${layerName}': ${features.length} features`);
+                        console.log(`✅ Layer '${layerName}': ${features.length} features`);
+                        
+                        // Log first feature properties for debugging
+                        if (features.length > 0) {
+                            console.log(`🎯 First feature properties:`, features[0].properties);
+                        }
                     });
                 } else {
-                    console.log(`Tile ${e.coords.z}/${e.coords.x}/${e.coords.y} - No _features property`);
+                    console.log(`⚠️ No _features property - checking tile._vectorTileFeatures...`);
+                    if (e.tile._vectorTileFeatures) {
+                        console.log(`🔍 _vectorTileFeatures keys:`, Object.keys(e.tile._vectorTileFeatures));
+                    } else {
+                        console.log(`❌ No vector tile features found at all`);
+                    }
                 }
                 
                 totalFeatures += tileFeatures;
@@ -279,7 +406,14 @@
 
             // Log tile errors to identify decode failures
             layer.on('tileerror', function(e) {
-                console.error(`Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
+                console.error(`❌ Tile error for ${e.coords.z}/${e.coords.x}/${e.coords.y}:`, e.error);
+                console.error('Error details:', e);
+            });
+
+            // Add tile loading start event
+            layer.on('tileloadstart', function(e) {
+                console.log(`🚀 Starting to load tile ${e.coords.z}/${e.coords.x}/${e.coords.y}`);
+                console.log('🔗 Tile URL:', e.tile.src);
             });
         }
         
@@ -336,6 +470,24 @@
         console.log('🚵 BikeMap MVT Demo initialized successfully!');
         console.log('MVT API: http://localhost:8090/api/tiles/{z}/{x}/{y}.mvt');
         console.log('Map bounds set to trail area in Swiss Alps');
+        console.log('🎯 Expected tile with data: 10/532/363 - http://localhost:8090/api/tiles/10/532/363.mvt');
+        
+        // Test the specific tile we know has data
+        fetch('http://localhost:8090/api/tiles/10/532/363.mvt')
+            .then(response => {
+                console.log('🌐 Tile 10/532/363 response status:', response.status);
+                console.log('🌐 Tile 10/532/363 content-length:', response.headers.get('content-length'));
+                return response.arrayBuffer();
+            })
+            .then(buffer => {
+                console.log('🌐 Tile 10/532/363 actual size:', buffer.byteLength, 'bytes');
+                if (buffer.byteLength > 0) {
+                    console.log('✅ Tile contains data - MVT tiles are being generated correctly');
+                } else {
+                    console.log('❌ Tile is empty - check PostGIS query or tile coordinates');
+                }
+            })
+            .catch(error => console.error('❌ Error fetching test tile:', error));
     </script>
 </body>
 </html>
