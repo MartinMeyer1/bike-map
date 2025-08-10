@@ -22,7 +22,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             # Navigate to deployment directory
-            cd /opt/bike-map || { echo "Deployment directory not found"; exit 1; }
+            cd /opt/bikemap || { echo "Deployment directory not found"; exit 1; }
             
             # Create directories if they don't exist
             mkdir -p mvt-server/initdb routing-server/segments
