@@ -20,7 +20,7 @@ if [ ! -f ".env.production" ]; then
 fi
 
 # Check if images exist
-if [ ! -f "./dist/bikemap-backend.tar.gz" ] || [ ! -f "./dist/bikemap-frontend.tar.gz" ] || [ ! -f "./dist/brouter.tar.gz" ]; then
+if [ ! -f "./dist/bikemap-backend.tar.gz" ] || [ ! -f "./dist/bikemap-frontend.tar.gz" ]; then
     echo -e "${RED}❌ Error: Docker images not found. Run './scripts/build.sh' first${NC}"
     exit 1
 fi
@@ -48,9 +48,6 @@ scp ./dist/bikemap-backend.tar.gz $VPS_USER@$VPS_IP:/opt/bikemap/
 
 echo -e "${YELLOW}📦 Uploading frontend image...${NC}"
 scp ./dist/bikemap-frontend.tar.gz $VPS_USER@$VPS_IP:/opt/bikemap/
-
-echo -e "${YELLOW}🧭 Uploading BRouter image...${NC}"
-scp ./dist/brouter.tar.gz $VPS_USER@$VPS_IP:/opt/bikemap/
 
 # Upload configuration files
 echo -e "${YELLOW}📄 Uploading configuration files...${NC}"
@@ -82,9 +79,6 @@ docker load < bikemap-backend.tar.gz
 
 echo "📦 Loading frontend image..."
 docker load < bikemap-frontend.tar.gz
-
-echo "📦 Loading BRouter image..."
-docker load < brouter.tar.gz
 
 # Create traefik network if it doesn't exist
 docker network create traefik 2>/dev/null || true

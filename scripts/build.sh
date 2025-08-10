@@ -67,25 +67,10 @@ docker build \
     -t bikemap-frontend:latest \
     ./frontend
 
-echo -e "${GREEN}🧭 Building BRouter image...${NC}"
-if [ ! -d "./routing-server/brouter" ]; then
-    echo -e "${YELLOW}📥 Cloning BRouter repository...${NC}"
-    cd routing-server
-    git clone https://github.com/abrensch/brouter.git
-    cd ..
-else
-    echo -e "${YELLOW}📥 Updating BRouter repository...${NC}"
-    cd routing-server/brouter
-    git pull origin master || git pull origin main
-    cd ../..
-fi
-docker build -t brouter:latest ./routing-server/brouter
-
 echo -e "${GREEN}💾 Saving images to tar files...${NC}"
 mkdir -p ./dist
 docker save bikemap-backend:latest | gzip > ./dist/bikemap-backend.tar.gz
 docker save bikemap-frontend:latest | gzip > ./dist/bikemap-frontend.tar.gz
-docker save brouter:latest | gzip > ./dist/brouter.tar.gz
 
 echo -e "${GREEN}✅ Build complete!${NC}"
 echo -e "${YELLOW}📁 Images saved to ./dist/${NC}"
