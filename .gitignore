@@ -13,6 +13,7 @@ frontend/build/
 
 # Backend data (PocketBase)
 backend/pb_data/
+pb_data/
 
 # Environment variables
 .env
