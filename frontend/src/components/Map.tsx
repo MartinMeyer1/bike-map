@@ -45,12 +45,8 @@ function MapEvents({
   const map = useMap();
 
   useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout>;
     
     const handleMoveEnd = () => {
-      // Debounce map movements to reduce excessive re-renders
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
         const bounds = map.getBounds();
         onBoundsChange({
           north: bounds.getNorth(),
@@ -63,7 +59,6 @@ function MapEvents({
         if (onMapMoveEnd) {
           onMapMoveEnd();
         }
-      }, 100); // 100ms debounce
     };
 
     const handleMapClick = () => {
@@ -78,7 +73,6 @@ function MapEvents({
     handleMoveEnd();
 
     return () => {
-      clearTimeout(debounceTimer);
       map.off('moveend', handleMoveEnd);
       map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);

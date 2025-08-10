@@ -88,7 +88,7 @@ func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) err
 	}
 
 	// Download and parse GPX file
-	gpxData, err := g.downloadGPXFromPocketBase(app, trail, gpxFile)
+	gpxData, err := g.downloadGPXFromPocketBase(trail, gpxFile)
 	if err != nil {
 		return fmt.Errorf("failed to download GPX: %w", err)
 	}
@@ -103,9 +103,9 @@ func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) err
 }
 
 // downloadGPXFromPocketBase downloads GPX file from PocketBase storage
-func (g *GPXService) downloadGPXFromPocketBase(app core.App, trail *core.Record, filename string) ([]byte, error) {
+func (g *GPXService) downloadGPXFromPocketBase(trail *core.Record, filename string) ([]byte, error) {
 	// Construct file URL
-	fileURL := fmt.Sprintf("%s/api/files/trails/%s/%s", g.config.Server.BaseURL, trail.Id, filename)
+	fileURL := fmt.Sprintf("%s/api/files/trails/%s/%s", "http://localhost:8090", trail.Id, filename)
 
 	resp, err := http.Get(fileURL)
 	if err != nil {
@@ -175,8 +175,8 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 
 	// Insert into PostGIS
 	query := `
-		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9)
+		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -186,7 +186,7 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 			gpx_file = EXCLUDED.gpx_file,
 			geom = EXCLUDED.geom,
 			elevation_data = EXCLUDED.elevation_data,
-			updated_at = NOW()`
+			updated_at = EXCLUDED.updated_at`
 
 	_, err = g.db.Exec(query,
 		trail.Id,
@@ -198,6 +198,8 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 		trail.GetString("file"), // GPX file name
 		lineString,
 		string(elevationJSON),
+		trail.GetDateTime("created").Time(),
+		trail.GetDateTime("updated").Time(),
 	)
 
 	return err
