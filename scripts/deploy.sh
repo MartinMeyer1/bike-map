@@ -19,12 +19,6 @@ if [ ! -f ".env.production" ]; then
     exit 1
 fi
 
-# Check if images exist
-if [ ! -f "./dist/bikemap-backend.tar.gz" ] || [ ! -f "./dist/bikemap-frontend.tar.gz" ]; then
-    echo -e "${RED}❌ Error: Docker images not found. Run './scripts/build.sh' first${NC}"
-    exit 1
-fi
-
 # Source environment variables to get VPS configuration
 export $(grep -v '^#' .env.production | xargs)
 
@@ -41,13 +35,6 @@ echo -e "${BLUE}📤 Uploading files to VPS...${NC}"
 
 # Create remote directory
 ssh $VPS_USER@$VPS_IP "mkdir -p /opt/bikemap"
-
-# Upload docker images
-echo -e "${YELLOW}📦 Uploading backend image...${NC}"
-scp ./dist/bikemap-backend.tar.gz $VPS_USER@$VPS_IP:/opt/bikemap/
-
-echo -e "${YELLOW}📦 Uploading frontend image...${NC}"
-scp ./dist/bikemap-frontend.tar.gz $VPS_USER@$VPS_IP:/opt/bikemap/
 
 # Upload configuration files
 echo -e "${YELLOW}📄 Uploading configuration files...${NC}"
@@ -73,13 +60,6 @@ echo -e "${BLUE}🏗️  Setting up application on VPS...${NC}"
 ssh $VPS_USER@$VPS_IP << 'EOF'
 cd /opt/bikemap
 
-# Load docker images
-echo "📦 Loading backend image..."
-docker load < bikemap-backend.tar.gz
-
-echo "📦 Loading frontend image..."
-docker load < bikemap-frontend.tar.gz
-
 # Create traefik network if it doesn't exist
 docker network create traefik 2>/dev/null || true
 
@@ -103,9 +83,6 @@ docker compose exec -T postgis psql -U gisuser -d gis -c "SELECT version();" || 
 
 # Clean up dangling images
 docker image prune -f
-
-# Clean up tar files
-rm -f *.tar.gz
 
 echo "✅ Deployment complete!"
 echo "🌐 Your BikeMap should be available at your domain shortly"
