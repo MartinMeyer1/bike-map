@@ -67,4 +67,4 @@ jspm_packages/
 .yarn-integrity
 
 *.rd5
-.routing-server/brouter/
+routing-server/brouter/
