@@ -135,7 +135,7 @@ services:
     restart: unless-stopped
 
   brouter:
-    image: brouter:latest
+    image: ghcr.io/abrensch/brouter:v1.7.8
     volumes:
       - "./routing-server/segments:/segments4"
     labels:

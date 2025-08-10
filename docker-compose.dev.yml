@@ -63,9 +63,7 @@ services:
     restart: unless-stopped
 
   brouter:
-    build:
-      context: ./routing-server/brouter
-      dockerfile: Dockerfile
+    image: ghcr.io/abrensch/brouter:v1.7.8
     volumes:
       - "./routing-server/segments:/segments4"
     ports:
