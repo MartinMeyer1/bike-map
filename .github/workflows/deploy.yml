@@ -1,0 +1,49 @@
+name: Deploy to VPS
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch: # Allow manual deployment
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # Navigate to deployment directory
+            cd /opt/bike-map || { echo "Deployment directory not found"; exit 1; }
+            
+            # Create directories if they don't exist
+            mkdir -p mvt-server/initdb routing-server/segments
+            
+            # Download latest docker-compose.yml
+            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml -o docker-compose.yml
+            
+            # Download latest init.sql
+            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/mvt-server/initdb/init.sql -o mvt-server/initdb/init.sql
+
+            # Download latest routing file
+            curl -sSL http://brouter.de/brouter/segments4/E5_N45.rd5 -o routing-server/segments/E5_N45.rd5
+            
+            # Pull latest Docker images
+            docker compose pull
+            
+            # Restart services with zero-downtime deployment
+            docker compose up -d --remove-orphans
+            
+            # Clean up old images
+            docker image prune -af --filter "until=24h"
+            
+            # Show running containers
+            docker compose ps
