@@ -10,7 +10,7 @@ interface UserSectionProps {
 
 export default function UserSection({ user }: UserSectionProps) {
   const { login, logout, updateUser, setError } = useAppContext();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [showUsernameEdit, setShowUsernameEdit] = useState(false);
 
   const handleUserUpdated = (updatedUser: User) => {
