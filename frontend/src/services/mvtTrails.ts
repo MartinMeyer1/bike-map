@@ -61,6 +61,7 @@ export class MVTTrailService {
   private events: MVTTrailEvents = {};
   private baseUrl: string;
   private cacheVersion: string = ''; // Persistent cache version for all requests
+  private updateMarkersTimeout: number | null = null; // Debounce timeout
 
   constructor(map: any, baseUrl?: string) { // L.Map
     this.map = map;
@@ -68,6 +69,11 @@ export class MVTTrailService {
     
     // Initialize with current timestamp as initial cache version
     this.generateCacheVersion();
+    
+    // Listen to map movement to re-add markers for trails that come back into view (debounced)
+    this.map.on('moveend zoomend', () => {
+      this.debouncedUpdateVisibleMarkers();
+    });
   }
 
   setEvents(events: MVTTrailEvents) {
@@ -192,6 +198,14 @@ export class MVTTrailService {
       this.map.removeLayer(end);
     });
     
+    // Clean up map event listeners and timeout
+    this.map.off('moveend zoomend', this.debouncedUpdateVisibleMarkers);
+    
+    if (this.updateMarkersTimeout) {
+      clearTimeout(this.updateMarkersTimeout);
+      this.updateMarkersTimeout = null;
+    }
+    
     this.trailMarkers.clear();
     this.loadedTrails.clear();
     this.selectedTrailId = null;
@@ -206,16 +220,29 @@ export class MVTTrailService {
       west: mapBounds.getWest()
     };
 
-    // Find trails that are no longer visible (outside current bounds)
+    // Add buffer (50% of current view) to prevent premature removal
+    const buffer = {
+      lat: (currentBounds.north - currentBounds.south) * 0.5,
+      lng: (currentBounds.east - currentBounds.west) * 0.5
+    };
+
+    const bufferedBounds = {
+      north: currentBounds.north + buffer.lat,
+      south: currentBounds.south - buffer.lat,
+      east: currentBounds.east + buffer.lng,
+      west: currentBounds.west - buffer.lng
+    };
+
+    // Find trails that are far outside buffered bounds
     const trailsToRemove: string[] = [];
     
     this.loadedTrails.forEach((trail, trailId) => {
-      // Check if trail bounds intersect with current map bounds
+      // Check if trail bounds intersect with buffered bounds
       const isVisible = !(
-        trail.bounds.south > currentBounds.north ||
-        trail.bounds.north < currentBounds.south ||
-        trail.bounds.east < currentBounds.west ||
-        trail.bounds.west > currentBounds.east
+        trail.bounds.south > bufferedBounds.north ||
+        trail.bounds.north < bufferedBounds.south ||
+        trail.bounds.east < bufferedBounds.west ||
+        trail.bounds.west > bufferedBounds.east
       );
       
       if (!isVisible) {
@@ -223,7 +250,7 @@ export class MVTTrailService {
       }
     });
 
-    // Remove invisible trails and their markers
+    // Remove trails that are far outside buffered bounds
     trailsToRemove.forEach(trailId => {
       this.loadedTrails.delete(trailId);
       
@@ -309,7 +336,7 @@ export class MVTTrailService {
 
   getTrailsInBounds(bounds: MapBounds): MVTTrail[] {
     return this.getLoadedTrails().filter(trail => {
-      // Check if trail bounds intersect with map bounds
+      // Check if trail bounds intersect with map bounds (strict bounds for visible list)
       return !(
         trail.bounds.south > bounds.north ||
         trail.bounds.north < bounds.south ||
@@ -317,5 +344,50 @@ export class MVTTrailService {
         trail.bounds.west > bounds.east
       );
     });
+  }
+
+  // Get only trails that are actually visible in current map view
+  getVisibleTrails(): MVTTrail[] {
+    const mapBounds = this.map.getBounds();
+    const currentBounds = {
+      north: mapBounds.getNorth(),
+      south: mapBounds.getSouth(),
+      east: mapBounds.getEast(),
+      west: mapBounds.getWest()
+    };
+    
+    return this.getTrailsInBounds(currentBounds);
+  }
+
+  // Debounced version of updateVisibleMarkers
+  private debouncedUpdateVisibleMarkers(): void {
+    // Clear existing timeout
+    if (this.updateMarkersTimeout) {
+      clearTimeout(this.updateMarkersTimeout);
+    }
+    
+    // Set new timeout (300ms debounce)
+    this.updateMarkersTimeout = window.setTimeout(() => {
+      this.updateVisibleMarkers();
+      this.updateMarkersTimeout = null;
+    }, 300);
+  }
+
+  // Update markers when map moves - re-add missing markers for visible trails
+  private updateVisibleMarkers(): void {
+    if (!this.mvtLayer) return;
+
+    // Get current visible trails
+    const visibleTrails = this.getVisibleTrails();
+    
+    // Add missing markers for visible trails
+    visibleTrails.forEach(trail => {
+      if (!this.trailMarkers.has(trail.id)) {
+        this.createTrailMarkers(trail);
+      }
+    });
+
+    // Notify about current visible trails
+    this.events.onTrailsLoaded?.(visibleTrails);
   }
 }
