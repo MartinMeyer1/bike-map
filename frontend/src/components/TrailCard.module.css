@@ -93,7 +93,8 @@
 .stats {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
   font-size: 13px;
   font-weight: 500;
   padding: 8px 12px;
@@ -104,6 +105,12 @@
 
 .stats.expanded {
   margin-bottom: 16px;
+}
+
+.elevationStats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .elevationGain {
@@ -208,26 +215,29 @@
   grid-template-columns: 1fr 1fr 1fr;
 }
 
-/* Engagement Button Styles */
+/* Engagement Container Styles */
+.engagementContainer {
+}
+
 .engagementButton {
   background: none;
   border: none;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  margin-left: 8px;
+  transition: all 0.2s ease;
 }
 
 .engagementButton:hover {
   background-color: rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
 }
 
 .engagementStats {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
 }
 
 .ratingDisplay {

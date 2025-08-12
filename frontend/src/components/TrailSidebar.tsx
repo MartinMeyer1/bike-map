@@ -83,9 +83,28 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     setShowRatingsComments(trail);
   }, []);
 
-  const handleCloseRatingsComments = useCallback(() => {
+  const handleCloseRatingsComments = useCallback(async () => {
+    const currentTrail = showRatingsComments;
     setShowRatingsComments(null);
-  }, []);
+    
+    // Refresh engagement data for the trail that was just viewed/modified
+    if (currentTrail) {
+      try {
+        const [ratingStats, commentCount] = await Promise.all([
+          PocketBaseService.getTrailRatingStats(currentTrail.id, user?.id),
+          PocketBaseService.getTrailCommentCount(currentTrail.id)
+        ]);
+
+        setTrailEngagements(prev => {
+          const newMap = new Map(prev);
+          newMap.set(currentTrail.id, { ratingStats, commentCount });
+          return newMap;
+        });
+      } catch (error) {
+        console.error('Failed to refresh engagement data:', error);
+      }
+    }
+  }, [showRatingsComments, user?.id]);
 
   // Auto-scroll to selected trail when map movement ends
   useEffect(() => {

@@ -92,41 +92,45 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
 
       {/* Trail stats */}
       <div className={`${styles.stats} ${isSelected ? styles.expanded : ''}`}>
-        {trail.elevation ? (
-          <>
-            <div className={styles.elevationGain}>
-              <span>▲</span>
-              <span>{Math.round(trail.elevation.gain)}m</span>
-            </div>
-            <div className={styles.elevationLoss}>
-              <span>▼</span>
-              <span>{Math.round(trail.elevation.loss)}m</span>
-            </div>
-          </>
-        ) : (
-          <span className={styles.gpxAvailable}>📁 GPX available</span>
-        )}
-        
-        {/* Ratings and Comments Button */}
+        <div className={styles.elevationStats}>
+          {trail.elevation ? (
+            <>
+              <div className={styles.elevationGain}>
+                <span>▲</span>
+                <span>{Math.round(trail.elevation.gain)}m</span>
+              </div>
+              <div className={styles.elevationLoss}>
+                <span>▼</span>
+                <span>{Math.round(trail.elevation.loss)}m</span>
+              </div>
+            </>
+          ) : (
+            <span className={styles.gpxAvailable}>📁 GPX available</span>
+          )}
+        </div>
+
+        {/* Engagement Stats */}
         {engagement && onShowRatingsComments && (
-          <button 
-            className={styles.engagementButton}
-            onClick={handleRatingsComments}
-            title="View ratings and comments"
-          >
-            <div className={styles.engagementStats}>
-              {engagement.ratingStats.count > 0 ? (
-                <span className={styles.ratingDisplay}>
-                  ⭐ {engagement.ratingStats.average.toFixed(1)} ({engagement.ratingStats.count})
+          <div className={styles.engagementContainer}>
+            <button 
+              className={styles.engagementButton}
+              onClick={handleRatingsComments}
+              title="View ratings and comments"
+            >
+              <div className={styles.engagementStats}>
+                {engagement.ratingStats.count > 0 ? (
+                  <span className={styles.ratingDisplay}>
+                    ⭐ {engagement.ratingStats.average.toFixed(1)} ({engagement.ratingStats.count})
+                  </span>
+                ) : (
+                  <span className={styles.noRating}>⭐ —</span>
+                )}
+                <span className={styles.commentDisplay}>
+                  💬 {engagement.commentCount}
                 </span>
-              ) : (
-                <span className={styles.noRating}>⭐ No ratings</span>
-              )}
-              <span className={styles.commentDisplay}>
-                💬 {engagement.commentCount}
-              </span>
-            </div>
-          </button>
+              </div>
+            </button>
+          </div>
         )}
       </div>
 

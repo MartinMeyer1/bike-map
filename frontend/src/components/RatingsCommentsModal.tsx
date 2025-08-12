@@ -26,6 +26,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   const [editingCommentText, setEditingCommentText] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Load data when modal opens
   useEffect(() => {
@@ -34,10 +35,15 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     }
   }, [isOpen, trail]);
 
-  const loadData = async () => {
+  const loadData = async (isInitialLoad = true) => {
     if (!trail) return;
     
-    setLoading(true);
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+    
     try {
       const [commentsData, statsData] = await Promise.all([
         PocketBaseService.getTrailComments(trail.id),
@@ -50,7 +56,11 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     } catch (error) {
       console.error('Failed to load ratings and comments:', error);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -60,7 +70,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     setSubmitting(true);
     try {
       await PocketBaseService.upsertTrailRating(trail.id, rating);
-      await loadData(); // Refresh data
+      await loadData(false); // Refresh data without loading state
     } catch (error) {
       console.error('Failed to update rating:', error);
     } finally {
@@ -76,7 +86,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     try {
       await PocketBaseService.createTrailComment(trail.id, newComment.trim());
       setNewComment('');
-      await loadData(); // Refresh data
+      await loadData(false); // Refresh data without loading state
     } catch (error) {
       console.error('Failed to create comment:', error);
     } finally {
@@ -97,7 +107,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       await PocketBaseService.updateTrailComment(editingComment, editingCommentText.trim());
       setEditingComment(null);
       setEditingCommentText('');
-      await loadData(); // Refresh data
+      await loadData(false); // Refresh data without loading state
     } catch (error) {
       console.error('Failed to update comment:', error);
     } finally {
@@ -110,7 +120,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       setSubmitting(true);
       try {
         await PocketBaseService.deleteTrailComment(commentId);
-        await loadData(); // Refresh data
+        await loadData(false); // Refresh data without loading state
       } catch (error) {
         console.error('Failed to delete comment:', error);
       } finally {
@@ -144,6 +154,9 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${trail.name} - Ratings & Comments`}>
       <div className={styles.modalContent}>
+        {refreshing && (
+          <div className={styles.refreshingIndicator}>Updating...</div>
+        )}
         {loading ? (
           <div className={styles.loading}>Loading...</div>
         ) : (
