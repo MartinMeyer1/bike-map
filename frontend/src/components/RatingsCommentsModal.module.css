@@ -122,6 +122,11 @@
   color: #ffc107;
 }
 
+.star.empty {
+  color: #6c757d;
+  font-weight: bold;
+}
+
 .stars.interactive .star:hover {
   color: #ffc107;
 }

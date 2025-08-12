@@ -136,15 +136,19 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   const renderStars = (rating: number, interactive = false, onStarClick?: (rating: number) => void) => {
     return (
       <div className={`${styles.stars} ${interactive ? styles.interactive : ''}`}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <span
-            key={star}
-            className={`${styles.star} ${star <= rating ? styles.filled : ''}`}
-            onClick={interactive && onStarClick ? () => onStarClick(star) : undefined}
-          >
-            ⭐
-          </span>
-        ))}
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFilled = star <= rating;
+          
+          return (
+            <span
+              key={star}
+              className={`${styles.star} ${isFilled ? styles.filled : styles.empty}`}
+              onClick={interactive && onStarClick ? () => onStarClick(star) : undefined}
+            >
+              {isFilled ? '★' : '☆'}
+            </span>
+          );
+        })}
       </div>
     );
   };
@@ -170,7 +174,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                 {ratingStats.count > 0 ? (
                   <div className={styles.ratingStats}>
                     <div className={styles.averageRating}>
-                      {renderStars(Math.round(ratingStats.average))}
+                      {renderStars(ratingStats.average)}
                       <span className={styles.averageText}>
                         {ratingStats.average.toFixed(1)} ({ratingStats.count} rating{ratingStats.count !== 1 ? 's' : ''})
                       </span>
