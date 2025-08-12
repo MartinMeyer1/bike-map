@@ -1,5 +1,5 @@
 import PocketBase from 'pocketbase';
-import { Trail, User, MVTTrail } from '../types';
+import { Trail, User, MVTTrail, TrailRating, TrailRatingWithUser, TrailComment, TrailCommentWithUser, RatingStats } from '../types';
 import { handleApiError } from '../utils/errorHandling';
 
 // Initialize PocketBase client with configurable base URL
@@ -173,6 +173,159 @@ export class PocketBaseService {
       created: record.created,
       updated: record.updated,
     };
+  }
+
+  // RATINGS METHODS
+
+  // Get rating statistics for a trail
+  static async getTrailRatingStats(trailId: string, userId?: string): Promise<RatingStats> {
+    try {
+      const ratings = await pb.collection('trail_ratings').getList(1, 500, {
+        filter: `trail = "${trailId}"`,
+        expand: 'user'
+      });
+
+      const count = ratings.items.length;
+      const average = count > 0 ? ratings.items.reduce((sum, r) => sum + r.rating, 0) / count : 0;
+      const userRating = userId ? ratings.items.find(r => r.user === userId)?.rating : undefined;
+
+      return {
+        count,
+        average: Math.round(average * 100) / 100, // Round to 2 decimal places
+        userRating
+      };
+    } catch (error) {
+      handleApiError(error);
+      return { count: 0, average: 0 };
+    }
+  }
+
+  // Get all ratings for a trail
+  static async getTrailRatings(trailId: string): Promise<TrailRatingWithUser[]> {
+    try {
+      const response = await pb.collection('trail_ratings').getList(1, 500, {
+        filter: `trail = "${trailId}"`,
+        expand: 'user',
+        sort: '-created'
+      });
+      return response.items as unknown as TrailRatingWithUser[];
+    } catch (error) {
+      handleApiError(error);
+      return [];
+    }
+  }
+
+  // Create or update a rating
+  static async upsertTrailRating(trailId: string, rating: number): Promise<TrailRating> {
+    try {
+      const user = pb.authStore.model;
+      if (!user) throw new Error('User not authenticated');
+
+      // Check if user already has a rating for this trail
+      const existingRatings = await pb.collection('trail_ratings').getList(1, 1, {
+        filter: `trail = "${trailId}" && user = "${user.id}"`
+      });
+
+      if (existingRatings.items.length > 0) {
+        // Update existing rating
+        const updated = await pb.collection('trail_ratings').update(existingRatings.items[0].id, {
+          rating
+        });
+        return updated as unknown as TrailRating;
+      } else {
+        // Create new rating
+        const created = await pb.collection('trail_ratings').create({
+          trail: trailId,
+          user: user.id,
+          rating
+        });
+        return created as unknown as TrailRating;
+      }
+    } catch (error) {
+      handleApiError(error);
+      throw error;
+    }
+  }
+
+  // Delete a rating
+  static async deleteTrailRating(ratingId: string): Promise<void> {
+    try {
+      await pb.collection('trail_ratings').delete(ratingId);
+    } catch (error) {
+      handleApiError(error);
+      throw error;
+    }
+  }
+
+  // COMMENTS METHODS
+
+  // Get comments count for a trail
+  static async getTrailCommentCount(trailId: string): Promise<number> {
+    try {
+      const response = await pb.collection('trail_comments').getList(1, 1, {
+        filter: `trail = "${trailId}"`,
+      });
+      return response.totalItems;
+    } catch (error) {
+      handleApiError(error);
+      return 0;
+    }
+  }
+
+  // Get all comments for a trail
+  static async getTrailComments(trailId: string): Promise<TrailCommentWithUser[]> {
+    try {
+      const response = await pb.collection('trail_comments').getList(1, 500, {
+        filter: `trail = "${trailId}"`,
+        expand: 'user',
+        sort: '-created'
+      });
+      return response.items as unknown as TrailCommentWithUser[];
+    } catch (error) {
+      handleApiError(error);
+      return [];
+    }
+  }
+
+  // Create a comment
+  static async createTrailComment(trailId: string, comment: string): Promise<TrailComment> {
+    try {
+      const user = pb.authStore.model;
+      if (!user) throw new Error('User not authenticated');
+
+      const created = await pb.collection('trail_comments').create({
+        trail: trailId,
+        user: user.id,
+        comment
+      });
+      return created as unknown as TrailComment;
+    } catch (error) {
+      handleApiError(error);
+      throw error;
+    }
+  }
+
+  // Update a comment
+  static async updateTrailComment(commentId: string, comment: string): Promise<TrailComment> {
+    try {
+      const updated = await pb.collection('trail_comments').update(commentId, {
+        comment
+      });
+      return updated as unknown as TrailComment;
+    } catch (error) {
+      handleApiError(error);
+      throw error;
+    }
+  }
+
+  // Delete a comment
+  static async deleteTrailComment(commentId: string): Promise<void> {
+    try {
+      await pb.collection('trail_comments').delete(commentId);
+    } catch (error) {
+      handleApiError(error);
+      throw error;
+    }
   }
 }
 

@@ -121,3 +121,47 @@ export interface MVTTrail {
   // For compatibility with existing components
   ownerInfo?: User;
 }
+
+// Rating types
+export interface TrailRating {
+  id: string;
+  trail: string;   // Trail ID
+  user: string;    // User ID
+  rating: number;  // 1-5 stars
+  created: string;
+  updated: string;
+}
+
+export interface TrailRatingWithUser extends TrailRating {
+  expand?: {
+    user?: User;
+  };
+}
+
+export interface RatingStats {
+  count: number;
+  average: number;
+  userRating?: number; // Current user's rating if any
+}
+
+// Comment types
+export interface TrailComment {
+  id: string;
+  trail: string;   // Trail ID
+  user: string;    // User ID
+  comment: string;
+  created: string;
+  updated: string;
+}
+
+export interface TrailCommentWithUser extends TrailComment {
+  expand?: {
+    user?: User;
+  };
+}
+
+// Combined ratings and comments data for trail cards
+export interface TrailEngagement {
+  ratingStats: RatingStats;
+  commentCount: number;
+}

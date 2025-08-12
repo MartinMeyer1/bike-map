@@ -207,3 +207,49 @@
 .actions.threeColumns {
   grid-template-columns: 1fr 1fr 1fr;
 }
+
+/* Engagement Button Styles */
+.engagementButton {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-left: 8px;
+}
+
+.engagementButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.engagementStats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ratingDisplay {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.noRating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #6c757d;
+  font-weight: 400;
+}
+
+.commentDisplay {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #495057;
+  font-weight: 500;
+}

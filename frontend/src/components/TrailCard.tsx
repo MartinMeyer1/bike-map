@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { MVTTrail, User } from '../types';
+import { MVTTrail, User, TrailEngagement } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { Button, Badge } from './ui';
 import styles from './TrailCard.module.css';
@@ -8,20 +8,24 @@ interface TrailCardProps {
   trail: MVTTrail;
   isSelected: boolean;
   user: User | null;
+  engagement?: TrailEngagement;
   onTrailClick: (trail: MVTTrail) => void;
   onEditTrailClick: (trail: MVTTrail) => void;
   onDownloadGPX: (trail: MVTTrail) => void;
   onShowQRCode: (trail: MVTTrail) => void;
+  onShowRatingsComments?: (trail: MVTTrail) => void;
 }
 
 export const TrailCard: React.FC<TrailCardProps> = memo(({
   trail,
   isSelected,
   user,
+  engagement,
   onTrailClick,
   onEditTrailClick,
   onDownloadGPX,
-  onShowQRCode
+  onShowQRCode,
+  onShowRatingsComments
 }) => {
   const ownerInfo = trail.ownerInfo;
 
@@ -42,6 +46,11 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEditTrailClick(trail);
+  };
+
+  const handleRatingsComments = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onShowRatingsComments?.(trail);
   };
 
   const canEdit = user && PocketBaseService.canEditTrail(trail, user);
@@ -96,6 +105,28 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
           </>
         ) : (
           <span className={styles.gpxAvailable}>📁 GPX available</span>
+        )}
+        
+        {/* Ratings and Comments Button */}
+        {engagement && onShowRatingsComments && (
+          <button 
+            className={styles.engagementButton}
+            onClick={handleRatingsComments}
+            title="View ratings and comments"
+          >
+            <div className={styles.engagementStats}>
+              {engagement.ratingStats.count > 0 ? (
+                <span className={styles.ratingDisplay}>
+                  ⭐ {engagement.ratingStats.average.toFixed(1)} ({engagement.ratingStats.count})
+                </span>
+              ) : (
+                <span className={styles.noRating}>⭐ No ratings</span>
+              )}
+              <span className={styles.commentDisplay}>
+                💬 {engagement.commentCount}
+              </span>
+            </div>
+          </button>
         )}
       </div>
 

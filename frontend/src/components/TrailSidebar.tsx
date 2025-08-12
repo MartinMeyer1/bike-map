@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { User, MVTTrail } from '../types';
+import { User, MVTTrail, TrailEngagement } from '../types';
 import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
 import { TrailCard } from './TrailCard';
 import { QRModal } from './QRModal';
 import { InfoModal } from './InfoModal';
+import { RatingsCommentsModal } from './RatingsCommentsModal';
 import { Button, Badge } from './ui';
 import styles from './TrailSidebar.module.css';
 
@@ -32,6 +33,8 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
 }) => {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showRatingsComments, setShowRatingsComments] = useState<MVTTrail | null>(null);
+  const [trailEngagements, setTrailEngagements] = useState<Map<string, TrailEngagement>>(new Map());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
@@ -76,6 +79,14 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     setShowInfoModal(prev => !prev);
   }, []);
 
+  const handleShowRatingsComments = useCallback((trail: MVTTrail) => {
+    setShowRatingsComments(trail);
+  }, []);
+
+  const handleCloseRatingsComments = useCallback(() => {
+    setShowRatingsComments(null);
+  }, []);
+
   // Auto-scroll to selected trail when map movement ends
   useEffect(() => {
     if (selectedTrail && trailRefs.current[selectedTrail.id]) {
@@ -97,6 +108,43 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       }
     }
   }, [mapMoveEndTrigger, selectedTrail]);
+
+  // Load engagement data when visible trails change
+  useEffect(() => {
+    const loadEngagementData = async () => {
+      if (!visibleTrails.length) {
+        setTrailEngagements(new Map());
+        return;
+      }
+
+      try {
+        const engagementPromises = visibleTrails.map(async (trail) => {
+          const [ratingStats, commentCount] = await Promise.all([
+            PocketBaseService.getTrailRatingStats(trail.id, user?.id),
+            PocketBaseService.getTrailCommentCount(trail.id)
+          ]);
+
+          return {
+            trailId: trail.id,
+            engagement: { ratingStats, commentCount }
+          };
+        });
+
+        const results = await Promise.all(engagementPromises);
+        const newEngagements = new Map<string, TrailEngagement>();
+        
+        results.forEach(({ trailId, engagement }) => {
+          newEngagements.set(trailId, engagement);
+        });
+
+        setTrailEngagements(newEngagements);
+      } catch (error) {
+        console.error('Failed to load engagement data:', error);
+      }
+    };
+
+    loadEngagementData();
+  }, [visibleTrails, user?.id]);
 
   // Merge visible trails with cached trail data to get owner info - memoized
   const trailsWithOwnerInfo = React.useMemo(() => {
@@ -182,10 +230,12 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
                   trail={trail}
                   isSelected={selectedTrail?.id === trail.id}
                   user={user}
+                  engagement={trailEngagements.get(trail.id)}
                   onTrailClick={memoizedOnTrailClick}
                   onEditTrailClick={memoizedOnEditTrailClick}
                   onDownloadGPX={handleDownloadGPX}
                   onShowQRCode={handleShowQRCode}
+                  onShowRatingsComments={handleShowRatingsComments}
                 />
               </div>
             ))}
@@ -198,6 +248,14 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
         isOpen={!!showQRCode}
         onClose={handleCloseQRCode}
         fileUrl={showQRCode || ''}
+      />
+
+      {/* Ratings and Comments Modal */}
+      <RatingsCommentsModal
+        isOpen={!!showRatingsComments}
+        onClose={handleCloseRatingsComments}
+        trail={showRatingsComments}
+        user={user}
       />
 
       {/* Fixed Footer Section */}
