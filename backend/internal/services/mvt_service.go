@@ -134,7 +134,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 					name,
 					description,
 					level,
-					tags,
+					CASE 
+						WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
+						ELSE NULL
+					END as tags,
 					owner_id,
 					created_at,
 					updated_at,
@@ -210,7 +213,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 					name,
 					description,
 					level,
-					tags,
+					CASE 
+						WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
+						ELSE NULL
+					END as tags,
 					owner_id,
 					created_at,
 					updated_at,
