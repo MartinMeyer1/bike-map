@@ -144,6 +144,16 @@ export interface RatingStats {
   userRating?: number; // Current user's rating if any
 }
 
+// Rating average collection from backend
+export interface RatingAverage {
+  id: string;
+  trail: string;   // Trail ID
+  average: number; // 0-5 average rating
+  count: number;   // Number of ratings
+  created: string;
+  updated: string;
+}
+
 // Comment types
 export interface TrailComment {
   id: string;

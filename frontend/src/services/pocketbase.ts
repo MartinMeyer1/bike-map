@@ -1,5 +1,5 @@
 import PocketBase from 'pocketbase';
-import { Trail, User, MVTTrail, TrailRating, TrailRatingWithUser, TrailComment, TrailCommentWithUser, RatingStats } from '../types';
+import { Trail, User, MVTTrail, TrailRating, TrailComment, TrailCommentWithUser, RatingStats, RatingAverage } from '../types';
 import { handleApiError } from '../utils/errorHandling';
 
 // Initialize PocketBase client with configurable base URL
@@ -180,14 +180,33 @@ export class PocketBaseService {
   // Get rating statistics for a trail
   static async getTrailRatingStats(trailId: string, userId?: string): Promise<RatingStats> {
     try {
-      const ratings = await pb.collection('trail_ratings').getList(1, 500, {
-        filter: `trail = "${trailId}"`,
-        expand: 'user'
+      // Get rating average from the new collection for better performance
+      const ratingAverageResponse = await pb.collection('rating_average').getList(1, 1, {
+        filter: `trail = "${trailId}"`
       });
 
-      const count = ratings.items.length;
-      const average = count > 0 ? ratings.items.reduce((sum, r) => sum + r.rating, 0) / count : 0;
-      const userRating = userId ? ratings.items.find(r => r.user === userId)?.rating : undefined;
+      let count = 0;
+      let average = 0;
+
+      if (ratingAverageResponse.items.length > 0) {
+        const ratingAverage = ratingAverageResponse.items[0] as unknown as RatingAverage;
+        count = ratingAverage.count;
+        average = ratingAverage.average;
+      }
+
+      // Get user's specific rating if userId provided
+      let userRating: number | undefined;
+      if (userId) {
+        try {
+          const userRatingResponse = await pb.collection('trail_ratings').getList(1, 1, {
+            filter: `trail = "${trailId}" && user = "${userId}"`
+          });
+          userRating = userRatingResponse.items.length > 0 ? userRatingResponse.items[0].rating : undefined;
+        } catch (error) {
+          // User rating not found or error - continue without it
+          console.warn('Could not fetch user rating:', error);
+        }
+      }
 
       return {
         count,
