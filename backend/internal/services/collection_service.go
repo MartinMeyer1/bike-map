@@ -231,3 +231,156 @@ func (c *CollectionService) EnsureAdminAccount(app core.App) error {
 	log.Printf("✅ Successfully created/updated admin account: %s", c.config.Admin.Email)
 	return nil
 }
+
+// EnsureTrailRatingsCollection creates the trail_ratings collection if it doesn't exist
+func (c *CollectionService) EnsureTrailRatingsCollection(app core.App) error {
+	// Check if trail_ratings collection already exists
+	_, err := app.FindCollectionByNameOrId("trail_ratings")
+	if err == nil {
+		// Collection already exists
+		return nil
+	}
+
+	// Get the trails collection to reference it
+	trailsCollection, err := app.FindCollectionByNameOrId("trails")
+	if err != nil {
+		return fmt.Errorf("trails collection not found: %w", err)
+	}
+
+	// Create new collection
+	collection := core.NewBaseCollection("trail_ratings")
+	
+	// Access rules - Viewers+ can read, create, update their own; Admins can delete any
+	publicRule := ""
+	createRule := `@request.auth.id != "" && @request.auth.role != "" && (@request.auth.role = "Viewer" || @request.auth.role = "Editor" || @request.auth.role = "Admin")`
+	updateRule := `@request.auth.id = user || @request.auth.role = "Admin"`
+	deleteRule := `@request.auth.role = "Admin"`
+
+	collection.ListRule = &publicRule    // Allow public read access
+	collection.ViewRule = &publicRule    // Allow public read access
+	collection.CreateRule = &createRule  // Viewers+ can create
+	collection.UpdateRule = &updateRule  // Users can update their own ratings
+	collection.DeleteRule = &deleteRule  // Only Admins can delete
+
+	// Define schema fields
+	collection.Fields.Add(&core.AutodateField{
+		Name:     "created",
+		OnCreate: true,
+	})
+	collection.Fields.Add(&core.AutodateField{
+		Name:     "updated",
+		OnUpdate: true,
+	})
+	
+	// Reference to trail
+	collection.Fields.Add(&core.RelationField{
+		Name:         "trail",
+		CollectionId: trailsCollection.Id,
+		MaxSelect:    1,
+		Required:     true,
+	})
+	
+	// Reference to user who created the rating
+	collection.Fields.Add(&core.RelationField{
+		Name:         "user",
+		CollectionId: "_pb_users_auth_",
+		MaxSelect:    1,
+		Required:     true,
+	})
+	
+	// Rating value (1-5 stars)
+	collection.Fields.Add(&core.NumberField{
+		Name:     "rating",
+		Min:      float64Ptr(1),
+		Max:      float64Ptr(5),
+		Required: true,
+	})
+
+	// Add unique constraint index to prevent duplicate ratings per user per trail
+	collection.AddIndex("idx_unique_trail_user_rating", true, "trail,user", "")
+
+	// Save collection
+	if err := app.Save(collection); err != nil {
+		return fmt.Errorf("failed to create trail_ratings collection: %w", err)
+	}
+
+	log.Println("✅ Created trail_ratings collection successfully")
+	return nil
+}
+
+// EnsureTrailCommentsCollection creates the trail_comments collection if it doesn't exist
+func (c *CollectionService) EnsureTrailCommentsCollection(app core.App) error {
+	// Check if trail_comments collection already exists
+	_, err := app.FindCollectionByNameOrId("trail_comments")
+	if err == nil {
+		// Collection already exists
+		return nil
+	}
+
+	// Get the trails collection to reference it
+	trailsCollection, err := app.FindCollectionByNameOrId("trails")
+	if err != nil {
+		return fmt.Errorf("trails collection not found: %w", err)
+	}
+
+	// Create new collection
+	collection := core.NewBaseCollection("trail_comments")
+	
+	// Access rules - Viewers+ can read, create, update their own; Admins can delete any
+	publicRule := ""
+	createRule := `@request.auth.id != "" && @request.auth.role != "" && (@request.auth.role = "Viewer" || @request.auth.role = "Editor" || @request.auth.role = "Admin")`
+	updateRule := `@request.auth.id = user || @request.auth.role = "Admin"`
+	deleteRule := `@request.auth.id = user || @request.auth.role = "Admin"`
+
+	collection.ListRule = &publicRule    // Allow public read access
+	collection.ViewRule = &publicRule    // Allow public read access
+	collection.CreateRule = &createRule  // Viewers+ can create
+	collection.UpdateRule = &updateRule  // Users can update their own comments
+	collection.DeleteRule = &deleteRule  // Users can delete their own, Admins can delete any
+
+	// Define schema fields
+	collection.Fields.Add(&core.AutodateField{
+		Name:     "created",
+		OnCreate: true,
+	})
+	collection.Fields.Add(&core.AutodateField{
+		Name:     "updated",
+		OnUpdate: true,
+	})
+	
+	// Reference to trail
+	collection.Fields.Add(&core.RelationField{
+		Name:         "trail",
+		CollectionId: trailsCollection.Id,
+		MaxSelect:    1,
+		Required:     true,
+	})
+	
+	// Reference to user who created the comment
+	collection.Fields.Add(&core.RelationField{
+		Name:         "user",
+		CollectionId: "_pb_users_auth_",
+		MaxSelect:    1,
+		Required:     true,
+	})
+	
+	// Comment text
+	collection.Fields.Add(&core.TextField{
+		Name:     "comment",
+		Max:      1000,
+		Required: true,
+	})
+
+	// Save collection
+	if err := app.Save(collection); err != nil {
+		return fmt.Errorf("failed to create trail_comments collection: %w", err)
+	}
+
+	log.Println("✅ Created trail_comments collection successfully")
+	return nil
+}
+
+// Helper function to create float64 pointer
+func float64Ptr(f float64) *float64 {
+	return &f
+}

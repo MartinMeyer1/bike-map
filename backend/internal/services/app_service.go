@@ -216,6 +216,14 @@ func (a *AppService) SetupCollections(app core.App) error {
 		return err
 	}
 
+	if err := a.collectionService.EnsureTrailRatingsCollection(app); err != nil {
+		return err
+	}
+
+	if err := a.collectionService.EnsureTrailCommentsCollection(app); err != nil {
+		return err
+	}
+
 	if err := a.collectionService.ConfigureUsersCollection(app); err != nil {
 		return err
 	}
