@@ -71,17 +71,19 @@
 }
 
 .userRating {
-  padding: 16px;
-  background: #f8f9fa;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
   border-radius: 8px;
-  border-left: 4px solid #28a745;
+  margin-bottom: 16px;
 }
 
 .userRatingTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: #495057;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6c757d;
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .userRatingText {
@@ -93,11 +95,11 @@
 .loginPrompt {
   color: #6c757d;
   font-style: italic;
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 6px;
-  margin: 0;
+  margin: 12px 0;
   text-align: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
 }
 
 /* Star Rating Styles */
@@ -134,10 +136,9 @@
 /* Comments Styles */
 .commentForm {
   margin-bottom: 24px;
-  padding: 16px;
-  background: #f8f9fa;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
   border-radius: 8px;
-  border-left: 4px solid #17a2b8;
 }
 
 .commentInput {

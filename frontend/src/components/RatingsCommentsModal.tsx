@@ -211,7 +211,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Share your thoughts about this trail..."
                     className={styles.commentInput}
-                    rows={3}
+                    rows={2}
                     maxLength={1000}
                     disabled={submitting}
                   />
@@ -268,7 +268,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                             value={editingCommentText}
                             onChange={(e) => setEditingCommentText(e.target.value)}
                             className={styles.commentInput}
-                            rows={3}
+                            rows={2}
                             maxLength={1000}
                             disabled={submitting}
                           />
