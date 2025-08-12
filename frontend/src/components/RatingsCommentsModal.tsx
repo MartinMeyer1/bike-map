@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MVTTrail, User, TrailCommentWithUser, RatingStats } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { useAppContext } from '../hooks/useAppContext';
 import { Modal, Button } from './ui';
 import styles from './RatingsCommentsModal.module.css';
 
@@ -20,6 +21,9 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   // const [ratings, setRatings] = useState<TrailRatingWithUser[]>([]);
   const [comments, setComments] = useState<TrailCommentWithUser[]>([]);
   const [ratingStats, setRatingStats] = useState<RatingStats>({ count: 0, average: 0 });
+  
+  // Access app context for MVT refresh
+  const { refreshMVTLayer } = useAppContext();
   const [userRating, setUserRating] = useState<number>(0);
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
@@ -71,6 +75,11 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     try {
       await PocketBaseService.upsertTrailRating(trail.id, rating);
       await loadData(false); // Refresh data without loading state
+      
+      // Refresh MVT layer to update engagement data
+      setTimeout(() => {
+        refreshMVTLayer();
+      }, 500);
     } catch (error) {
       console.error('Failed to update rating:', error);
     } finally {
@@ -87,6 +96,11 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       await PocketBaseService.createTrailComment(trail.id, newComment.trim());
       setNewComment('');
       await loadData(false); // Refresh data without loading state
+      
+      // Refresh MVT layer to update engagement data
+      setTimeout(() => {
+        refreshMVTLayer();
+      }, 500);
     } catch (error) {
       console.error('Failed to create comment:', error);
     } finally {
@@ -108,6 +122,11 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       setEditingComment(null);
       setEditingCommentText('');
       await loadData(false); // Refresh data without loading state
+      
+      // Refresh MVT layer to update engagement data
+      setTimeout(() => {
+        refreshMVTLayer();
+      }, 500);
     } catch (error) {
       console.error('Failed to update comment:', error);
     } finally {
@@ -121,6 +140,11 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       try {
         await PocketBaseService.deleteTrailComment(commentId);
         await loadData(false); // Refresh data without loading state
+        
+        // Refresh MVT layer to update engagement data
+        setTimeout(() => {
+          refreshMVTLayer();
+        }, 500);
       } catch (error) {
         console.error('Failed to delete comment:', error);
       } finally {
