@@ -380,6 +380,176 @@ func (c *CollectionService) EnsureTrailCommentsCollection(app core.App) error {
 	return nil
 }
 
+// EnsureRatingAverageCollection creates the rating_average collection if it doesn't exist
+func (c *CollectionService) EnsureRatingAverageCollection(app core.App) error {
+	// Check if rating_average collection already exists
+	_, err := app.FindCollectionByNameOrId("rating_average")
+	if err == nil {
+		// Collection already exists
+		return nil
+	}
+
+	// Get the trails collection to reference it
+	trailsCollection, err := app.FindCollectionByNameOrId("trails")
+	if err != nil {
+		return fmt.Errorf("trails collection not found: %w", err)
+	}
+
+	// Create new collection
+	collection := core.NewBaseCollection("rating_average")
+	
+	// Access rules - Public read access, only system/admin can write
+	publicRule := ""
+	adminOnlyRule := `@request.auth.role = "Admin"`
+
+	collection.ListRule = &publicRule      // Allow public read access
+	collection.ViewRule = &publicRule      // Allow public read access
+	collection.CreateRule = &adminOnlyRule // Only admins can create (system will handle this)
+	collection.UpdateRule = &adminOnlyRule // Only admins can update (system will handle this)
+	collection.DeleteRule = &adminOnlyRule // Only admins can delete
+
+	// Define schema fields
+	collection.Fields.Add(&core.AutodateField{
+		Name:     "created",
+		OnCreate: true,
+	})
+	collection.Fields.Add(&core.AutodateField{
+		Name:     "updated",
+		OnUpdate: true,
+	})
+	
+	// Reference to trail (unique constraint)
+	collection.Fields.Add(&core.RelationField{
+		Name:         "trail",
+		CollectionId: trailsCollection.Id,
+		MaxSelect:    1,
+		Required:     true,
+	})
+	
+	// Average rating (0.0 to 5.0)
+	collection.Fields.Add(&core.NumberField{
+		Name:     "average",
+		Min:      float64Ptr(0),
+		Max:      float64Ptr(5),
+		Required: true,
+	})
+	
+	// Count of ratings
+	collection.Fields.Add(&core.NumberField{
+		Name:     "count",
+		Min:      float64Ptr(0),
+		Required: true,
+	})
+
+	// Add unique constraint index to ensure one record per trail
+	collection.AddIndex("idx_unique_trail_rating_average", true, "trail", "")
+
+	// Save collection
+	if err := app.Save(collection); err != nil {
+		return fmt.Errorf("failed to create rating_average collection: %w", err)
+	}
+
+	log.Println("✅ Created rating_average collection successfully")
+	return nil
+}
+
+// UpdateRatingAverage updates or creates the rating average for a trail
+func (c *CollectionService) UpdateRatingAverage(app core.App, trailId string) error {
+	// Get all ratings for this trail
+	ratingsCollection, err := app.FindCollectionByNameOrId("trail_ratings")
+	if err != nil {
+		return fmt.Errorf("trail_ratings collection not found: %w", err)
+	}
+
+	// Query all ratings for this trail
+	ratings, err := app.FindRecordsByFilter(ratingsCollection, fmt.Sprintf("trail = '%s'", trailId), "", 0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to fetch trail ratings: %w", err)
+	}
+
+	// Calculate new average and count
+	count := len(ratings)
+	var average float64 = 0
+	if count > 0 {
+		var sum float64 = 0
+		for _, rating := range ratings {
+			sum += rating.GetFloat("rating")
+		}
+		average = sum / float64(count)
+	}
+
+	// Get or create rating average record
+	ratingAverageCollection, err := app.FindCollectionByNameOrId("rating_average")
+	if err != nil {
+		return fmt.Errorf("rating_average collection not found: %w", err)
+	}
+
+	// Try to find existing rating average record
+	existingRecords, err := app.FindRecordsByFilter(ratingAverageCollection, fmt.Sprintf("trail = '%s'", trailId), "", 1, 0)
+	if err != nil {
+		return fmt.Errorf("failed to query rating_average: %w", err)
+	}
+
+	if len(existingRecords) > 0 {
+		// Update existing record
+		record := existingRecords[0]
+		record.Set("average", average)
+		record.Set("count", count)
+		if err := app.Save(record); err != nil {
+			return fmt.Errorf("failed to update rating average: %w", err)
+		}
+	} else {
+		// Create new record
+		record := core.NewRecord(ratingAverageCollection)
+		record.Set("trail", trailId)
+		record.Set("average", average)
+		record.Set("count", count)
+		if err := app.Save(record); err != nil {
+			return fmt.Errorf("failed to create rating average: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// DeleteRatingAverage removes the rating average record for a trail if no ratings exist
+func (c *CollectionService) DeleteRatingAverage(app core.App, trailId string) error {
+	// Check if there are any ratings for this trail
+	ratingsCollection, err := app.FindCollectionByNameOrId("trail_ratings")
+	if err != nil {
+		return fmt.Errorf("trail_ratings collection not found: %w", err)
+	}
+
+	ratings, err := app.FindRecordsByFilter(ratingsCollection, fmt.Sprintf("trail = '%s'", trailId), "", 1, 0)
+	if err != nil {
+		return fmt.Errorf("failed to fetch trail ratings: %w", err)
+	}
+
+	// If ratings still exist, update the average instead of deleting
+	if len(ratings) > 0 {
+		return c.UpdateRatingAverage(app, trailId)
+	}
+
+	// No ratings exist, remove the rating average record
+	ratingAverageCollection, err := app.FindCollectionByNameOrId("rating_average")
+	if err != nil {
+		return fmt.Errorf("rating_average collection not found: %w", err)
+	}
+
+	existingRecords, err := app.FindRecordsByFilter(ratingAverageCollection, fmt.Sprintf("trail = '%s'", trailId), "", 1, 0)
+	if err != nil {
+		return fmt.Errorf("failed to query rating_average: %w", err)
+	}
+
+	if len(existingRecords) > 0 {
+		if err := app.Delete(existingRecords[0]); err != nil {
+			return fmt.Errorf("failed to delete rating average: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // Helper function to create float64 pointer
 func float64Ptr(f float64) *float64 {
 	return &f

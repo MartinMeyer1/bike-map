@@ -200,21 +200,6 @@ export class PocketBaseService {
     }
   }
 
-  // Get all ratings for a trail
-  static async getTrailRatings(trailId: string): Promise<TrailRatingWithUser[]> {
-    try {
-      const response = await pb.collection('trail_ratings').getList(1, 500, {
-        filter: `trail = "${trailId}"`,
-        expand: 'user',
-        sort: '-created'
-      });
-      return response.items as unknown as TrailRatingWithUser[];
-    } catch (error) {
-      handleApiError(error);
-      return [];
-    }
-  }
-
   // Create or update a rating
   static async upsertTrailRating(trailId: string, rating: number): Promise<TrailRating> {
     try {

@@ -125,6 +125,9 @@ func (a *AppService) SetupHooks(app core.App) {
 	if a.gpxService != nil {
 		a.setupTrailSyncHooks(app)
 	}
+
+	// Rating average update hooks
+	a.setupRatingAverageHooks(app)
 }
 
 // setupTrailSyncHooks sets up hooks for trail synchronization with PostGIS
@@ -149,6 +152,54 @@ func (a *AppService) setupTrailSyncHooks(app core.App) {
 	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trails" {
 			go a.deleteTrailFromPostGIS(e.Record.Id, e.Record.GetString("name"))
+		}
+		return e.Next()
+	})
+}
+
+// setupRatingAverageHooks sets up hooks for rating average updates
+func (a *AppService) setupRatingAverageHooks(app core.App) {
+	// After rating creation
+	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trail_ratings" {
+			trailId := e.Record.GetString("trail")
+			if trailId != "" {
+				go func() {
+					if err := a.collectionService.UpdateRatingAverage(app, trailId); err != nil {
+						log.Printf("Failed to update rating average after creation: %v", err)
+					}
+				}()
+			}
+		}
+		return e.Next()
+	})
+
+	// After rating update
+	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trail_ratings" {
+			trailId := e.Record.GetString("trail")
+			if trailId != "" {
+				go func() {
+					if err := a.collectionService.UpdateRatingAverage(app, trailId); err != nil {
+						log.Printf("Failed to update rating average after update: %v", err)
+					}
+				}()
+			}
+		}
+		return e.Next()
+	})
+
+	// After rating deletion
+	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trail_ratings" {
+			trailId := e.Record.GetString("trail")
+			if trailId != "" {
+				go func() {
+					if err := a.collectionService.DeleteRatingAverage(app, trailId); err != nil {
+						log.Printf("Failed to update rating average after deletion: %v", err)
+					}
+				}()
+			}
 		}
 		return e.Next()
 	})
@@ -221,6 +272,10 @@ func (a *AppService) SetupCollections(app core.App) error {
 	}
 
 	if err := a.collectionService.EnsureTrailCommentsCollection(app); err != nil {
+		return err
+	}
+
+	if err := a.collectionService.EnsureRatingAverageCollection(app); err != nil {
 		return err
 	}
 
