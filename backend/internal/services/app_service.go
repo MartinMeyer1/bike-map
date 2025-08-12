@@ -165,8 +165,26 @@ func (a *AppService) setupRatingAverageHooks(app core.App) {
 			trailId := e.Record.GetString("trail")
 			if trailId != "" {
 				go func() {
+					// Update rating average in PocketBase
 					if err := a.collectionService.UpdateRatingAverage(app, trailId); err != nil {
 						log.Printf("Failed to update rating average after creation: %v", err)
+					}
+					
+					// Update engagement data in PostGIS and invalidate MVT cache
+					if a.gpxService != nil {
+						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
+							log.Printf("Failed to update PostGIS engagement after rating creation: %v", err)
+						} else {
+							// Invalidate MVT cache for this trail
+							if a.mvtService != nil {
+								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
+									a.mvtService.InvalidateTilesForTrail(*bbox)
+									log.Printf("Invalidated MVT tiles for trail %s after rating creation", trailId)
+								} else {
+									a.mvtService.InvalidateAllCache()
+								}
+							}
+						}
 					}
 				}()
 			}
@@ -180,8 +198,26 @@ func (a *AppService) setupRatingAverageHooks(app core.App) {
 			trailId := e.Record.GetString("trail")
 			if trailId != "" {
 				go func() {
+					// Update rating average in PocketBase
 					if err := a.collectionService.UpdateRatingAverage(app, trailId); err != nil {
 						log.Printf("Failed to update rating average after update: %v", err)
+					}
+					
+					// Update engagement data in PostGIS and invalidate MVT cache
+					if a.gpxService != nil {
+						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
+							log.Printf("Failed to update PostGIS engagement after rating update: %v", err)
+						} else {
+							// Invalidate MVT cache for this trail
+							if a.mvtService != nil {
+								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
+									a.mvtService.InvalidateTilesForTrail(*bbox)
+									log.Printf("Invalidated MVT tiles for trail %s after rating update", trailId)
+								} else {
+									a.mvtService.InvalidateAllCache()
+								}
+							}
+						}
 					}
 				}()
 			}
@@ -195,8 +231,84 @@ func (a *AppService) setupRatingAverageHooks(app core.App) {
 			trailId := e.Record.GetString("trail")
 			if trailId != "" {
 				go func() {
+					// Update rating average in PocketBase
 					if err := a.collectionService.DeleteRatingAverage(app, trailId); err != nil {
 						log.Printf("Failed to update rating average after deletion: %v", err)
+					}
+					
+					// Update engagement data in PostGIS and invalidate MVT cache
+					if a.gpxService != nil {
+						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
+							log.Printf("Failed to update PostGIS engagement after rating deletion: %v", err)
+						} else {
+							// Invalidate MVT cache for this trail
+							if a.mvtService != nil {
+								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
+									a.mvtService.InvalidateTilesForTrail(*bbox)
+									log.Printf("Invalidated MVT tiles for trail %s after rating deletion", trailId)
+								} else {
+									a.mvtService.InvalidateAllCache()
+								}
+							}
+						}
+					}
+				}()
+			}
+		}
+		return e.Next()
+	})
+
+	// Comment hooks - only need to update PostGIS (no PocketBase aggregation needed)
+	
+	// After comment creation
+	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trail_comments" {
+			trailId := e.Record.GetString("trail")
+			if trailId != "" {
+				go func() {
+					// Update engagement data in PostGIS and invalidate MVT cache
+					if a.gpxService != nil {
+						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
+							log.Printf("Failed to update PostGIS engagement after comment creation: %v", err)
+						} else {
+							// Invalidate MVT cache for this trail
+							if a.mvtService != nil {
+								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
+									a.mvtService.InvalidateTilesForTrail(*bbox)
+									log.Printf("Invalidated MVT tiles for trail %s after comment creation", trailId)
+								} else {
+									a.mvtService.InvalidateAllCache()
+								}
+							}
+						}
+					}
+				}()
+			}
+		}
+		return e.Next()
+	})
+
+	// After comment deletion
+	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Collection().Name == "trail_comments" {
+			trailId := e.Record.GetString("trail")
+			if trailId != "" {
+				go func() {
+					// Update engagement data in PostGIS and invalidate MVT cache
+					if a.gpxService != nil {
+						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
+							log.Printf("Failed to update PostGIS engagement after comment deletion: %v", err)
+						} else {
+							// Invalidate MVT cache for this trail
+							if a.mvtService != nil {
+								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
+									a.mvtService.InvalidateTilesForTrail(*bbox)
+									log.Printf("Invalidated MVT tiles for trail %s after comment deletion", trailId)
+								} else {
+									a.mvtService.InvalidateAllCache()
+								}
+							}
+						}
 					}
 				}()
 			}

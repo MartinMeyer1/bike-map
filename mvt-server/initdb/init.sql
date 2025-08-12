@@ -19,7 +19,11 @@ CREATE TABLE IF NOT EXISTS trails (
     -- Elevation data as JSON (gain, loss, profile)
     elevation_data JSONB,
     -- Distance in meters
-    distance_m REAL
+    distance_m REAL,
+    -- Engagement data (ratings and comments)
+    rating_average DECIMAL(3,2) DEFAULT 0.0,
+    rating_count INTEGER DEFAULT 0,
+    comment_count INTEGER DEFAULT 0
 );
 
 -- Create spatial indexes for performance
@@ -27,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_trails_geom ON trails USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_trails_bbox ON trails USING GIST (bbox);
 CREATE INDEX IF NOT EXISTS idx_trails_owner ON trails (owner_id);
 CREATE INDEX IF NOT EXISTS idx_trails_level ON trails (level);
+CREATE INDEX IF NOT EXISTS idx_trails_engagement ON trails (rating_average, rating_count, comment_count);
 
 -- Create function to update bounding box automatically
 CREATE OR REPLACE FUNCTION update_trails_bbox()

@@ -60,7 +60,7 @@ func (g *GPXService) GetTrailBoundingBox(trailID string) (*models.BoundingBox, e
 		FROM trails 
 		WHERE id = $1 AND geom IS NOT NULL
 	`
-	
+
 	var bbox models.BoundingBox
 	err := g.db.QueryRow(query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
 	if err != nil {
@@ -69,7 +69,7 @@ func (g *GPXService) GetTrailBoundingBox(trailID string) (*models.BoundingBox, e
 		}
 		return nil, fmt.Errorf("failed to get trail bounding box: %w", err)
 	}
-	
+
 	return &bbox, nil
 }
 
@@ -99,7 +99,7 @@ func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) err
 	}
 
 	// Convert to PostGIS format and insert
-	return g.insertTrailToPostGIS(trail, gpx)
+	return g.insertTrailToPostGIS(app, trail, gpx)
 }
 
 // downloadGPXFromPocketBase downloads GPX file from PocketBase storage
@@ -135,7 +135,7 @@ func (g *GPXService) parseGPX(data []byte) (*models.GPX, error) {
 }
 
 // insertTrailToPostGIS inserts trail data into PostGIS
-func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) error {
+func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx *models.GPX) error {
 	// Use the first track (most GPX files have only one track)
 	track := gpx.Tracks[0]
 
@@ -173,10 +173,13 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 		tagsJSON = "[]"
 	}
 
+	// Get engagement data from PocketBase
+	ratingAvg, ratingCount, commentCount := g.getTrailEngagementData(app, trail.Id)
+
 	// Insert into PostGIS
 	query := `
-		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11)
+		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -186,7 +189,10 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 			gpx_file = EXCLUDED.gpx_file,
 			geom = EXCLUDED.geom,
 			elevation_data = EXCLUDED.elevation_data,
-			updated_at = EXCLUDED.updated_at`
+			updated_at = EXCLUDED.updated_at,
+			rating_average = EXCLUDED.rating_average,
+			rating_count = EXCLUDED.rating_count,
+			comment_count = EXCLUDED.comment_count`
 
 	_, err = g.db.Exec(query,
 		trail.Id,
@@ -200,6 +206,9 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 		string(elevationJSON),
 		trail.GetDateTime("created").Time(),
 		trail.GetDateTime("updated").Time(),
+		ratingAvg,
+		ratingCount,
+		commentCount,
 	)
 
 	return err
@@ -256,7 +265,7 @@ func (g *GPXService) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
 
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
 		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
-		math.Sin(dLng/2)*math.Sin(dLng/2)
+			math.Sin(dLng/2)*math.Sin(dLng/2)
 
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
@@ -323,6 +332,54 @@ func (g *GPXService) SyncAllTrails(app core.App) error {
 			continue
 		}
 		fmt.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
+	}
+
+	return nil
+}
+
+// getTrailEngagementData retrieves rating and comment engagement data for a trail from PocketBase
+func (g *GPXService) getTrailEngagementData(app core.App, trailId string) (float64, int, int) {
+	var ratingAvg float64 = 0.0
+	var ratingCount int = 0
+	var commentCount int = 0
+
+	// Get rating average and count from rating_average collection
+	ratingAverageCollection, err := app.FindCollectionByNameOrId("rating_average")
+	if err == nil {
+		averageRecords, err := app.FindRecordsByFilter(ratingAverageCollection, fmt.Sprintf("trail = '%s'", trailId), "", 1, 0)
+		if err == nil && len(averageRecords) > 0 {
+			record := averageRecords[0]
+			ratingAvg = record.GetFloat("average")
+			ratingCount = int(record.GetFloat("count"))
+		}
+	}
+
+	// Get comment count from trail_comments collection
+	commentsCollection, err := app.FindCollectionByNameOrId("trail_comments")
+	if err == nil {
+		commentRecords, err := app.FindRecordsByFilter(commentsCollection, fmt.Sprintf("trail = '%s'", trailId), "", 0, 0)
+		if err == nil {
+			commentCount = len(commentRecords)
+		}
+	}
+
+	return ratingAvg, ratingCount, commentCount
+}
+
+// UpdateTrailEngagement updates only the engagement data for a trail in PostGIS
+func (g *GPXService) UpdateTrailEngagement(app core.App, trailId string) error {
+	// Get engagement data from PocketBase
+	ratingAvg, ratingCount, commentCount := g.getTrailEngagementData(app, trailId)
+
+	// Update PostGIS record
+	query := `
+		UPDATE trails 
+		SET rating_average = $1, rating_count = $2, comment_count = $3, updated_at = NOW()
+		WHERE id = $4`
+
+	_, err := g.db.Exec(query, ratingAvg, ratingCount, commentCount, trailId)
+	if err != nil {
+		return fmt.Errorf("failed to update trail engagement in PostGIS: %w", err)
 	}
 
 	return nil

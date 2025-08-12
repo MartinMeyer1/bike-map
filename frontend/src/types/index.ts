@@ -91,6 +91,11 @@ export interface MVTTrailProperties {
   max_elevation_meters: number;
   elevation_start_meters: number;
   elevation_end_meters: number;
+  
+  // Engagement data from backend
+  rating_average: number;
+  rating_count: number;
+  comment_count: number;
 }
 
 // Simplified trail interface for MVT-based system
@@ -117,6 +122,11 @@ export interface MVTTrail {
   distance: number;
   startPoint: { lat: number; lng: number };
   endPoint: { lat: number; lng: number };
+  
+  // Engagement data
+  rating_average: number;
+  rating_count: number;
+  comment_count: number;
   
   // For compatibility with existing components
   ownerInfo?: User;

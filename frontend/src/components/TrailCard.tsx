@@ -118,15 +118,15 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
               title="View ratings and comments"
             >
               <div className={styles.engagementStats}>
-                {engagement.ratingStats.count > 0 ? (
+                {Number(engagement.ratingStats.count) > 0 ? (
                   <span className={styles.ratingDisplay}>
-                    ⭐ {engagement.ratingStats.average.toFixed(1)} ({engagement.ratingStats.count})
+                    ⭐ {Number(engagement.ratingStats.average).toFixed(1)} ({Number(engagement.ratingStats.count)})
                   </span>
                 ) : (
                   <span className={styles.noRating}>⭐ —</span>
                 )}
                 <span className={styles.commentDisplay}>
-                  💬 {engagement.commentCount}
+                  💬 {Number(engagement.commentCount)}
                 </span>
               </div>
             </button>

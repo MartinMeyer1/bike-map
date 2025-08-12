@@ -176,6 +176,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 							(elevation_data->'profile'->-1->>'elevation')::REAL
 						ELSE NULL
 					END as elevation_end_meters,
+					-- Engagement data
+					rating_average,
+					rating_count,
+					comment_count,
 					-- Simplify geometry based on zoom level
 					ST_AsMVTGeom(
 						ST_Transform(
@@ -248,6 +252,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 							(elevation_data->'profile'->-1->>'elevation')::REAL
 						ELSE NULL
 					END as elevation_end_meters,
+					-- Engagement data
+					rating_average,
+					rating_count,
+					comment_count,
 					-- No simplification
 					ST_AsMVTGeom(
 						ST_Transform(geom, 3857),
