@@ -98,12 +98,31 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     }
   }, [mapMoveEndTrigger, selectedTrail]);
 
-  // Sort trails to put selected trail first - memoized with stable sorting
-  const sortedTrails = React.useMemo(() => {
+  // Merge visible trails with cached trail data to get owner info - memoized
+  const trailsWithOwnerInfo = React.useMemo(() => {
     if (!visibleTrails.length) return [];
     
+    // Create a map of cached trails by ID for quick lookup
+    const cachedTrailsMap = new Map(trails.map(trail => [trail.id, trail]));
+    
+    // Merge visible trails with cached data to get owner info
+    const mergedTrails = visibleTrails.map(visibleTrail => {
+      const cachedTrail = cachedTrailsMap.get(visibleTrail.id);
+      return {
+        ...visibleTrail,
+        ownerInfo: cachedTrail?.ownerInfo
+      };
+    });
+    
+    return mergedTrails;
+  }, [visibleTrails, trails]);
+
+  // Sort trails to put selected trail first - memoized with stable sorting
+  const sortedTrails = React.useMemo(() => {
+    if (!trailsWithOwnerInfo.length) return [];
+    
     // Use a more stable sort to prevent unnecessary re-renders
-    const sorted = [...visibleTrails].sort((a, b) => {
+    const sorted = [...trailsWithOwnerInfo].sort((a, b) => {
       // Selected trail always first
       if (selectedTrail?.id === a.id) return -1;
       if (selectedTrail?.id === b.id) return 1;
@@ -113,7 +132,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     });
     
     return sorted;
-  }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
+  }, [trailsWithOwnerInfo, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
   return (
     <div className={styles.sidebar}>
