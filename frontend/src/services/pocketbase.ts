@@ -128,14 +128,8 @@ export class PocketBaseService {
     }
   }
 
-  static getFileUrl(record: any, filename: string): string {
-    return pb.files.getUrl(record, filename);
-  }
-
-  static getTrailFileUrl(trail: Trail | { id: string; file?: string }): string {
-    // For MVT trails, reconstruct the file name from ID
-    const fileName = 'file' in trail && trail.file ? trail.file : `${trail.id}.gpx`;
-    return `${pb.baseUrl}/api/files/trails/${trail.id}/${fileName}`;
+  static getTrailFileUrl(trail: Trail): string {
+    return `${pb.baseUrl}/api/files/trails/${trail.id}/${trail.file}`;
   }
 
   static async updateUser(id: string, data: { name?: string }): Promise<User> {

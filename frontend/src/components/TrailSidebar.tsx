@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { User, MVTTrail } from '../types';
+import { User, MVTTrail, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
 import { TrailCard } from './TrailCard';
@@ -34,13 +34,9 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleDownloadGPX = useCallback((trail: MVTTrail) => {
-    // Create a trail-like object for PocketBase service
-    const trailForDownload = {
-      ...trail,
-      file: `${trail.id}.gpx` // Reconstruct file name
-    };
-    const fileUrl = PocketBaseService.getTrailFileUrl(trailForDownload as any);
+  const handleDownloadGPX = useCallback((trail: Trail) => {
+    // Use the actual file name from the trail data
+    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = `${trail.name}.gpx`;
@@ -49,12 +45,9 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     document.body.removeChild(link);
   }, []);
 
-  const handleShowQRCode = useCallback((trail: MVTTrail) => {
-    const trailForDownload = {
-      ...trail,
-      file: `${trail.id}.gpx`
-    };
-    const fileUrl = PocketBaseService.getTrailFileUrl(trailForDownload as any);
+  const handleShowQRCode = useCallback((trail: Trail) => {
+    // Use the actual file name from the trail data
+    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     setShowQRCode(fileUrl);
   }, []);
 

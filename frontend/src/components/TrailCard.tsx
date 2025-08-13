@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { MVTTrail, User, TrailEngagement } from '../types';
+import { MVTTrail, User, TrailEngagement, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { useTrailDetails } from '../hooks';
 import { Button, Badge } from './ui';
@@ -12,8 +12,8 @@ interface TrailCardProps {
   engagement?: TrailEngagement;
   onTrailClick: (trail: MVTTrail) => void;
   onEditTrailClick: (trail: MVTTrail) => void;
-  onDownloadGPX: (trail: MVTTrail) => void;
-  onShowQRCode: (trail: MVTTrail) => void;
+  onDownloadGPX: (trail: Trail) => void;
+  onShowQRCode: (trail: Trail) => void;
   onShowRatingsComments?: (trail: MVTTrail) => void;
 }
 
@@ -40,12 +40,18 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onDownloadGPX(trail);
+    // Only call if detailed trail data is available
+    if (detailedTrail) {
+      onDownloadGPX(detailedTrail);
+    }
   };
 
   const handleQRCode = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onShowQRCode(trail);
+    // Only call if detailed trail data is available
+    if (detailedTrail) {
+      onShowQRCode(detailedTrail);
+    }
   };
 
   const handleEdit = (e: React.MouseEvent) => {
