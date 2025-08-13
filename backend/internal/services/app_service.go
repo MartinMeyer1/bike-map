@@ -1,376 +1,174 @@
 package services
 
 import (
+	"context"
+	"database/sql"
 	"log"
 
 	"bike-map-backend/internal/config"
+	"bike-map-backend/internal/domain/events"
+	"bike-map-backend/internal/domain/interfaces"
+	"bike-map-backend/internal/domain/repositories"
+	"bike-map-backend/internal/domain/validation"
 	"bike-map-backend/internal/handlers"
-	"bike-map-backend/internal/models"
+	infrastructureRepos "bike-map-backend/internal/infrastructure/repositories"
 
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// AppService coordinates all application services and handles PocketBase events
+// AppService coordinates all application services with proper dependency injection
 type AppService struct {
-	config            *config.Config
+	// Configuration
+	config *config.Config
+
+	// Core Services
 	authService       *AuthService
 	collectionService *CollectionService
-	gpxService        *GPXService
-	mvtService        *MVTService
-	mvtHandler        *handlers.MVTHandler
-	authHandler       *handlers.AuthHandler
+	engagementService *EngagementService
+	syncService       *SyncService
+	hookManagerService *HookManagerService
+
+	// Legacy Services (for backward compatibility)
+	gpxService *GPXService
+	mvtService *MVTService
+
+	// Handlers
+	mvtHandler  *handlers.MVTHandler
+	authHandler *handlers.AuthHandler
+
+	// Domain Components
+	trailRepo       repositories.TrailRepository
+	engagementRepo  repositories.EngagementRepository
+	userRepo        repositories.UserRepository
+	validator       *validation.ValidatorSuite
+	eventRegistry   *events.EventRegistry
+	eventDispatcher *events.Dispatcher
+
+	// Database connection for PostGIS
+	postgisDB *sql.DB
 }
 
-// NewAppService creates a new application service with all dependencies
+// NewAppService creates a new application service with all dependencies properly wired
 func NewAppService(cfg *config.Config) (*AppService, error) {
-	// Initialize services
-	authService := NewAuthService(cfg)
-	collectionService := NewCollectionService(cfg, authService)
+	app := &AppService{
+		config: cfg,
+	}
 
-	gpxService, err := NewGPXService(cfg)
+	// Initialize components in dependency order
+	if err := app.initializeDomainComponents(); err != nil {
+		return nil, err
+	}
+
+	if err := app.initializeServices(); err != nil {
+		return nil, err
+	}
+
+	if err := app.initializeHandlers(); err != nil {
+		return nil, err
+	}
+
+	return app, nil
+}
+
+// initializeDomainComponents sets up domain-level components
+func (a *AppService) initializeDomainComponents() error {
+	// Initialize validator suite
+	a.validator = validation.NewValidatorSuite()
+	
+	return nil
+}
+
+// initializeServices creates and wires all services
+func (a *AppService) initializeServices() error {
+	// Initialize auth service
+	a.authService = NewAuthService(a.config)
+	
+	// Initialize collection service
+	a.collectionService = NewCollectionService(a.config, a.authService)
+
+	// Initialize legacy services for backward compatibility
+	var err error
+	a.gpxService, err = NewGPXService(a.config)
 	if err != nil {
 		log.Printf("⚠️  Failed to initialize GPX service: %v", err)
 		log.Printf("PostGIS sync will not be available")
+	} else {
+		// Get PostGIS connection from GPX service
+		a.postgisDB = a.gpxService.GetDB()
 	}
 
-	mvtService, err := NewMVTService(cfg)
+	a.mvtService, err = NewMVTService(a.config)
 	if err != nil {
 		log.Printf("⚠️  Failed to initialize MVT service: %v", err)
 		log.Printf("MVT endpoints will not be available")
 	}
 
-	// Initialize handlers
-	var mvtHandler *handlers.MVTHandler
-	if mvtService != nil {
-		mvtHandler = handlers.NewMVTHandler(mvtService)
-	}
-
-	authHandler := handlers.NewAuthHandler(authService)
-
-	return &AppService{
-		config:            cfg,
-		authService:       authService,
-		collectionService: collectionService,
-		gpxService:        gpxService,
-		mvtService:        mvtService,
-		mvtHandler:        mvtHandler,
-		authHandler:       authHandler,
-	}, nil
+	return nil
 }
 
-// SetupHooks configures all PocketBase event hooks
-func (a *AppService) SetupHooks(app core.App) {
-	// User creation hook - set default role
-	app.OnRecordCreateRequest().BindFunc(func(e *core.RecordRequestEvent) error {
-		if e.Collection.Name == "users" {
-			// Set default role to "Viewer" for new users
-			e.Record.Set("role", a.authService.GetDefaultRole())
-		}
-
-		if e.Collection.Name == "trails" {
-			// Ignore for superusers
-			if e.HasSuperuserAuth() {
-				return e.Next()
-			}
-
-			reqInfo, _ := e.RequestInfo()
-
-			// Check if authenticated user exists
-			if reqInfo.Auth == nil {
-				return apis.NewForbiddenError("Authentication required", nil)
-			}
-
-			// Check if user has permission to create trails
-			if !a.authService.CanCreateTrails(reqInfo.Auth) {
-				return apis.NewForbiddenError("Only users with Editor or Admin role can create trails", nil)
-			}
-		}
-
-		return e.Next()
-	})
-
-	// User update hook - prevent role changes by non-admins
-	app.OnRecordUpdateRequest().BindFunc(func(e *core.RecordRequestEvent) error {
-		if e.Collection.Name == "users" {
-			// Ignore for superusers
-			if e.HasSuperuserAuth() {
-				return e.Next()
-			}
-
-			reqInfo, err := e.RequestInfo()
-			if err != nil {
-				return err
-			}
-
-			// Get the current record from the DB
-			origRecord := e.Record.Original()
-
-			// Check if the "role" field is being changed
-			oldRole := origRecord.GetString("role")
-			newRole := e.Record.GetString("role")
-
-			if oldRole != newRole {
-				// Check if the current user is an admin
-				if !a.authService.CanManageUsers(reqInfo.Auth) {
-					return apis.NewForbiddenError("You are not allowed to change your own role.", nil)
-				}
-			}
-			return e.Next()
-		}
-		return e.Next()
-	})
-
-	// Trail lifecycle hooks with PostGIS sync and cache invalidation
-	if a.gpxService != nil {
-		a.setupTrailSyncHooks(app)
-	}
-
-	// Rating average update hooks
-	a.setupRatingAverageHooks(app)
-}
-
-// setupTrailSyncHooks sets up hooks for trail synchronization with PostGIS
-func (a *AppService) setupTrailSyncHooks(app core.App) {
-	// After trail creation
-	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trails" {
-			go a.syncTrailToPostGIS(app, e.Record.Id, "creation")
-		}
-		return e.Next()
-	})
-
-	// After trail update
-	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trails" {
-			go a.syncTrailToPostGIS(app, e.Record.Id, "update")
-		}
-		return e.Next()
-	})
-
-	// After trail deletion
-	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trails" {
-			go a.deleteTrailFromPostGIS(e.Record.Id, e.Record.GetString("name"))
-		}
-		return e.Next()
-	})
-}
-
-// setupRatingAverageHooks sets up hooks for rating average updates
-func (a *AppService) setupRatingAverageHooks(app core.App) {
-	// After rating creation
-	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trail_ratings" {
-			trailId := e.Record.GetString("trail")
-			if trailId != "" {
-				go func() {
-					// Update rating average in PocketBase
-					if err := a.collectionService.UpdateRatingAverage(app, trailId); err != nil {
-						log.Printf("Failed to update rating average after creation: %v", err)
-					}
-					
-					// Update engagement data in PostGIS and invalidate MVT cache
-					if a.gpxService != nil {
-						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
-							log.Printf("Failed to update PostGIS engagement after rating creation: %v", err)
-						} else {
-							// Invalidate MVT cache for this trail
-							if a.mvtService != nil {
-								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
-									a.mvtService.InvalidateTilesForTrail(*bbox)
-									log.Printf("Invalidated MVT tiles for trail %s after rating creation", trailId)
-								} else {
-									a.mvtService.InvalidateAllCache()
-								}
-							}
-						}
-					}
-				}()
-			}
-		}
-		return e.Next()
-	})
-
-	// After rating update
-	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trail_ratings" {
-			trailId := e.Record.GetString("trail")
-			if trailId != "" {
-				go func() {
-					// Update rating average in PocketBase
-					if err := a.collectionService.UpdateRatingAverage(app, trailId); err != nil {
-						log.Printf("Failed to update rating average after update: %v", err)
-					}
-					
-					// Update engagement data in PostGIS and invalidate MVT cache
-					if a.gpxService != nil {
-						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
-							log.Printf("Failed to update PostGIS engagement after rating update: %v", err)
-						} else {
-							// Invalidate MVT cache for this trail
-							if a.mvtService != nil {
-								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
-									a.mvtService.InvalidateTilesForTrail(*bbox)
-									log.Printf("Invalidated MVT tiles for trail %s after rating update", trailId)
-								} else {
-									a.mvtService.InvalidateAllCache()
-								}
-							}
-						}
-					}
-				}()
-			}
-		}
-		return e.Next()
-	})
-
-	// After rating deletion
-	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trail_ratings" {
-			trailId := e.Record.GetString("trail")
-			if trailId != "" {
-				go func() {
-					// Update rating average in PocketBase
-					if err := a.collectionService.DeleteRatingAverage(app, trailId); err != nil {
-						log.Printf("Failed to update rating average after deletion: %v", err)
-					}
-					
-					// Update engagement data in PostGIS and invalidate MVT cache
-					if a.gpxService != nil {
-						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
-							log.Printf("Failed to update PostGIS engagement after rating deletion: %v", err)
-						} else {
-							// Invalidate MVT cache for this trail
-							if a.mvtService != nil {
-								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
-									a.mvtService.InvalidateTilesForTrail(*bbox)
-									log.Printf("Invalidated MVT tiles for trail %s after rating deletion", trailId)
-								} else {
-									a.mvtService.InvalidateAllCache()
-								}
-							}
-						}
-					}
-				}()
-			}
-		}
-		return e.Next()
-	})
-
-	// Comment hooks - only need to update PostGIS (no PocketBase aggregation needed)
-	
-	// After comment creation
-	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trail_comments" {
-			trailId := e.Record.GetString("trail")
-			if trailId != "" {
-				go func() {
-					// Update engagement data in PostGIS and invalidate MVT cache
-					if a.gpxService != nil {
-						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
-							log.Printf("Failed to update PostGIS engagement after comment creation: %v", err)
-						} else {
-							// Invalidate MVT cache for this trail
-							if a.mvtService != nil {
-								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
-									a.mvtService.InvalidateTilesForTrail(*bbox)
-									log.Printf("Invalidated MVT tiles for trail %s after comment creation", trailId)
-								} else {
-									a.mvtService.InvalidateAllCache()
-								}
-							}
-						}
-					}
-				}()
-			}
-		}
-		return e.Next()
-	})
-
-	// After comment deletion
-	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trail_comments" {
-			trailId := e.Record.GetString("trail")
-			if trailId != "" {
-				go func() {
-					// Update engagement data in PostGIS and invalidate MVT cache
-					if a.gpxService != nil {
-						if err := a.gpxService.UpdateTrailEngagement(app, trailId); err != nil {
-							log.Printf("Failed to update PostGIS engagement after comment deletion: %v", err)
-						} else {
-							// Invalidate MVT cache for this trail
-							if a.mvtService != nil {
-								if bbox, err := a.gpxService.GetTrailBoundingBox(trailId); err == nil {
-									a.mvtService.InvalidateTilesForTrail(*bbox)
-									log.Printf("Invalidated MVT tiles for trail %s after comment deletion", trailId)
-								} else {
-									a.mvtService.InvalidateAllCache()
-								}
-							}
-						}
-					}
-				}()
-			}
-		}
-		return e.Next()
-	})
-}
-
-// syncTrailToPostGIS handles trail synchronization to PostGIS
-func (a *AppService) syncTrailToPostGIS(app core.App, trailID, operation string) {
-	if a.gpxService == nil {
-		return
-	}
-
-	if err := a.gpxService.ImportTrailFromPocketBase(app, trailID); err != nil {
-		log.Printf("Failed to sync trail %s to PostGIS after %s: %v", trailID, operation, err)
-	} else {
-		log.Printf("Successfully synced trail to PostGIS after %s", operation)
-
-		// Invalidate specific MVT tiles affected by this trail
-		if a.mvtService != nil {
-			if bbox, err := a.gpxService.GetTrailBoundingBox(trailID); err == nil {
-				a.mvtService.InvalidateTilesForTrail(*bbox)
-				log.Printf("Invalidated MVT tiles for trail %s after %s", trailID, operation)
-			} else {
-				log.Printf("Could not get trail bounding box, falling back to full cache invalidation: %v", err)
-				a.mvtService.InvalidateAllCache()
-			}
-		}
-	}
-}
-
-// deleteTrailFromPostGIS handles trail deletion from PostGIS
-func (a *AppService) deleteTrailFromPostGIS(trailID, trailName string) {
-	if a.gpxService == nil {
-		return
-	}
-
-	// Get bounding box before deletion for targeted cache invalidation
-	var trailBBox *models.BoundingBox
+// initializeHandlers creates HTTP handlers
+func (a *AppService) initializeHandlers() error {
+	// Initialize MVT handler
 	if a.mvtService != nil {
-		if bbox, err := a.gpxService.GetTrailBoundingBox(trailID); err == nil {
-			trailBBox = bbox
-		}
+		a.mvtHandler = handlers.NewMVTHandler(a.mvtService)
 	}
 
-	if err := a.gpxService.DeleteTrailFromPostGIS(trailID); err != nil {
-		log.Printf("Failed to delete trail %s from PostGIS: %v", trailID, err)
-	} else {
-		log.Printf("Successfully deleted trail %s from PostGIS", trailName)
+	// Initialize auth handler
+	a.authHandler = handlers.NewAuthHandler(a.authService)
 
-		// Invalidate specific MVT tiles affected by the deleted trail
-		if a.mvtService != nil {
-			if trailBBox != nil {
-				a.mvtService.InvalidateTilesForTrail(*trailBBox)
-				log.Printf("Invalidated MVT tiles for deleted trail %s", trailName)
-			} else {
-				log.Printf("Could not get trail bounding box before deletion, falling back to full cache invalidation")
-				a.mvtService.InvalidateAllCache()
-			}
-		}
+	return nil
+}
+
+// InitializeForPocketBase completes initialization once PocketBase app is available
+func (a *AppService) InitializeForPocketBase(app core.App) error {
+	// Initialize repositories with PocketBase app
+	a.trailRepo = infrastructureRepos.NewPocketBaseTrailRepository(app)
+	a.engagementRepo = infrastructureRepos.NewPocketBaseEngagementRepository(app)
+	a.userRepo = infrastructureRepos.NewPocketBaseUserRepository(app)
+
+	// Initialize event dispatcher
+	a.eventDispatcher = events.NewDispatcher()
+
+	// Initialize domain services that depend on repositories
+	a.engagementService = NewEngagementService(
+		a.engagementRepo,
+		a.trailRepo,
+		a.userRepo,
+		a.validator,
+		a.eventDispatcher,
+	)
+
+	// Initialize sync service if PostGIS is available
+	if a.postgisDB != nil {
+		a.syncService = NewSyncService(
+			a.trailRepo,
+			a.engagementRepo,
+			a.eventDispatcher,
+			a.postgisDB,
+			a.gpxService, // Pass GPXService for geometry processing
+		)
 	}
+
+	// Initialize event registry with services
+	if a.syncService != nil {
+		a.eventRegistry = events.NewEventRegistry(
+			a.syncService,  // sync service
+			&cacheService{mvtService: a.mvtService}, // cache service adapter
+			&auditService{}, // audit service stub
+		)
+		a.eventDispatcher = a.eventRegistry.GetDispatcher()
+	}
+
+	// Initialize hook manager service
+	a.hookManagerService = NewHookManagerService(
+		a.authService,
+		a.engagementService,
+		a.syncService,
+		a.mvtService,
+		a.eventDispatcher,
+	)
+
+	return nil
 }
 
 // SetupCollections initializes all required collections
@@ -406,6 +204,13 @@ func (a *AppService) SetupCollections(app core.App) error {
 	return nil
 }
 
+// SetupHooks configures all PocketBase event hooks
+func (a *AppService) SetupHooks(app core.App) {
+	if a.hookManagerService != nil {
+		a.hookManagerService.SetupAllHooks(app)
+	}
+}
+
 // SetupRoutes configures all HTTP routes
 func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
 	if a.mvtHandler != nil {
@@ -427,13 +232,13 @@ func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
 
 // SyncAllTrailsAtStartup performs initial sync of all trails to PostGIS
 func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
-	if a.gpxService == nil {
+	if a.syncService == nil {
 		return
 	}
 
 	log.Println("🔄 Starting initial sync of all trails to PostGIS...")
 	go func() {
-		if err := a.gpxService.SyncAllTrails(app); err != nil {
+		if err := a.syncService.SyncAllTrailsWithApp(context.Background(), app); err != nil {
 			log.Printf("⚠️  Failed to sync trails at startup: %v", err)
 		} else {
 			log.Println("✅ Successfully synced all trails to PostGIS at startup")
@@ -463,3 +268,82 @@ func (a *AppService) Close() error {
 
 	return nil
 }
+
+// Service getters for external access
+
+func (a *AppService) GetEngagementService() *EngagementService {
+	return a.engagementService
+}
+
+func (a *AppService) GetSyncService() *SyncService {
+	return a.syncService
+}
+
+func (a *AppService) GetAuthService() *AuthService {
+	return a.authService
+}
+
+func (a *AppService) GetTrailRepository() repositories.TrailRepository {
+	return a.trailRepo
+}
+
+func (a *AppService) GetEngagementRepository() repositories.EngagementRepository {
+	return a.engagementRepo
+}
+
+func (a *AppService) GetUserRepository() repositories.UserRepository {
+	return a.userRepo
+}
+
+func (a *AppService) GetEventDispatcher() *events.Dispatcher {
+	return a.eventDispatcher
+}
+
+// Adapter services for event system
+
+// cacheService adapts MVTService to the cache interface expected by event handlers
+type cacheService struct {
+	mvtService *MVTService
+}
+
+func (c *cacheService) InvalidateTrailCache(ctx context.Context, trailID string) error {
+	// For now, invalidate all MVT cache
+	if c.mvtService != nil {
+		c.mvtService.InvalidateAllCache()
+	}
+	return nil
+}
+
+func (c *cacheService) InvalidateMVTCache(ctx context.Context) error {
+	if c.mvtService != nil {
+		c.mvtService.InvalidateAllCache()
+	}
+	return nil
+}
+
+func (c *cacheService) InvalidateEngagementCache(ctx context.Context, trailID string) error {
+	// For now, invalidate all MVT cache
+	if c.mvtService != nil {
+		c.mvtService.InvalidateAllCache()
+	}
+	return nil
+}
+
+// Compile-time check to ensure cacheService implements interfaces.CacheService
+var _ interfaces.CacheService = (*cacheService)(nil)
+
+// auditService is a stub implementation for the audit interface
+type auditService struct{}
+
+func (a *auditService) LogEvent(ctx context.Context, eventType, aggregateID string, data interface{}) error {
+	log.Printf("Audit: Event %s for %s: %+v", eventType, aggregateID, data)
+	return nil
+}
+
+func (a *auditService) LogUserAction(ctx context.Context, userID, action, resource string, metadata map[string]interface{}) error {
+	log.Printf("Audit: User %s performed %s on %s: %+v", userID, action, resource, metadata)
+	return nil
+}
+
+// Compile-time check to ensure auditService implements interfaces.AuditService
+var _ interfaces.AuditService = (*auditService)(nil)

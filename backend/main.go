@@ -27,11 +27,16 @@ func main() {
 	}
 	defer appService.Close()
 
-	// Setup PocketBase hooks
-	appService.SetupHooks(app)
-
 	// Setup server routes and collections
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		// Initialize PocketBase-dependent components
+		if err := appService.InitializeForPocketBase(app); err != nil {
+			return err
+		}
+
+		// Setup PocketBase hooks (after initialization)
+		appService.SetupHooks(app)
+
 		// Setup collections and initial data
 		if err := appService.SetupCollections(app); err != nil {
 			return err

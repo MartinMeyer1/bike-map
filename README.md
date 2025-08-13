@@ -1,6 +1,6 @@
 # 🤘 BikeMap
 
-A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter.
+A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter. Features comprehensive ratings/comments system and Domain-Driven Design architecture.
 
 ## Features
 
@@ -8,8 +8,10 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 - GPX file upload with metadata (name, difficulty S0-S5, tags, description)
 - Role-based access control (Viewer, Editor, Admin)
 - Trail editing and deletion capabilities
-- Vector Tile Rendering: Efficient MVT tiles generated from PostGIS
-- Real-time Cache Invalidation: Automatic tile cache updates on data changes
+- **Ratings & Comments**: 5-star rating system with threaded comments
+- **Real-time Statistics**: Aggregate rating averages and comment counts
+- Vector Tile Rendering: Efficient MVT tiles with engagement data
+- Event-driven PostGIS sync: Automatic updates via domain events
 
 ### **Interactive Mapping**
 - Swiss topographic maps (Swisstopo WMTS)
@@ -30,10 +32,9 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 
 ### **Backend (PocketBase + Go + PostGIS)**
 - **Dual Database**: PocketBase (SQLite) for app data + PostGIS for spatial operations
-- **Vector Tiles**: MVT generation with automatic cache invalidation
-- **Spatial Processing**: GPX to PostGIS sync with elevation profile calculation
-- **Authentication**: Google OAuth 2.0 with role-based permissions
-- **ForwardAuth**: Traefik middleware integration
+- **Engagement System**: Ratings, comments, and statistics with real-time updates
+- **Vector Tiles**: MVT generation with engagement data and smart cache invalidation
+- **Repository Pattern**: Clean data access abstraction with PocketBase implementations
 
 ### **Routing Engine (BRouter)**
 - Java-based routing engine optimized for Swiss terrain
@@ -83,15 +84,21 @@ POSTGRES_PASSWORD=gispass            # Database password
 
 ```
 bike-map/
-├── backend/                          # Professional Go backend
+├── backend/                          # Domain-Driven Go backend
 │   ├── main.go                      # Application entry point
 │   ├── internal/
 │   │   ├── config/                  # Configuration management
-│   │   ├── services/                # Business logic services
-│   │   ├── handlers/                # HTTP request handlers
-│   │   ├── models/                  # Data models
-│   │   └── interfaces/              # Service interfaces
-│   └── pb_data/                     # PocketBase data directory
+│   │   ├── domain/                  # Domain layer (business logic)
+│   │   │   ├── entities/           # Core business entities
+│   │   │   ├── repositories/       # Data access interfaces
+│   │   │   ├── events/             # Event-driven architecture
+│   │   │   └── validation/         # Domain validation logic
+│   │   ├── infrastructure/          # Infrastructure layer
+│   │   │   └── repositories/       # PocketBase implementations
+│   │   ├── services/               # Application services
+│   │   ├── handlers/               # HTTP request handlers
+│   │   └── models/                 # Legacy data models
+│   └── pb_data/                    # PocketBase data directory
 ├── frontend/                        # React TypeScript frontend
 │   ├── src/
 │   │   ├── components/              # React components
@@ -161,9 +168,5 @@ docker-compose -f docker-compose.dev.yml up --build
 - **Routing Service**: `https://bike-map.ch/brouter/*` - BRouter API
 - **Proxy Dashboard**: `https://proxy.bike-map.ch` - Traefik dashboard
 
-### **New Production Features**
-- **PostGIS Integration**: Spatial database for vector tile generation
-- **Automatic Cache Invalidation**: Real-time tile updates
-- **Environment Configuration**: Comprehensive configuration management
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.

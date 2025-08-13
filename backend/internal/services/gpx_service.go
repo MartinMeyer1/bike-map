@@ -384,3 +384,8 @@ func (g *GPXService) UpdateTrailEngagement(app core.App, trailId string) error {
 
 	return nil
 }
+
+// GetDB returns the database connection for external use
+func (g *GPXService) GetDB() *sql.DB {
+	return g.db
+}

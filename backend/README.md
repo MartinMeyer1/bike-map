@@ -1,10 +1,10 @@
 # BikeMap Backend
 
-A Go backend service for the BikeMap application, built with PocketBase and PostgreSQL/PostGIS for managing mountain bike trail data with vector tile generation capabilities.
+A Go backend service for the BikeMap application, built with PocketBase and PostgreSQL/PostGIS for managing mountain bike trail data with vector tile generation capabilities. Features a Domain-Driven Design architecture with event-driven synchronization and comprehensive ratings/comments system.
 
-## 🏗️ Architecture
+## Architecture
 
-The backend follows a clean architecture pattern with clear separation of concerns:
+The backend follows Domain-Driven Design principles with clean separation of concerns:
 
 ```
 backend/
@@ -12,37 +12,69 @@ backend/
 ├── internal/
 │   ├── config/
 │   │   └── config.go               # Centralized configuration management
-│   ├── services/
+│   ├── domain/                     # Domain layer (business logic)
+│   │   ├── entities/               # Core business entities
+│   │   │   ├── trail.go           # Trail domain model
+│   │   │   ├── engagement.go      # Ratings & comments models
+│   │   │   ├── user.go            # User domain model
+│   │   │   └── validation.go      # Domain validation types
+│   │   ├── repositories/           # Data access interfaces
+│   │   │   ├── trail_repository.go
+│   │   │   ├── engagement_repository.go
+│   │   │   └── user_repository.go
+│   │   ├── events/                 # Event-driven architecture
+│   │   │   ├── dispatcher.go      # Event dispatcher
+│   │   │   ├── registry.go        # Event handler registry
+│   │   │   └── handlers/          # Event handlers
+│   │   ├── event_types/            # Domain event definitions
+│   │   ├── interfaces/             # Service interfaces
+│   │   └── validation/             # Domain validation logic
+│   ├── infrastructure/             # Infrastructure layer
+│   │   └── repositories/           # PocketBase implementations
+│   │       ├── pocketbase_trail_repository.go
+│   │       ├── pocketbase_engagement_repository.go
+│   │       └── pocketbase_user_repository.go
+│   ├── services/                   # Application services
 │   │   ├── app_service.go          # Main application coordinator
-│   │   ├── auth_service.go         # Authentication & authorization logic
-│   │   ├── collection_service.go   # PocketBase collection management
-│   │   ├── gpx_service.go          # GPX file processing & PostGIS sync
+│   │   ├── auth_service.go         # Authentication & authorization
+│   │   ├── collection_service.go   # PocketBase collection setup
+│   │   ├── engagement_service.go   # Ratings & comments business logic
+│   │   ├── sync_service.go         # PostGIS synchronization
+│   │   ├── hook_manager_service.go # PocketBase event hooks
+│   │   ├── gpx_service.go          # GPX processing (legacy)
 │   │   └── mvt_service.go          # Vector tile generation
 │   ├── handlers/
 │   │   ├── auth_handler.go         # Authentication HTTP endpoints
 │   │   └── mvt_handler.go          # MVT HTTP endpoints
-│   ├── models/
-│   │   └── trail.go                # Data models and business logic
-│   └── interfaces/
-│       ├── auth.go                 # Authentication interfaces
-│       └── mvt.go                  # MVT service interfaces
+│   └── models/
+│       └── trail.go                # Legacy data models
 ├── pb_data/                        # PocketBase data directory
 └── README.md                       # This file
 ```
 
-## 🚀 Features
+## Features
 
 ### Core Functionality
 - **Trail Management**: CRUD operations for mountain bike trails with GPX file support
 - **User Authentication**: Google OAuth2 integration with role-based access control
+- **Ratings & Comments**: Full engagement system with real-time statistics
 - **Vector Tiles**: High-performance MVT (Mapbox Vector Tiles) generation using PostGIS
-- **Cache Invalidation**: Automatic cache invalidation system for real-time updates
+- **Event-Driven Sync**: Automatic PostGIS synchronization via domain events
+- **Cache Invalidation**: Smart cache invalidation for real-time updates
 - **Spatial Processing**: GPX file parsing with elevation profile calculation
 
-## 🛠️ Technology Stack
+### Domain-Driven Architecture
+- **Domain Entities**: Rich business models with validation and behavior
+- **Repository Pattern**: Clean data access abstraction layer
+- **Event System**: Decoupled components with async event handling
+- **Service Layer**: Business logic orchestration with dependency injection
+
+## Technology Stack
 
 - **Runtime**: Go 1.23+
 - **Database**: PocketBase (SQLite) + PostgreSQL with PostGIS extension
+- **Architecture**: Domain-Driven Design with Repository Pattern
+- **Events**: Custom event dispatcher with async handlers
 - **Authentication**: Google OAuth2 via PocketBase
 - **Vector Tiles**: PostGIS ST_AsMVT() function
 - **File Processing**: Native Go XML parsing for GPX files
@@ -78,7 +110,7 @@ ADMIN_EMAIL=admin@example.com          # Admin account email
 ADMIN_PASSWORD=secure_password         # Admin account password
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Go 1.23 or later
@@ -133,20 +165,25 @@ The server will start on port 8090 and automatically:
 - Sync existing trails to PostGIS
 - Start serving MVT endpoints
 
-## 📋 API Endpoints
+## API Endpoints
 
 ### Authentication
 - `GET /api/auth/validate` - JWT token validation for ForwardAuth
 
 ### Vector Tiles
-- `GET /api/tiles/{z}/{x}/{y}.mvt` - Standard MVT endpoint for trail data
+- `GET /api/tiles/{z}/{x}/{y}.mvt` - Standard MVT endpoint for trail data with engagement stats
+
+### PocketBase Collections (Auto-generated REST API)
+- `GET /api/collections/trails/records` - Trail CRUD operations
+- `GET /api/collections/trail_ratings/records` - Rating CRUD operations
+- `GET /api/collections/trail_comments/records` - Comment CRUD operations
+- `GET /api/collections/rating_average/records` - Aggregate rating statistics
+- `GET /api/collections/users/records` - User management
 
 ### PocketBase Admin
 - `GET /_/` - PocketBase admin interface
-- `GET /api/collections/trails/records` - Trail CRUD operations
-- `GET /api/collections/users/records` - User management
 
-## 🔒 Security & Permissions
+## Security & Permissions
 
 ### User Roles
 - **Viewer**: Can view trails (default for new users)
@@ -165,7 +202,7 @@ The server will start on port 8090 and automatically:
 3. Token validation happens on protected endpoints
 4. Role-based permissions are enforced automatically
 
-## 🗺️ Vector Tile Generation
+## Vector Tile Generation
 
 ### MVT Process
 1. **Spatial Query**: PostGIS filters trails within tile bounds
@@ -188,27 +225,28 @@ The server will start on port 8090 and automatically:
 
 ## 🔧 Development
 
-### Project Structure Principles
-- **Interfaces**: Abstract dependencies for testability
-- **Services**: Business logic encapsulation
-- **Handlers**: HTTP request/response handling
-- **Models**: Data structures and validation
-- **Config**: Centralized configuration management
+### Architecture Principles
+- **Domain Layer**: Core business logic and entities
+- **Repository Pattern**: Clean data access abstraction
+- **Event-Driven**: Decoupled components via domain events
+- **Dependency Injection**: Services wired via interfaces
+- **Clean Architecture**: Dependencies flow inward to domain
 
 ### Adding New Features
-1. **Define Interface**: Create interface in `internal/interfaces/`
-2. **Implement Service**: Add business logic in `internal/services/`
-3. **Add Handler**: Create HTTP endpoints in `internal/handlers/`
-4. **Update App Service**: Wire dependencies in `app_service.go`
-5. **Test**: Ensure all functionality works end-to-end
+1. **Domain Entity**: Define business model in `internal/domain/entities/`
+2. **Repository Interface**: Add data access contract in `internal/domain/repositories/`
+3. **Repository Implementation**: Create PocketBase impl in `internal/infrastructure/repositories/`
+4. **Domain Service**: Add business logic in `internal/services/`
+5. **Event Handlers**: Wire events in `internal/domain/events/handlers/`
+6. **Update App Service**: Configure dependencies in `app_service.go`
 
 ### Database Migrations
-The application automatically creates required tables on startup:
-- PostGIS trails table with spatial indexes
-- PocketBase collections for users and trails
-- Proper foreign key relationships
+The application automatically creates required collections and tables:
+- PocketBase collections: `trails`, `trail_ratings`, `trail_comments`, `rating_average`, `users`
+- PostGIS trails table with spatial indexes and engagement columns
+- Proper relationships and constraints
 
-## 📊 Monitoring & Logging
+## Monitoring & Logging
 
 ### Logging Levels
 - **Info**: Startup events, successful operations
@@ -222,7 +260,7 @@ The application automatically creates required tables on startup:
 - **Cache Hit Rate**: ETags effectiveness  
 - **Database Connection Health**: PostGIS connectivity
 
-## 🚀 Production Deployment
+## Production Deployment
 
 ### Environment Setup
 1. **PostgreSQL**: Use managed PostgreSQL with PostGIS extension
