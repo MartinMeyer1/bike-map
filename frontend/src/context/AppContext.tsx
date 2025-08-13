@@ -1,7 +1,5 @@
 import React, { createContext, useReducer, useCallback, useEffect } from 'react';
 import { User, MapBounds, Trail, MVTTrail } from '../types';
-import { CachedTrail } from '../services/trailCache';
-import trailCache from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
 import { handleApiError, getErrorMessage } from '../utils/errorHandling';
 
@@ -11,11 +9,9 @@ interface AppState {
   isAuthLoading: boolean;
   
   // Trail state
-  trails: CachedTrail[]; // For CRUD operations
   visibleTrails: MVTTrail[]; // From MVT layer - only currently visible tiles
   selectedTrail: MVTTrail | null;
   mapBounds: MapBounds | null;
-  isTrailsLoading: boolean;
   
   // UI state
   isUploadPanelVisible: boolean;
@@ -39,11 +35,9 @@ type AppAction =
   | { type: 'SET_AUTH_LOADING'; payload: boolean }
   
   // Trail actions
-  | { type: 'SET_TRAILS'; payload: CachedTrail[] }
   | { type: 'SET_VISIBLE_TRAILS'; payload: MVTTrail[] }
   | { type: 'SET_SELECTED_TRAIL'; payload: MVTTrail | null }
   | { type: 'SET_MAP_BOUNDS'; payload: MapBounds | null }
-  | { type: 'SET_TRAILS_LOADING'; payload: boolean }
   
   // UI actions
   | { type: 'SET_UPLOAD_PANEL_VISIBLE'; payload: boolean }
@@ -68,11 +62,9 @@ const initialState: AppState = {
   isAuthLoading: true,
   
   // Trail state
-  trails: [],
   visibleTrails: [],
   selectedTrail: null,
   mapBounds: null,
-  isTrailsLoading: true,
   
   // UI state
   isUploadPanelVisible: false,
@@ -98,9 +90,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_AUTH_LOADING':
       return { ...state, isAuthLoading: action.payload };
     
-    // Trail actions
-    case 'SET_TRAILS':
-      return { ...state, trails: action.payload };
     case 'SET_VISIBLE_TRAILS': {
       // Optimize: only update if trail IDs actually changed
       const currentIds = new Set(state.visibleTrails.map(t => t.id));
@@ -117,8 +106,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, selectedTrail: action.payload };
     case 'SET_MAP_BOUNDS':
       return { ...state, mapBounds: action.payload };
-    case 'SET_TRAILS_LOADING':
-      return { ...state, isTrailsLoading: action.payload };
     
     // UI actions
     case 'SET_UPLOAD_PANEL_VISIBLE':
@@ -183,13 +170,11 @@ interface AppContextValue extends AppState {
   updateUser: (user: User) => void;
   
   // Trail methods
-  initializeTrails: () => Promise<void>;
-  refreshTrails: () => void;
   updateVisibleTrails: (bounds: MapBounds) => void;
   updateVisibleTrailsFromMVT: (trails: MVTTrail[]) => void;
   selectTrail: (trail: MVTTrail | null) => void;
-  handleTrailCreated: (newTrail: Trail) => Promise<void>;
-  handleTrailUpdated: (updatedTrail: Trail) => Promise<void>;
+  handleTrailCreated: (newTrail: Trail) => void;
+  handleTrailUpdated: (updatedTrail: Trail) => void;
   handleTrailDeleted: (trailId: string) => void;
   
   // UI methods
@@ -218,21 +203,6 @@ export const AppContext = createContext<AppContextValue | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Trail methods  
-  const initializeTrails = useCallback(async () => {
-    try {
-      dispatch({ type: 'SET_TRAILS_LOADING', payload: true });
-      await trailCache.initialize();
-      const cachedTrails = trailCache.getAllTrails();
-      dispatch({ type: 'SET_TRAILS', payload: cachedTrails });
-      // visibleTrails will be populated by MVT layer
-    } catch (err) {
-      console.error('Failed to initialize trails:', err);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to load trails' });
-    } finally {
-      dispatch({ type: 'SET_TRAILS_LOADING', payload: false });
-    }
-  }, []);
 
   // Initialize auth and trails on mount
   useEffect(() => {
@@ -248,15 +218,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           dispatch({ type: 'SET_USER', payload: newUser });
         });
 
-        // Initialize trails
-        await initializeTrails();
 
         return unsubscribe;
       } catch (error) {
         console.error('Failed to initialize app:', error);
         dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
         dispatch({ type: 'SET_AUTH_LOADING', payload: false });
-        dispatch({ type: 'SET_TRAILS_LOADING', payload: false });
       }
     };
 
@@ -264,7 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       cleanup.then(unsubscribe => unsubscribe && unsubscribe());
     };
-  }, [initializeTrails]);
+  }, []);
 
   // Auth methods
   const login = useCallback(async () => {
@@ -288,11 +255,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     dispatch({ type: 'SET_USER', payload: user });
   }, []);
 
-  const refreshTrails = useCallback(() => {
-    const cachedTrails = trailCache.getAllTrails();
-    dispatch({ type: 'SET_TRAILS', payload: cachedTrails });
-    // visibleTrails managed by MVT layer now
-  }, []);
 
 
   const updateVisibleTrails = useCallback((bounds: MapBounds) => {
@@ -309,49 +271,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     dispatch({ type: 'SET_SELECTED_TRAIL', payload: trail });
   }, []);
 
-  const handleTrailCreated = useCallback(async (newTrail: Trail) => {
-    try {
-      await trailCache.addTrail(newTrail);
-      setTimeout(() => {
-        refreshTrails();
-        dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to add trail to cache:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to process uploaded trail' });
-    }
-  }, [refreshTrails]);
+  const handleTrailCreated = useCallback((_newTrail: Trail) => {
+    // Refresh MVT layer to show new trail
+    setTimeout(() => {
+      dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
+    }, 1000);
+  }, []);
 
-  const handleTrailUpdated = useCallback(async (updatedTrail: Trail) => {
-    try {
-      await trailCache.updateTrail(updatedTrail);
-      setTimeout(() => {
-        refreshTrails();
-        dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to update trail in cache:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to update trail' });
-    }
-  }, [refreshTrails]);
+  const handleTrailUpdated = useCallback((_updatedTrail: Trail) => {
+    // Refresh MVT layer to show updated trail
+    setTimeout(() => {
+      dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
+    }, 1000);
+  }, []);
 
   const handleTrailDeleted = useCallback((trailId: string) => {
-    try {
-      trailCache.removeTrail(trailId);
-      
-      if (state.selectedTrail?.id === trailId) {
-        dispatch({ type: 'SET_SELECTED_TRAIL', payload: null });
-      }
-      
-      setTimeout(() => {
-        refreshTrails();
-        dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to remove trail from cache:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to remove trail' });
+    if (state.selectedTrail?.id === trailId) {
+      dispatch({ type: 'SET_SELECTED_TRAIL', payload: null });
     }
-  }, [state.selectedTrail, refreshTrails]);
+    
+    // Refresh MVT layer to remove deleted trail
+    setTimeout(() => {
+      dispatch({ type: 'INCREMENT_MVT_REFRESH_TRIGGER' });
+    }, 1000);
+  }, [state.selectedTrail]);
 
   // UI methods
   const showUploadPanel = useCallback(() => {
@@ -423,8 +366,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     login,
     logout,
     updateUser,
-    initializeTrails,
-    refreshTrails,
     updateVisibleTrails,
     updateVisibleTrailsFromMVT,
     selectTrail,

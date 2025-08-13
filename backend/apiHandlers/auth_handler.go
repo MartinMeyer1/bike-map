@@ -1,9 +1,9 @@
-package handlers
+package apiHandlers
 
 import (
 	"net/http"
 
-	"bike-map-backend/internal/interfaces"
+	"bike-map-backend/interfaces"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pocketbase/pocketbase/core"

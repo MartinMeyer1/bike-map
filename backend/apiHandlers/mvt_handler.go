@@ -1,4 +1,4 @@
-package handlers
+package apiHandlers
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bike-map-backend/internal/interfaces"
+	"bike-map-backend/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )
