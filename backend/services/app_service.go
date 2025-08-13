@@ -7,10 +7,10 @@ import (
 
 	"bike-map-backend/apiHandlers"
 	"bike-map-backend/config"
+	"bike-map-backend/entities"
 	"bike-map-backend/events"
 	"bike-map-backend/interfaces"
 	repos "bike-map-backend/repositories"
-	"bike-map-backend/validation"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -39,7 +39,7 @@ type AppService struct {
 	trailRepo       interfaces.TrailRepository
 	engagementRepo  interfaces.EngagementRepository
 	userRepo        interfaces.UserRepository
-	validator       *validation.ValidatorSuite
+	validator       *entities.ValidatorSuite
 	eventRegistry   *events.EventRegistry
 	eventDispatcher *events.Dispatcher
 
@@ -72,7 +72,7 @@ func NewAppService(cfg *config.Config) (*AppService, error) {
 // initializeDomainComponents sets up domain-level components
 func (a *AppService) initializeDomainComponents() error {
 	// Initialize validator suite
-	a.validator = validation.NewValidatorSuite()
+	a.validator = entities.NewValidatorSuite()
 
 	return nil
 }

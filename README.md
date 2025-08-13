@@ -31,7 +31,6 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 ## Architecture
 
 ### **Backend (PocketBase + Go + PostGIS)**
-- **Clean Architecture**: Domain-Driven Design with consolidated interfaces in single location
 - **Dual Database**: PocketBase (SQLite) for app data + PostGIS for spatial operations
 - **Event-Driven Sync**: Automatic PostGIS updates via domain events with detailed audit trails
 - **Engagement System**: Ratings, comments, and statistics with real-time updates
@@ -86,22 +85,23 @@ POSTGRES_PASSWORD=gispass            # Database password
 
 ```
 bike-map/
-├── backend/                          # Domain-Driven Go backend
+├── backend/                          # Simplified Go backend architecture
 │   ├── main.go                      # Application entry point
-│   ├── internal/
-│   │   ├── config/                  # Configuration management
-│   │   ├── domain/                  # Domain layer (business logic)
-│   │   │   ├── entities/           # Core business entities
-│   │   │   ├── interfaces/         # All interface definitions
-│   │   │   ├── events/             # Event-driven architecture
-│   │   │   │   ├── types/          # Domain event definitions
-│   │   │   │   └── handlers/       # Event handlers
-│   │   │   └── validation/         # Domain validation logic
-│   │   ├── infrastructure/          # Infrastructure layer
-│   │   │   └── repositories/       # PocketBase implementations
-│   │   ├── services/               # Application services
-│   │   ├── handlers/               # HTTP request handlers
-│   │   └── models/                 # Legacy data models
+│   ├── config/                      # Configuration management
+│   ├── entities/                    # Domain entities & validation
+│   │   ├── trail.go                # Trail domain model
+│   │   ├── engagement.go           # Ratings & comments models
+│   │   ├── user.go                 # User domain model
+│   │   ├── validation.go           # Consolidated validation logic
+│   │   ├── gpx.go                  # GPX processing model
+│   │   └── tile.go                 # Tile model
+│   ├── interfaces/                  # All interface definitions
+│   ├── events/                      # Event-driven architecture
+│   │   ├── types/                  # Domain event definitions
+│   │   └── handlers/               # Event handlers
+│   ├── repositories/                # Data access implementations
+│   ├── services/                    # Application services
+│   ├── apiHandlers/                 # HTTP request handlers
 │   └── pb_data/                    # PocketBase data directory
 ├── frontend/                        # React TypeScript frontend
 │   ├── src/

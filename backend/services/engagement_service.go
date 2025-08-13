@@ -9,7 +9,6 @@ import (
 	"bike-map-backend/events"
 	"bike-map-backend/events/types"
 	"bike-map-backend/interfaces"
-	"bike-map-backend/validation"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -19,7 +18,7 @@ type EngagementService struct {
 	engagementRepo  interfaces.EngagementRepository
 	trailRepo       interfaces.TrailRepository
 	userRepo        interfaces.UserRepository
-	validator       *validation.ValidatorSuite
+	validator       *entities.ValidatorSuite
 	eventDispatcher *events.Dispatcher
 }
 
@@ -28,7 +27,7 @@ func NewEngagementService(
 	engagementRepo interfaces.EngagementRepository,
 	trailRepo interfaces.TrailRepository,
 	userRepo interfaces.UserRepository,
-	validator *validation.ValidatorSuite,
+	validator *entities.ValidatorSuite,
 	eventDispatcher *events.Dispatcher,
 ) *EngagementService {
 	return &EngagementService{
@@ -74,8 +73,8 @@ func (s *EngagementService) CreateRating(ctx context.Context, trailID, userID st
 	rating := entities.NewRating("", trailID, userID, ratingValue)
 
 	// Validate entity
-	if err := rating.Validate(); err != nil {
-		return nil, fmt.Errorf("rating validation failed: %w", err)
+	if err := s.validator.Engagement.ValidateRatingEntity(rating); err.HasErrors() {
+		return nil, fmt.Errorf("rating validation failed: %v", err.Errors)
 	}
 
 	// Save to repository
@@ -122,8 +121,8 @@ func (s *EngagementService) UpdateRating(ctx context.Context, ratingID string, u
 	existing.UpdateRating(newRatingValue)
 
 	// Validate updated entity
-	if err := existing.Validate(); err != nil {
-		return nil, fmt.Errorf("rating validation failed: %w", err)
+	if err := s.validator.Engagement.ValidateRatingEntity(existing); err.HasErrors() {
+		return nil, fmt.Errorf("rating validation failed: %v", err.Errors)
 	}
 
 	// Save to repository
@@ -217,8 +216,8 @@ func (s *EngagementService) CreateComment(ctx context.Context, trailID, userID, 
 	comment := entities.NewComment("", trailID, userID, content)
 
 	// Validate entity
-	if err := comment.Validate(); err != nil {
-		return nil, fmt.Errorf("comment validation failed: %w", err)
+	if err := s.validator.Engagement.ValidateCommentEntity(comment); err.HasErrors() {
+		return nil, fmt.Errorf("comment validation failed: %v", err.Errors)
 	}
 
 	// Save to repository
@@ -264,8 +263,8 @@ func (s *EngagementService) UpdateComment(ctx context.Context, commentID, userID
 	existing.UpdateContent(newContent)
 
 	// Validate updated entity
-	if err := existing.Validate(); err != nil {
-		return nil, fmt.Errorf("comment validation failed: %w", err)
+	if err := s.validator.Engagement.ValidateCommentEntity(existing); err.HasErrors() {
+		return nil, fmt.Errorf("comment validation failed: %v", err.Errors)
 	}
 
 	// Save to repository

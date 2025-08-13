@@ -105,22 +105,6 @@ func (t *Trail) SetBoundingBox(bbox *BoundingBox) {
 	t.UpdatedAt = time.Now()
 }
 
-// Validate checks if the trail entity is valid
-func (t *Trail) Validate() error {
-	if t.ID == "" {
-		return NewValidationError("id", "ID cannot be empty")
-	}
-	if t.Name == "" {
-		return NewValidationError("name", "Name cannot be empty")
-	}
-	if t.OwnerID == "" {
-		return NewValidationError("owner_id", "Owner ID cannot be empty")
-	}
-	if !t.Level.IsValid() {
-		return NewValidationError("level", "Invalid trail level")
-	}
-	return nil
-}
 
 // IsOwnedBy checks if the trail is owned by the given user
 func (t *Trail) IsOwnedBy(userID string) bool {

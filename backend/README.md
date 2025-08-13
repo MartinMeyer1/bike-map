@@ -9,57 +9,51 @@ The backend follows Domain-Driven Design principles with clean separation of con
 ```
 backend/
 ├── main.go                          # Application entry point
-├── internal/
-│   ├── config/
-│   │   └── config.go               # Centralized configuration management
-│   ├── domain/                     # Domain layer (business logic)
-│   │   ├── entities/               # Core business entities
-│   │   │   ├── trail.go           # Trail domain model
-│   │   │   ├── engagement.go      # Ratings & comments models
-│   │   │   ├── user.go            # User domain model
-│   │   │   └── validation.go      # Domain validation types
-│   │   ├── interfaces/             # All interface definitions
-│   │   │   ├── repositories.go    # Repository interfaces
-│   │   │   ├── services.go        # Service interfaces
-│   │   │   ├── events.go          # Event interface
-│   │   │   ├── auth.go            # AuthService interface
-│   │   │   └── mvt.go             # MVTService interface
-│   │   ├── events/                 # Event-driven architecture
-│   │   │   ├── types/             # Domain event definitions
-│   │   │   │   ├── base.go        # Base event implementation
-│   │   │   │   ├── trail_events.go
-│   │   │   │   ├── engagement_events.go
-│   │   │   │   └── user_events.go
-│   │   │   ├── handlers/          # Event handlers
-│   │   │   │   ├── sync_handler.go
-│   │   │   │   ├── cache_handler.go
-│   │   │   │   └── audit_handler.go
-│   │   │   ├── dispatcher.go      # Event dispatcher
-│   │   │   └── registry.go        # Event handler registry
-│   │   └── validation/             # Domain validation logic
-│   ├── infrastructure/             # Infrastructure layer
-│   │   └── repositories/           # PocketBase implementations
-│   │       ├── pocketbase_trail_repository.go
-│   │       ├── pocketbase_engagement_repository.go
-│   │       └── pocketbase_user_repository.go
-│   ├── services/                   # Application services
-│   │   ├── app_service.go          # Main application coordinator
-│   │   ├── auth_service.go         # Authentication & authorization
-│   │   ├── collection_service.go   # PocketBase collection setup
-│   │   ├── engagement_service.go   # Ratings & comments business logic
-│   │   ├── sync_service.go         # PostGIS synchronization
-│   │   ├── hook_manager_service.go # PocketBase event hooks
-│   │   ├── gpx_service.go          # GPX processing (legacy)
-│   │   └── mvt_service.go          # Vector tile generation
-│   ├── handlers/
-│   │   ├── auth_handler.go         # Authentication HTTP endpoints
-│   │   └── mvt_handler.go          # MVT HTTP endpoints
-│   └── models/                     # Legacy data models (GPX, tiles)
-│       ├── gpx.go
-│       ├── tile.go
-│       └── trail.go
-├── pb_data/                        # PocketBase data directory
-└── README.md                       # This file
+├── config/
+│   └── config.go                   # Centralized configuration management
+├── entities/                        # Domain entities & validation
+│   ├── trail.go                    # Trail domain model
+│   ├── engagement.go               # Ratings & comments models
+│   ├── user.go                     # User domain model
+│   ├── validation.go               # Consolidated validation logic
+│   ├── gpx.go                      # GPX processing model
+│   └── tile.go                     # Tile model
+├── interfaces/                      # All interface definitions
+│   ├── repositories.go             # Repository interfaces
+│   ├── services.go                 # Service interfaces
+│   ├── events.go                   # Event interface
+│   ├── auth.go                     # AuthService interface
+│   └── mvt.go                      # MVTService interface
+├── events/                          # Event-driven architecture
+│   ├── types/                      # Domain event definitions
+│   │   ├── base.go                 # Base event implementation
+│   │   ├── trail_events.go         # Trail-related events
+│   │   ├── engagement_events.go    # Rating & comment events
+│   │   └── user_events.go          # User-related events
+│   ├── handlers/                   # Event handlers
+│   │   ├── sync_handler.go         # PostGIS synchronization
+│   │   ├── cache_handler.go        # Cache invalidation
+│   │   └── audit_handler.go        # Audit logging
+│   ├── dispatcher.go               # Event dispatcher
+│   └── registry.go                 # Event handler registry
+├── repositories/                    # Data access implementations
+│   ├── pocketbase_trail_repository.go      # Trail repository
+│   ├── pocketbase_engagement_repository.go # Engagement repository
+│   └── pocketbase_user_repository.go       # User repository
+├── services/                        # Application services
+│   ├── app_service.go              # Main application coordinator
+│   ├── auth_service.go             # Authentication & authorization
+│   ├── collection_service.go       # PocketBase collection setup
+│   ├── engagement_service.go       # Ratings & comments business logic
+│   ├── sync_service.go             # PostGIS synchronization
+│   ├── hook_manager_service.go     # PocketBase event hooks
+│   ├── gpx_service.go              # GPX processing service
+│   └── mvt_service.go              # Vector tile generation
+├── apiHandlers/                     # HTTP request handlers
+│   ├── auth_handler.go             # Authentication endpoints
+│   └── mvt_handler.go              # MVT endpoints
+├── pb_data/                         # PocketBase data directory
+└── README.md                        # This file
 ```
 
 ## Features
@@ -243,21 +237,30 @@ The server will start on port 8090 and automatically:
 - **Clean Architecture**: Dependencies flow inward to domain
 
 ### Adding New Features
-1. **Domain Entity**: Define business model in `internal/domain/entities/`
-2. **Repository Interface**: Add data access contract in `internal/domain/interfaces/repositories.go`
-3. **Repository Implementation**: Create PocketBase impl in `internal/infrastructure/repositories/`
-4. **Domain Service**: Add business logic in `internal/services/`
-5. **Event Types**: Add domain events in `internal/domain/events/types/`
-6. **Event Handlers**: Wire events in `internal/domain/events/handlers/`
+1. **Domain Entity**: Define business model in `entities/`
+2. **Repository Interface**: Add data access contract in `interfaces/repositories.go`
+3. **Repository Implementation**: Create PocketBase impl in `repositories/`
+4. **Domain Service**: Add business logic in `services/`
+5. **Event Types**: Add domain events in `events/types/`
+6. **Event Handlers**: Wire events in `events/handlers/`
 7. **Update App Service**: Configure dependencies in `app_service.go`
 
 ### Interface Organization
-All interfaces are consolidated in `internal/domain/interfaces/`:
+All interfaces are consolidated in the `interfaces/` package:
 - **repositories.go**: Repository interfaces for data access
 - **services.go**: Service interfaces (SyncService, CacheService, AuditService)  
 - **events.go**: Event interface for domain events
 - **auth.go**: Authentication service interface
 - **mvt.go**: Vector tile service interface
+
+### Validation Architecture  
+All validation logic is consolidated in `entities/validation.go`:
+- **ValidationError & MultiValidationError**: Standardized error types
+- **TrailValidator**: Trail creation, entity validation, elevation data
+- **EngagementValidator**: Rating & comment validation (creation + entity integrity)
+- **UserValidator**: User creation, updates, role assignment, entity validation
+- **GeographicValidator**: Bounding box and coordinate validation
+- **ValidatorSuite**: Central access to all validators with dependency injection
 
 ### Database Migrations
 The application automatically creates required collections and tables:

@@ -101,59 +101,8 @@ func (ra *RatingAverage) UpdateStats(average float64, count int) {
 	ra.Updated = time.Now()
 }
 
-// Validate checks if the rating is valid
-func (r *Rating) Validate() error {
-	if r.ID == "" {
-		return NewValidationError("id", "ID cannot be empty")
-	}
-	if r.TrailID == "" {
-		return NewValidationError("trail_id", "Trail ID cannot be empty")
-	}
-	if r.UserID == "" {
-		return NewValidationError("user_id", "User ID cannot be empty")
-	}
-	if r.Rating < 1 || r.Rating > 5 {
-		return NewValidationError("rating", "Rating must be between 1 and 5")
-	}
-	return nil
-}
 
-// Validate checks if the comment is valid
-func (c *Comment) Validate() error {
-	if c.ID == "" {
-		return NewValidationError("id", "ID cannot be empty")
-	}
-	if c.TrailID == "" {
-		return NewValidationError("trail_id", "Trail ID cannot be empty")
-	}
-	if c.UserID == "" {
-		return NewValidationError("user_id", "User ID cannot be empty")
-	}
-	if c.Content == "" {
-		return NewValidationError("content", "Content cannot be empty")
-	}
-	if len(c.Content) > 1000 {
-		return NewValidationError("content", "Content cannot exceed 1000 characters")
-	}
-	return nil
-}
 
-// Validate checks if the rating average is valid
-func (ra *RatingAverage) Validate() error {
-	if ra.ID == "" {
-		return NewValidationError("id", "ID cannot be empty")
-	}
-	if ra.TrailID == "" {
-		return NewValidationError("trail_id", "Trail ID cannot be empty")
-	}
-	if ra.Average < 0 || ra.Average > 5 {
-		return NewValidationError("average", "Average must be between 0 and 5")
-	}
-	if ra.Count < 0 {
-		return NewValidationError("count", "Count cannot be negative")
-	}
-	return nil
-}
 
 // IsOwnedBy checks if the rating is owned by the given user
 func (r *Rating) IsOwnedBy(userID string) bool {

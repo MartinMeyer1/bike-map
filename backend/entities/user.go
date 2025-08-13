@@ -83,19 +83,6 @@ func (u *User) Verify() {
 	u.Updated = time.Now()
 }
 
-// Validate checks if the user entity is valid
-func (u *User) Validate() error {
-	if u.ID == "" {
-		return NewValidationError("id", "ID cannot be empty")
-	}
-	if u.Email == "" {
-		return NewValidationError("email", "Email cannot be empty")
-	}
-	if !u.Role.IsValid() {
-		return NewValidationError("role", "Invalid user role")
-	}
-	return nil
-}
 
 // IsAdmin checks if the user is an administrator
 func (u *User) IsAdmin() bool {
