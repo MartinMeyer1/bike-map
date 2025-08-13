@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { User, MVTTrail } from '../types';
-import { CachedTrail } from '../services/trailCache';
+import { User, MVTTrail, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
 import { TrailCard } from './TrailCard';
 import { QRModal } from './QRModal';
 import { InfoModal } from './InfoModal';
+import { RatingsCommentsModal } from './RatingsCommentsModal';
 import { Button, Badge } from './ui';
 import styles from './TrailSidebar.module.css';
 
 interface TrailSidebarProps {
-  trails: CachedTrail[]; // For CRUD operations (upload/edit)
   visibleTrails: MVTTrail[]; // From MVT layer
   selectedTrail: MVTTrail | null;
   mapMoveEndTrigger: number;
@@ -21,7 +20,6 @@ interface TrailSidebarProps {
 }
 
 const TrailSidebar: React.FC<TrailSidebarProps> = memo(({ 
-  trails, 
   visibleTrails, 
   selectedTrail,
   mapMoveEndTrigger,
@@ -32,16 +30,13 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
 }) => {
   const [showQRCode, setShowQRCode] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showRatingsComments, setShowRatingsComments] = useState<MVTTrail | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleDownloadGPX = useCallback((trail: MVTTrail) => {
-    // Create a trail-like object for PocketBase service
-    const trailForDownload = {
-      ...trail,
-      file: `${trail.id}.gpx` // Reconstruct file name
-    };
-    const fileUrl = PocketBaseService.getTrailFileUrl(trailForDownload as any);
+  const handleDownloadGPX = useCallback((trail: Trail) => {
+    // Use the actual file name from the trail data
+    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     const link = document.createElement('a');
     link.href = fileUrl;
     link.download = `${trail.name}.gpx`;
@@ -50,12 +45,9 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     document.body.removeChild(link);
   }, []);
 
-  const handleShowQRCode = useCallback((trail: MVTTrail) => {
-    const trailForDownload = {
-      ...trail,
-      file: `${trail.id}.gpx`
-    };
-    const fileUrl = PocketBaseService.getTrailFileUrl(trailForDownload as any);
+  const handleShowQRCode = useCallback((trail: Trail) => {
+    // Use the actual file name from the trail data
+    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
     setShowQRCode(fileUrl);
   }, []);
 
@@ -74,6 +66,14 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
 
   const handleToggleInfoModal = useCallback(() => {
     setShowInfoModal(prev => !prev);
+  }, []);
+
+  const handleShowRatingsComments = useCallback((trail: MVTTrail) => {
+    setShowRatingsComments(trail);
+  }, []);
+
+  const handleCloseRatingsComments = useCallback(() => {
+    setShowRatingsComments(null);
   }, []);
 
   // Auto-scroll to selected trail when map movement ends
@@ -98,41 +98,33 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     }
   }, [mapMoveEndTrigger, selectedTrail]);
 
-  // Merge visible trails with cached trail data to get owner info - memoized
-  const trailsWithOwnerInfo = React.useMemo(() => {
+
+
+  // Sort trails to put selected trail first, then by rating, then by creation date
+  const sortedTrails = React.useMemo(() => {
     if (!visibleTrails.length) return [];
     
-    // Create a map of cached trails by ID for quick lookup
-    const cachedTrailsMap = new Map(trails.map(trail => [trail.id, trail]));
-    
-    // Merge visible trails with cached data to get owner info
-    const mergedTrails = visibleTrails.map(visibleTrail => {
-      const cachedTrail = cachedTrailsMap.get(visibleTrail.id);
-      return {
-        ...visibleTrail,
-        ownerInfo: cachedTrail?.ownerInfo
-      };
-    });
-    
-    return mergedTrails;
-  }, [visibleTrails, trails]);
-
-  // Sort trails to put selected trail first - memoized with stable sorting
-  const sortedTrails = React.useMemo(() => {
-    if (!trailsWithOwnerInfo.length) return [];
-    
     // Use a more stable sort to prevent unnecessary re-renders
-    const sorted = [...trailsWithOwnerInfo].sort((a, b) => {
+    const sorted = [...visibleTrails].sort((a, b) => {
       // Selected trail always first
       if (selectedTrail?.id === a.id) return -1;
       if (selectedTrail?.id === b.id) return 1;
       
-      // Then sort by name for stable ordering
-      return a.name.localeCompare(b.name);
+      // Then sort by rating average (highest first)
+      const ratingA = a.rating_average || 0;
+      const ratingB = b.rating_average || 0;
+      if (ratingA !== ratingB) {
+        return ratingB - ratingA; // Higher ratings first
+      }
+      
+      // If ratings are equal, sort by creation date (most recent first)
+      const dateA = new Date(a.created).getTime();
+      const dateB = new Date(b.created).getTime();
+      return dateB - dateA; // More recent first
     });
     
     return sorted;
-  }, [trailsWithOwnerInfo, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
+  }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
   return (
     <div className={styles.sidebar}>
@@ -168,8 +160,8 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       <div ref={scrollContainerRef} className={styles.scrollContainer}>
         {visibleTrails.length === 0 ? (
           <div className={styles.emptyState}>
-            {trails.length === 0 ? 'No trails uploaded yet.' : 'No trails visible in current area.'}<br />
-            {trails.length === 0 ? (user ? 'Upload the first trail!' : 'Login to add trails.') : 'Pan the map to explore more trails.'}
+            No trails visible in current area.<br />
+            Pan the map to explore trails or {user ? 'upload a new trail!' : 'login to add trails.'}
           </div>
         ) : (
           <div className={styles.trailsContainer}>
@@ -182,10 +174,20 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
                   trail={trail}
                   isSelected={selectedTrail?.id === trail.id}
                   user={user}
+                  engagement={{
+                    ratingStats: {
+                      average: trail.rating_average,
+                      count: trail.rating_count,
+                      // Note: userRating will still be fetched separately in RatingsCommentsModal
+                      userRating: undefined
+                    },
+                    commentCount: trail.comment_count
+                  }}
                   onTrailClick={memoizedOnTrailClick}
                   onEditTrailClick={memoizedOnEditTrailClick}
                   onDownloadGPX={handleDownloadGPX}
                   onShowQRCode={handleShowQRCode}
+                  onShowRatingsComments={handleShowRatingsComments}
                 />
               </div>
             ))}
@@ -198,6 +200,14 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
         isOpen={!!showQRCode}
         onClose={handleCloseQRCode}
         fileUrl={showQRCode || ''}
+      />
+
+      {/* Ratings and Comments Modal */}
+      <RatingsCommentsModal
+        isOpen={!!showRatingsComments}
+        onClose={handleCloseRatingsComments}
+        trail={showRatingsComments}
+        user={user}
       />
 
       {/* Fixed Footer Section */}

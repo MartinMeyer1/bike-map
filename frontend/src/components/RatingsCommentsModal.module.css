@@ -1,0 +1,256 @@
+.modalContent {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.refreshingIndicator {
+  position: sticky;
+  top: 0;
+  background: rgba(23, 162, 184, 0.1);
+  color: #17a2b8;
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  z-index: 10;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 8px;
+}
+
+/* Rating Styles */
+.ratingOverview {
+  margin-bottom: 20px;
+}
+
+.ratingStats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.averageRating {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.averageText {
+  font-size: 16px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.noRatings {
+  color: #6c757d;
+  font-style: italic;
+  margin: 0;
+}
+
+.userRating {
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.userRatingTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6c757d;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.userRatingText {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: 8px;
+}
+
+.loginPrompt {
+  color: #6c757d;
+  font-style: italic;
+  margin: 12px 0;
+  text-align: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+
+/* Star Rating Styles */
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stars.interactive {
+  cursor: pointer;
+}
+
+.star {
+  font-size: 18px;
+  color: #dee2e6;
+  transition: color 0.2s ease;
+  user-select: none;
+}
+
+.star.filled {
+  color: #ffc107;
+}
+
+.star.empty {
+  color: #6c757d;
+  font-weight: bold;
+}
+
+.stars.interactive .star:hover {
+  color: #ffc107;
+}
+
+/* Comments Styles */
+.commentForm {
+  margin-bottom: 24px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+}
+
+.commentInput {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.commentInput:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.commentInput:disabled {
+  background-color: #e9ecef;
+  opacity: 1;
+}
+
+.commentsList {
+  space-y: 16px;
+}
+
+.comment {
+  padding: 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.comment:last-child {
+  margin-bottom: 0;
+}
+
+.commentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.commentAuthor {
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.commentDate {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.commentActions {
+  display: flex;
+  gap: 4px;
+}
+
+.editButton,
+.deleteButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.editButton:hover {
+  background-color: rgba(255, 193, 7, 0.1);
+}
+
+.deleteButton:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.editButton:disabled,
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.commentText {
+  color: #495057;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.editingComment {
+  margin-top: 8px;
+}
+
+.editActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.noComments {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+  margin: 0;
+}

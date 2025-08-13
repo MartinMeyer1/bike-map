@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"bike-map-backend/internal/config"
-	"bike-map-backend/internal/models"
+	"bike-map-backend/config"
+	"bike-map-backend/entities"
 )
 
 // CacheEntry represents a cached tile with version and response data
@@ -54,13 +54,13 @@ func (m *MVTService) Close() error {
 }
 
 // InvalidateTilesForTrail invalidates cache entries for tiles that intersect with a trail's bounding box
- func (m *MVTService) InvalidateTilesForTrail(trailBBox models.BoundingBox) {
+func (m *MVTService) InvalidateTilesForTrail(trailBBox entities.BoundingBox) {
 	m.InvalidateAllCache() //TODO only invalidate the trail's tiles
-// 	m.cacheMutex.Lock()
-// 	defer m.cacheMutex.Unlock()
+	// 	m.cacheMutex.Lock()
+	// 	defer m.cacheMutex.Unlock()
 
 	// invalidatedCount := 0
-	
+
 	// // Find tiles that might intersect with the trail's bounding box
 	// // For efficiency, we invalidate tiles across multiple zoom levels
 	// for tileKey := range m.cache {
@@ -77,7 +77,7 @@ func (m *MVTService) Close() error {
 	// 		invalidatedCount++
 	// 	}
 	// }
-	
+
 	// if invalidatedCount > 0 {
 	// 	log.Printf("Invalidated %d cached tiles for trail update", invalidatedCount)
 	// }
@@ -87,25 +87,25 @@ func (m *MVTService) Close() error {
 func (m *MVTService) InvalidateAllCache() {
 	m.cacheMutex.Lock()
 	defer m.cacheMutex.Unlock()
-	
+
 	cacheSize := len(m.cache)
 	m.cache = make(map[string]*CacheEntry)
 	log.Printf("Invalidated entire MVT cache (%d tiles)", cacheSize)
 }
 
 // boundsIntersect checks if two bounding boxes intersect
-func (m *MVTService) boundsIntersect(tileBounds models.TileBounds, trailBBox models.BoundingBox) bool {
+func (m *MVTService) boundsIntersect(tileBounds entities.TileBounds, trailBBox entities.BoundingBox) bool {
 	// Convert trail bbox (likely in lat/lon) to Web Mercator for comparison
 	// Simple intersection check: boxes intersect if they overlap in both X and Y
 	return tileBounds.XMax >= trailBBox.West && tileBounds.XMin <= trailBBox.East &&
-		   tileBounds.YMax >= trailBBox.South && tileBounds.YMin <= trailBBox.North
+		tileBounds.YMax >= trailBBox.South && tileBounds.YMin <= trailBBox.North
 }
 
 // GenerateTrailsMVT generates MVT for trails with caching support
 func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 	// Create cache key
 	tileKey := fmt.Sprintf("%d-%d-%d", z, x, y)
-	
+
 	// Check cache first
 	m.cacheMutex.RLock()
 	if entry, exists := m.cache[tileKey]; exists {
@@ -113,9 +113,9 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 		return entry.Response, nil
 	}
 	m.cacheMutex.RUnlock()
-	
+
 	// Cache miss - generate tile
-	
+
 	// Calculate tile bounds
 	bounds := m.calculateTileBounds(z, x, y)
 
@@ -134,7 +134,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 					name,
 					description,
 					level,
-					tags,
+					CASE 
+						WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
+						ELSE NULL
+					END as tags,
 					owner_id,
 					created_at,
 					updated_at,
@@ -176,6 +179,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 							(elevation_data->'profile'->-1->>'elevation')::REAL
 						ELSE NULL
 					END as elevation_end_meters,
+					-- Engagement data
+					rating_average,
+					rating_count,
+					comment_count,
 					-- Simplify geometry based on zoom level
 					ST_AsMVTGeom(
 						ST_Transform(
@@ -206,7 +213,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 					name,
 					description,
 					level,
-					tags,
+					CASE 
+						WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
+						ELSE NULL
+					END as tags,
 					owner_id,
 					created_at,
 					updated_at,
@@ -248,6 +258,10 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 							(elevation_data->'profile'->-1->>'elevation')::REAL
 						ELSE NULL
 					END as elevation_end_meters,
+					-- Engagement data
+					rating_average,
+					rating_count,
+					comment_count,
 					-- No simplification
 					ST_AsMVTGeom(
 						ST_Transform(geom, 3857),
@@ -280,22 +294,22 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 		Version:  time.Now().UnixNano(),
 		Response: mvtData,
 	}
-	
+
 	m.cacheMutex.Lock()
 	m.cache[tileKey] = cacheEntry
 	m.cacheMutex.Unlock()
-	
+
 	return mvtData, nil
 }
 
 // calculateTileBounds calculates the bounds of a tile in Web Mercator projection
-func (m *MVTService) calculateTileBounds(z, x, y int) models.TileBounds {
+func (m *MVTService) calculateTileBounds(z, x, y int) entities.TileBounds {
 	// Web Mercator bounds: -20037508.34 to 20037508.34
 	const worldSize = 20037508.34278924
 
 	tileSize := worldSize * 2.0 / float64(int64(1)<<uint(z))
 
-	return models.TileBounds{
+	return entities.TileBounds{
 		XMin: -worldSize + float64(x)*tileSize,
 		YMin: worldSize - float64(y+1)*tileSize,
 		XMax: -worldSize + float64(x+1)*tileSize,
@@ -352,9 +366,9 @@ func (m *MVTService) GetTrailsMetadata(trailIDs []string) ([]map[string]interfac
 	for rows.Next() {
 		var (
 			id, name, description, level, ownerID, elevationDataStr, bboxGeoJSON string
-			tags                                                                  sql.NullString
-			createdAt, updatedAt                                                  string
-			distanceM                                                             sql.NullFloat64
+			tags                                                                 sql.NullString
+			createdAt, updatedAt                                                 string
+			distanceM                                                            sql.NullFloat64
 		)
 
 		err := rows.Scan(&id, &name, &description, &level, &tags, &ownerID,
@@ -395,14 +409,14 @@ func (m *MVTService) GetTrailsMetadata(trailIDs []string) ([]map[string]interfac
 // GetTileCacheVersion returns the cache version for a specific tile
 func (m *MVTService) GetTileCacheVersion(z, x, y int) string {
 	tileKey := fmt.Sprintf("%d-%d-%d", z, x, y)
-	
+
 	m.cacheMutex.RLock()
 	defer m.cacheMutex.RUnlock()
-	
+
 	if entry, exists := m.cache[tileKey]; exists {
 		return fmt.Sprintf("%d", entry.Version)
 	}
-	
+
 	// Return timestamp-based version for uncached tiles
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
@@ -411,9 +425,9 @@ func (m *MVTService) GetTileCacheVersion(z, x, y int) string {
 func (m *MVTService) GetCacheStats() map[string]interface{} {
 	m.cacheMutex.RLock()
 	defer m.cacheMutex.RUnlock()
-	
+
 	return map[string]interface{}{
-		"total_tiles": len(m.cache),
+		"total_tiles":        len(m.cache),
 		"memory_usage_bytes": m.calculateCacheSize(),
 	}
 }

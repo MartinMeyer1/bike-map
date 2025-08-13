@@ -93,7 +93,8 @@
 .stats {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
   font-size: 13px;
   font-weight: 500;
   padding: 8px 12px;
@@ -104,6 +105,12 @@
 
 .stats.expanded {
   margin-bottom: 16px;
+}
+
+.elevationStats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .elevationGain {
@@ -206,4 +213,74 @@
 
 .actions.threeColumns {
   grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Engagement Container Styles */
+.engagementContainer {
+}
+
+.engagementButton {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.engagementButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.engagementStats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.ratingDisplay {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.noRating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #6c757d;
+  font-weight: 400;
+}
+
+.commentDisplay {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #495057;
+  font-weight: 500;
+}
+
+/* Loading and Error States */
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: #6c757d;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.errorState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: #dc3545;
+  font-size: 14px;
+  font-style: italic;
 }

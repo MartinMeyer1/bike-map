@@ -47,7 +47,12 @@ export function convertMVTPropertiesToTrail(props: MVTTrailProperties): MVTTrail
     endPoint: {
       lat: props.end_lat,
       lng: props.end_lng
-    }
+    },
+    
+    // Engagement data
+    rating_average: props.rating_average,
+    rating_count: props.rating_count,
+    comment_count: props.comment_count
   };
 }
 

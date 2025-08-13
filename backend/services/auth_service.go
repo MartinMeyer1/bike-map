@@ -3,8 +3,8 @@ package services
 import (
 	"fmt"
 
-	"bike-map-backend/internal/config"
-	"bike-map-backend/internal/models"
+	"bike-map-backend/config"
+	"bike-map-backend/entities"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -23,25 +23,25 @@ func NewAuthService(cfg *config.Config) *AuthService {
 
 // CanCreateTrails checks if the user has permission to create trails
 func (a *AuthService) CanCreateTrails(user *core.Record) bool {
-	role := models.UserRole(user.GetString("role"))
+	role := entities.UserRole(user.GetString("role"))
 	return role.CanCreateTrails()
 }
 
 // CanManageUsers checks if the user has permission to manage other users
 func (a *AuthService) CanManageUsers(user *core.Record) bool {
-	role := models.UserRole(user.GetString("role"))
-	return role.CanManageUsers()
+	role := entities.UserRole(user.GetString("role"))
+	return role.CanModerateContent()
 }
 
 // CanUpdateTrail checks if the user can update a specific trail
 func (a *AuthService) CanUpdateTrail(user *core.Record, trail *core.Record) bool {
-	userRole := models.UserRole(user.GetString("role"))
-	
+	userRole := entities.UserRole(user.GetString("role"))
+
 	// Admins can update any trail
-	if userRole == models.RoleAdmin {
+	if userRole == entities.RoleAdmin {
 		return true
 	}
-	
+
 	// Users can update their own trails
 	return user.Id == trail.GetString("owner")
 }
@@ -53,7 +53,7 @@ func (a *AuthService) CanDeleteTrail(user *core.Record, trail *core.Record) bool
 
 // ValidateUserRole ensures the role is valid
 func (a *AuthService) ValidateUserRole(role string) error {
-	if !models.UserRole(role).IsValid() {
+	if !entities.UserRole(role).IsValid() {
 		return fmt.Errorf("invalid user role: %s", role)
 	}
 	return nil
@@ -61,5 +61,5 @@ func (a *AuthService) ValidateUserRole(role string) error {
 
 // GetDefaultRole returns the default role for new users
 func (a *AuthService) GetDefaultRole() string {
-	return string(models.RoleViewer)
+	return string(entities.RoleViewer)
 }

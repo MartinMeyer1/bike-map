@@ -2,14 +2,18 @@
 
 A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter.
 
+Check it out on [bike-map.ch](https://bike-map.ch).
+
 ## Features
 
 ### **Trail Management**
 - GPX file upload with metadata (name, difficulty S0-S5, tags, description)
 - Role-based access control (Viewer, Editor, Admin)
 - Trail editing and deletion capabilities
-- Vector Tile Rendering: Efficient MVT tiles generated from PostGIS
-- Real-time Cache Invalidation: Automatic tile cache updates on data changes
+- **Ratings & Comments**: 5-star rating system with threaded comments
+- **Real-time Statistics**: Aggregate rating averages and comment counts
+- Vector Tile Rendering: Efficient MVT tiles with engagement data
+- Event-driven PostGIS sync: Automatic updates via domain events
 
 ### **Interactive Mapping**
 - Swiss topographic maps (Swisstopo WMTS)
@@ -30,10 +34,10 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 
 ### **Backend (PocketBase + Go + PostGIS)**
 - **Dual Database**: PocketBase (SQLite) for app data + PostGIS for spatial operations
-- **Vector Tiles**: MVT generation with automatic cache invalidation
-- **Spatial Processing**: GPX to PostGIS sync with elevation profile calculation
-- **Authentication**: Google OAuth 2.0 with role-based permissions
-- **ForwardAuth**: Traefik middleware integration
+- **Event-Driven Sync**: Automatic PostGIS updates via domain events with detailed audit trails
+- **Engagement System**: Ratings, comments, and statistics with real-time updates
+- **Vector Tiles**: MVT generation with engagement data and smart cache invalidation
+- **Repository Pattern**: Clean data access abstraction with PocketBase implementations
 
 ### **Routing Engine (BRouter)**
 - Java-based routing engine optimized for Swiss terrain
@@ -83,15 +87,24 @@ POSTGRES_PASSWORD=gispass            # Database password
 
 ```
 bike-map/
-├── backend/                          # Professional Go backend
+├── backend/                          # Simplified Go backend architecture
 │   ├── main.go                      # Application entry point
-│   ├── internal/
-│   │   ├── config/                  # Configuration management
-│   │   ├── services/                # Business logic services
-│   │   ├── handlers/                # HTTP request handlers
-│   │   ├── models/                  # Data models
-│   │   └── interfaces/              # Service interfaces
-│   └── pb_data/                     # PocketBase data directory
+│   ├── config/                      # Configuration management
+│   ├── entities/                    # Domain entities & validation
+│   │   ├── trail.go                # Trail domain model
+│   │   ├── engagement.go           # Ratings & comments models
+│   │   ├── user.go                 # User domain model
+│   │   ├── validation.go           # Consolidated validation logic
+│   │   ├── gpx.go                  # GPX processing model
+│   │   └── tile.go                 # Tile model
+│   ├── interfaces/                  # All interface definitions
+│   ├── events/                      # Event-driven architecture
+│   │   ├── types/                  # Domain event definitions
+│   │   └── handlers/               # Event handlers
+│   ├── repositories/                # Data access implementations
+│   ├── services/                    # Application services
+│   ├── apiHandlers/                 # HTTP request handlers
+│   └── pb_data/                    # PocketBase data directory
 ├── frontend/                        # React TypeScript frontend
 │   ├── src/
 │   │   ├── components/              # React components
@@ -161,9 +174,5 @@ docker-compose -f docker-compose.dev.yml up --build
 - **Routing Service**: `https://bike-map.ch/brouter/*` - BRouter API
 - **Proxy Dashboard**: `https://proxy.bike-map.ch` - Traefik dashboard
 
-### **New Production Features**
-- **PostGIS Integration**: Spatial database for vector tile generation
-- **Automatic Cache Invalidation**: Real-time tile updates
-- **Environment Configuration**: Comprehensive configuration management
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.

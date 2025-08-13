@@ -91,6 +91,11 @@ export interface MVTTrailProperties {
   max_elevation_meters: number;
   elevation_start_meters: number;
   elevation_end_meters: number;
+  
+  // Engagement data from backend
+  rating_average: number;
+  rating_count: number;
+  comment_count: number;
 }
 
 // Simplified trail interface for MVT-based system
@@ -118,6 +123,65 @@ export interface MVTTrail {
   startPoint: { lat: number; lng: number };
   endPoint: { lat: number; lng: number };
   
+  // Engagement data
+  rating_average: number;
+  rating_count: number;
+  comment_count: number;
+  
   // For compatibility with existing components
   ownerInfo?: User;
+}
+
+// Rating types
+export interface TrailRating {
+  id: string;
+  trail: string;   // Trail ID
+  user: string;    // User ID
+  rating: number;  // 1-5 stars
+  created: string;
+  updated: string;
+}
+
+export interface TrailRatingWithUser extends TrailRating {
+  expand?: {
+    user?: User;
+  };
+}
+
+export interface RatingStats {
+  count: number;
+  average: number;
+  userRating?: number; // Current user's rating if any
+}
+
+// Rating average collection from backend
+export interface RatingAverage {
+  id: string;
+  trail: string;   // Trail ID
+  average: number; // 0-5 average rating
+  count: number;   // Number of ratings
+  created: string;
+  updated: string;
+}
+
+// Comment types
+export interface TrailComment {
+  id: string;
+  trail: string;   // Trail ID
+  user: string;    // User ID
+  comment: string;
+  created: string;
+  updated: string;
+}
+
+export interface TrailCommentWithUser extends TrailComment {
+  expand?: {
+    user?: User;
+  };
+}
+
+// Combined ratings and comments data for trail cards
+export interface TrailEngagement {
+  ratingStats: RatingStats;
+  commentCount: number;
 }

@@ -10,11 +10,12 @@ import (
 	"net/http"
 	"strings"
 
-	"bike-map-backend/internal/config"
-	"bike-map-backend/internal/models"
+	"bike-map-backend/config"
+	"bike-map-backend/entities"
 
 	_ "github.com/lib/pq"
 	"github.com/pocketbase/pocketbase/core"
+	"log"
 )
 
 // GPXService handles GPX file processing and PostGIS operations
@@ -50,7 +51,7 @@ func (g *GPXService) Close() error {
 }
 
 // GetTrailBoundingBox retrieves the bounding box of a trail from PostGIS
-func (g *GPXService) GetTrailBoundingBox(trailID string) (*models.BoundingBox, error) {
+func (g *GPXService) GetTrailBoundingBox(trailID string) (*entities.BoundingBox, error) {
 	query := `
 		SELECT 
 			ST_XMin(bbox) as west,
@@ -60,8 +61,8 @@ func (g *GPXService) GetTrailBoundingBox(trailID string) (*models.BoundingBox, e
 		FROM trails 
 		WHERE id = $1 AND geom IS NOT NULL
 	`
-	
-	var bbox models.BoundingBox
+
+	var bbox entities.BoundingBox
 	err := g.db.QueryRow(query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -69,7 +70,7 @@ func (g *GPXService) GetTrailBoundingBox(trailID string) (*models.BoundingBox, e
 		}
 		return nil, fmt.Errorf("failed to get trail bounding box: %w", err)
 	}
-	
+
 	return &bbox, nil
 }
 
@@ -99,7 +100,7 @@ func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) err
 	}
 
 	// Convert to PostGIS format and insert
-	return g.insertTrailToPostGIS(trail, gpx)
+	return g.insertTrailToPostGIS(app, trail, gpx)
 }
 
 // downloadGPXFromPocketBase downloads GPX file from PocketBase storage
@@ -121,8 +122,8 @@ func (g *GPXService) downloadGPXFromPocketBase(trail *core.Record, filename stri
 }
 
 // parseGPX parses GPX XML data
-func (g *GPXService) parseGPX(data []byte) (*models.GPX, error) {
-	var gpx models.GPX
+func (g *GPXService) parseGPX(data []byte) (*entities.GPX, error) {
+	var gpx entities.GPX
 	if err := xml.Unmarshal(data, &gpx); err != nil {
 		return nil, fmt.Errorf("failed to parse GPX XML: %w", err)
 	}
@@ -135,12 +136,12 @@ func (g *GPXService) parseGPX(data []byte) (*models.GPX, error) {
 }
 
 // insertTrailToPostGIS inserts trail data into PostGIS
-func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) error {
+func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx *entities.GPX) error {
 	// Use the first track (most GPX files have only one track)
 	track := gpx.Tracks[0]
 
 	// Collect all points from all segments
-	var allPoints []models.TrackPoint
+	var allPoints []entities.TrackPoint
 	for _, segment := range track.Segments {
 		allPoints = append(allPoints, segment.Points...)
 	}
@@ -173,10 +174,13 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 		tagsJSON = "[]"
 	}
 
+	// Get engagement data from PocketBase
+	ratingAvg, ratingCount, commentCount := g.getTrailEngagementData(app, trail.Id)
+
 	// Insert into PostGIS
 	query := `
-		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11)
+		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -186,7 +190,10 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 			gpx_file = EXCLUDED.gpx_file,
 			geom = EXCLUDED.geom,
 			elevation_data = EXCLUDED.elevation_data,
-			updated_at = EXCLUDED.updated_at`
+			updated_at = EXCLUDED.updated_at,
+			rating_average = EXCLUDED.rating_average,
+			rating_count = EXCLUDED.rating_count,
+			comment_count = EXCLUDED.comment_count`
 
 	_, err = g.db.Exec(query,
 		trail.Id,
@@ -200,15 +207,18 @@ func (g *GPXService) insertTrailToPostGIS(trail *core.Record, gpx *models.GPX) e
 		string(elevationJSON),
 		trail.GetDateTime("created").Time(),
 		trail.GetDateTime("updated").Time(),
+		ratingAvg,
+		ratingCount,
+		commentCount,
 	)
 
 	return err
 }
 
 // calculateElevationData calculates elevation gain, loss, and profile
-func (g *GPXService) calculateElevationData(points []models.TrackPoint) (*models.ElevationData, error) {
-	data := &models.ElevationData{
-		Profile: make([]models.ElevationPoint, 0, len(points)),
+func (g *GPXService) calculateElevationData(points []entities.TrackPoint) (*entities.ElevationData, error) {
+	data := &entities.ElevationData{
+		Profile: make([]entities.ElevationPoint, 0, len(points)),
 	}
 
 	var totalDistance float64
@@ -237,7 +247,7 @@ func (g *GPXService) calculateElevationData(points []models.TrackPoint) (*models
 
 		// Add to elevation profile
 		if point.Elevation != nil {
-			data.Profile = append(data.Profile, models.ElevationPoint{
+			data.Profile = append(data.Profile, entities.ElevationPoint{
 				Distance:  totalDistance,
 				Elevation: *point.Elevation,
 			})
@@ -256,7 +266,7 @@ func (g *GPXService) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
 
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
 		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
-		math.Sin(dLng/2)*math.Sin(dLng/2)
+			math.Sin(dLng/2)*math.Sin(dLng/2)
 
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
@@ -296,7 +306,7 @@ func (g *GPXService) ClearAllTrails() error {
 		return fmt.Errorf("failed to get rows affected for trail clearing: %w", err)
 	}
 
-	fmt.Printf("Cleared %d trails from PostGIS\n", rowsAffected)
+	log.Printf("Cleared %d trails from PostGIS\n", rowsAffected)
 	return nil
 }
 
@@ -313,17 +323,70 @@ func (g *GPXService) SyncAllTrails(app core.App) error {
 		return fmt.Errorf("failed to get trails from PocketBase: %w", err)
 	}
 
-	fmt.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
+	log.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
 
 	for i, trail := range trails {
-		fmt.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
+		log.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
 
 		if err := g.ImportTrailFromPocketBase(app, trail.Id); err != nil {
-			fmt.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
+			log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
 			continue
 		}
-		fmt.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
+		log.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
 	}
 
 	return nil
+}
+
+// getTrailEngagementData retrieves rating and comment engagement data for a trail from PocketBase
+func (g *GPXService) getTrailEngagementData(app core.App, trailId string) (float64, int, int) {
+	var ratingAvg float64 = 0.0
+	var ratingCount int = 0
+	var commentCount int = 0
+
+	// Get rating average and count from rating_average collection
+	ratingAverageCollection, err := app.FindCollectionByNameOrId("rating_average")
+	if err == nil {
+		averageRecords, err := app.FindRecordsByFilter(ratingAverageCollection, fmt.Sprintf("trail = '%s'", trailId), "", 1, 0)
+		if err == nil && len(averageRecords) > 0 {
+			record := averageRecords[0]
+			ratingAvg = record.GetFloat("average")
+			ratingCount = int(record.GetFloat("count"))
+		}
+	}
+
+	// Get comment count from trail_comments collection
+	commentsCollection, err := app.FindCollectionByNameOrId("trail_comments")
+	if err == nil {
+		commentRecords, err := app.FindRecordsByFilter(commentsCollection, fmt.Sprintf("trail = '%s'", trailId), "", 0, 0)
+		if err == nil {
+			commentCount = len(commentRecords)
+		}
+	}
+
+	return ratingAvg, ratingCount, commentCount
+}
+
+// UpdateTrailEngagement updates only the engagement data for a trail in PostGIS
+func (g *GPXService) UpdateTrailEngagement(app core.App, trailId string) error {
+	// Get engagement data from PocketBase
+	ratingAvg, ratingCount, commentCount := g.getTrailEngagementData(app, trailId)
+
+	// Update PostGIS record
+	query := `
+		UPDATE trails 
+		SET rating_average = $1, rating_count = $2, comment_count = $3, updated_at = NOW()
+		WHERE id = $4`
+
+	_, err := g.db.Exec(query, ratingAvg, ratingCount, commentCount, trailId)
+	if err != nil {
+		return fmt.Errorf("failed to update trail engagement in PostGIS: %w", err)
+	}
+
+	return nil
+}
+
+// GetDB returns the database connection for external use
+func (g *GPXService) GetDB() *sql.DB {
+	return g.db
 }

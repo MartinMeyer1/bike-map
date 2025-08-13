@@ -38,9 +38,15 @@ jobs:
             
             # Pull latest Docker images
             docker compose pull
+
+            # Stop services to safely remove volume
+            docker compose down
+            
+            # Remove postgis service volume
+            docker volume rm $(docker compose config --volumes | grep postgis) 2>/dev/null || echo "Postgis volume not found or already removed"
             
             # Restart services with zero-downtime deployment
-            docker compose up -d --remove-orphans
+            docker compose up -d
             
             # Clean up old images
             docker image prune -af --filter "until=24h"
