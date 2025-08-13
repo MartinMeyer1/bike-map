@@ -100,7 +100,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
 
 
 
-  // Sort trails to put selected trail first - memoized with stable sorting
+  // Sort trails to put selected trail first, then by rating, then by creation date
   const sortedTrails = React.useMemo(() => {
     if (!visibleTrails.length) return [];
     
@@ -110,8 +110,17 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       if (selectedTrail?.id === a.id) return -1;
       if (selectedTrail?.id === b.id) return 1;
       
-      // Then sort by name for stable ordering
-      return a.name.localeCompare(b.name);
+      // Then sort by rating average (highest first)
+      const ratingA = a.rating_average || 0;
+      const ratingB = b.rating_average || 0;
+      if (ratingA !== ratingB) {
+        return ratingB - ratingA; // Higher ratings first
+      }
+      
+      // If ratings are equal, sort by creation date (most recent first)
+      const dateA = new Date(a.created).getTime();
+      const dateB = new Date(b.created).getTime();
+      return dateB - dateA; // More recent first
     });
     
     return sorted;
