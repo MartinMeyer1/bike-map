@@ -15,6 +15,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/pocketbase/pocketbase/core"
+	"log"
 )
 
 // GPXService handles GPX file processing and PostGIS operations
@@ -305,7 +306,7 @@ func (g *GPXService) ClearAllTrails() error {
 		return fmt.Errorf("failed to get rows affected for trail clearing: %w", err)
 	}
 
-	fmt.Printf("Cleared %d trails from PostGIS\n", rowsAffected)
+	log.Printf("Cleared %d trails from PostGIS\n", rowsAffected)
 	return nil
 }
 
@@ -322,16 +323,16 @@ func (g *GPXService) SyncAllTrails(app core.App) error {
 		return fmt.Errorf("failed to get trails from PocketBase: %w", err)
 	}
 
-	fmt.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
+	log.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
 
 	for i, trail := range trails {
-		fmt.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
+		log.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
 
 		if err := g.ImportTrailFromPocketBase(app, trail.Id); err != nil {
-			fmt.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
+			log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
 			continue
 		}
-		fmt.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
+		log.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
 	}
 
 	return nil
