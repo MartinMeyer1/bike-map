@@ -1,6 +1,8 @@
 # 🤘 BikeMap
 
-A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter. Features comprehensive ratings/comments system and Domain-Driven Design architecture.
+A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter.
+
+Check it out on [bike-map.ch](https://bike-map.ch).
 
 ## Features
 
