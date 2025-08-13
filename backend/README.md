@@ -18,16 +18,24 @@ backend/
 │   │   │   ├── engagement.go      # Ratings & comments models
 │   │   │   ├── user.go            # User domain model
 │   │   │   └── validation.go      # Domain validation types
-│   │   ├── repositories/           # Data access interfaces
-│   │   │   ├── trail_repository.go
-│   │   │   ├── engagement_repository.go
-│   │   │   └── user_repository.go
+│   │   ├── interfaces/             # All interface definitions
+│   │   │   ├── repositories.go    # Repository interfaces
+│   │   │   ├── services.go        # Service interfaces
+│   │   │   ├── events.go          # Event interface
+│   │   │   ├── auth.go            # AuthService interface
+│   │   │   └── mvt.go             # MVTService interface
 │   │   ├── events/                 # Event-driven architecture
+│   │   │   ├── types/             # Domain event definitions
+│   │   │   │   ├── base.go        # Base event implementation
+│   │   │   │   ├── trail_events.go
+│   │   │   │   ├── engagement_events.go
+│   │   │   │   └── user_events.go
+│   │   │   ├── handlers/          # Event handlers
+│   │   │   │   ├── sync_handler.go
+│   │   │   │   ├── cache_handler.go
+│   │   │   │   └── audit_handler.go
 │   │   │   ├── dispatcher.go      # Event dispatcher
-│   │   │   ├── registry.go        # Event handler registry
-│   │   │   └── handlers/          # Event handlers
-│   │   ├── event_types/            # Domain event definitions
-│   │   ├── interfaces/             # Service interfaces
+│   │   │   └── registry.go        # Event handler registry
 │   │   └── validation/             # Domain validation logic
 │   ├── infrastructure/             # Infrastructure layer
 │   │   └── repositories/           # PocketBase implementations
@@ -46,8 +54,10 @@ backend/
 │   ├── handlers/
 │   │   ├── auth_handler.go         # Authentication HTTP endpoints
 │   │   └── mvt_handler.go          # MVT HTTP endpoints
-│   └── models/
-│       └── trail.go                # Legacy data models
+│   └── models/                     # Legacy data models (GPX, tiles)
+│       ├── gpx.go
+│       ├── tile.go
+│       └── trail.go
 ├── pb_data/                        # PocketBase data directory
 └── README.md                       # This file
 ```
@@ -234,11 +244,20 @@ The server will start on port 8090 and automatically:
 
 ### Adding New Features
 1. **Domain Entity**: Define business model in `internal/domain/entities/`
-2. **Repository Interface**: Add data access contract in `internal/domain/repositories/`
+2. **Repository Interface**: Add data access contract in `internal/domain/interfaces/repositories.go`
 3. **Repository Implementation**: Create PocketBase impl in `internal/infrastructure/repositories/`
 4. **Domain Service**: Add business logic in `internal/services/`
-5. **Event Handlers**: Wire events in `internal/domain/events/handlers/`
-6. **Update App Service**: Configure dependencies in `app_service.go`
+5. **Event Types**: Add domain events in `internal/domain/events/types/`
+6. **Event Handlers**: Wire events in `internal/domain/events/handlers/`
+7. **Update App Service**: Configure dependencies in `app_service.go`
+
+### Interface Organization
+All interfaces are consolidated in `internal/domain/interfaces/`:
+- **repositories.go**: Repository interfaces for data access
+- **services.go**: Service interfaces (SyncService, CacheService, AuditService)  
+- **events.go**: Event interface for domain events
+- **auth.go**: Authentication service interface
+- **mvt.go**: Vector tile service interface
 
 ### Database Migrations
 The application automatically creates required collections and tables:

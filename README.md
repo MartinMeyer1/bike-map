@@ -31,7 +31,9 @@ A web application for sharing MTB trails among friends. Built with React, Pocket
 ## Architecture
 
 ### **Backend (PocketBase + Go + PostGIS)**
+- **Clean Architecture**: Domain-Driven Design with consolidated interfaces in single location
 - **Dual Database**: PocketBase (SQLite) for app data + PostGIS for spatial operations
+- **Event-Driven Sync**: Automatic PostGIS updates via domain events with detailed audit trails
 - **Engagement System**: Ratings, comments, and statistics with real-time updates
 - **Vector Tiles**: MVT generation with engagement data and smart cache invalidation
 - **Repository Pattern**: Clean data access abstraction with PocketBase implementations
@@ -90,8 +92,10 @@ bike-map/
 │   │   ├── config/                  # Configuration management
 │   │   ├── domain/                  # Domain layer (business logic)
 │   │   │   ├── entities/           # Core business entities
-│   │   │   ├── repositories/       # Data access interfaces
+│   │   │   ├── interfaces/         # All interface definitions
 │   │   │   ├── events/             # Event-driven architecture
+│   │   │   │   ├── types/          # Domain event definitions
+│   │   │   │   └── handlers/       # Event handlers
 │   │   │   └── validation/         # Domain validation logic
 │   │   ├── infrastructure/          # Infrastructure layer
 │   │   │   └── repositories/       # PocketBase implementations
