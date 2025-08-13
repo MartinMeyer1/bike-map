@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { User, MVTTrail } from '../types';
-import { CachedTrail } from '../services/trailCache';
 import { PocketBaseService } from '../services/pocketbase';
 import UserSection from './UserSection';
 import { TrailCard } from './TrailCard';
@@ -11,7 +10,6 @@ import { Button, Badge } from './ui';
 import styles from './TrailSidebar.module.css';
 
 interface TrailSidebarProps {
-  trails: CachedTrail[]; // For CRUD operations (upload/edit)
   visibleTrails: MVTTrail[]; // From MVT layer
   selectedTrail: MVTTrail | null;
   mapMoveEndTrigger: number;
@@ -22,7 +20,6 @@ interface TrailSidebarProps {
 }
 
 const TrailSidebar: React.FC<TrailSidebarProps> = memo(({ 
-  trails, 
   visibleTrails, 
   selectedTrail,
   mapMoveEndTrigger,
@@ -109,31 +106,13 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   }, [mapMoveEndTrigger, selectedTrail]);
 
 
-  // Merge visible trails with cached trail data to get owner info - memoized
-  const trailsWithOwnerInfo = React.useMemo(() => {
-    if (!visibleTrails.length) return [];
-    
-    // Create a map of cached trails by ID for quick lookup
-    const cachedTrailsMap = new Map(trails.map(trail => [trail.id, trail]));
-    
-    // Merge visible trails with cached data to get owner info
-    const mergedTrails = visibleTrails.map(visibleTrail => {
-      const cachedTrail = cachedTrailsMap.get(visibleTrail.id);
-      return {
-        ...visibleTrail,
-        ownerInfo: cachedTrail?.ownerInfo
-      };
-    });
-    
-    return mergedTrails;
-  }, [visibleTrails, trails]);
 
   // Sort trails to put selected trail first - memoized with stable sorting
   const sortedTrails = React.useMemo(() => {
-    if (!trailsWithOwnerInfo.length) return [];
+    if (!visibleTrails.length) return [];
     
     // Use a more stable sort to prevent unnecessary re-renders
-    const sorted = [...trailsWithOwnerInfo].sort((a, b) => {
+    const sorted = [...visibleTrails].sort((a, b) => {
       // Selected trail always first
       if (selectedTrail?.id === a.id) return -1;
       if (selectedTrail?.id === b.id) return 1;
@@ -143,7 +122,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     });
     
     return sorted;
-  }, [trailsWithOwnerInfo, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
+  }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
   return (
     <div className={styles.sidebar}>
@@ -179,8 +158,8 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       <div ref={scrollContainerRef} className={styles.scrollContainer}>
         {visibleTrails.length === 0 ? (
           <div className={styles.emptyState}>
-            {trails.length === 0 ? 'No trails uploaded yet.' : 'No trails visible in current area.'}<br />
-            {trails.length === 0 ? (user ? 'Upload the first trail!' : 'Login to add trails.') : 'Pan the map to explore more trails.'}
+            No trails visible in current area.<br />
+            Pan the map to explore trails or {user ? 'upload a new trail!' : 'login to add trails.'}
           </div>
         ) : (
           <div className={styles.trailsContainer}>

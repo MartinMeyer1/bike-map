@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { MVTTrail, User, TrailEngagement } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { useTrailDetails } from '../hooks';
 import { Button, Badge } from './ui';
 import styles from './TrailCard.module.css';
 
@@ -27,7 +28,11 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
   onShowQRCode,
   onShowRatingsComments
 }) => {
-  const ownerInfo = trail.ownerInfo;
+  // Fetch detailed trail information when selected
+  const { trail: detailedTrail, loading: trailLoading, error: trailError } = useTrailDetails(isSelected ? trail.id : null);
+  
+  // Extract owner info - handle both string ID and User object  
+  const ownerInfo = detailedTrail?.owner && typeof detailedTrail.owner === 'object' ? detailedTrail.owner as User : null;
 
   const handleClick = () => {
     onTrailClick(trail);
@@ -137,34 +142,46 @@ export const TrailCard: React.FC<TrailCardProps> = memo(({
       {/* Expanded content when selected */}
       {isSelected && (
         <div className={styles.expandedContent}>
-          {/* Metadata section */}
-          <div className={styles.metadata}>
-            <div className={styles.metadataItem}>
-              <span className={styles.metadataLabel}>Created:</span>
-              <span className={styles.metadataValue}>
-                {new Date(trail.created).toLocaleDateString()}
-              </span>
+          {trailLoading ? (
+            <div className={styles.loadingState}>
+              Loading trail details...
             </div>
-            
-            {ownerInfo && (
-              <div className={styles.metadataItem}>
-                <span className={styles.metadataLabel}>Author:</span>
-                <span className={styles.metadataValue}>
-                  {ownerInfo.name || ownerInfo.email || 'Unknown'}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          {/* Description */}
-          {trail.description && (
-            <div className={styles.description}>
-              <div className={styles.descriptionLabel}>Description</div>
-              <div className={styles.descriptionText}>
-                {trail.description}
-              </div>
+          ) : trailError ? (
+            <div className={styles.errorState}>
+              Failed to load trail details
             </div>
-          )}
+          ) : detailedTrail ? (
+            <>
+              {/* Metadata section */}
+              <div className={styles.metadata}>
+                <div className={styles.metadataItem}>
+                  <span className={styles.metadataLabel}>Created:</span>
+                  <span className={styles.metadataValue}>
+                    {new Date(detailedTrail.created).toLocaleDateString()}
+                  </span>
+                </div>
+                
+                {ownerInfo && (
+                  <div className={styles.metadataItem}>
+                    <span className={styles.metadataLabel}>Author:</span>
+                    <span className={styles.metadataValue}>
+                      {ownerInfo.name || ownerInfo.email || 'Unknown'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Description */}
+              {detailedTrail.description && (
+                <div className={styles.description}>
+                  <div className={styles.descriptionLabel}>Description</div>
+                  <div className={styles.descriptionText}>
+                    {detailedTrail.description}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : null}
           
           {/* Action buttons */}
           <div className={`${styles.actions} ${canEdit ? styles.threeColumns : styles.twoColumns}`}>

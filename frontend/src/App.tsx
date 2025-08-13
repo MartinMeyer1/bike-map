@@ -16,10 +16,8 @@ const AppContent: React.FC = () => {
     isAuthLoading,
     
     // Trail state
-    trails,
     visibleTrails,
     selectedTrail,
-    isTrailsLoading,
     
     // UI state
     isUploadPanelVisible,
@@ -112,7 +110,7 @@ const AppContent: React.FC = () => {
     incrementMapMoveTrigger();
   }, [incrementMapMoveTrigger]);
 
-  if (isAuthLoading || isTrailsLoading) {
+  if (isAuthLoading) {
     return (
       <div style={{
         height: '100vh',
@@ -177,7 +175,6 @@ const AppContent: React.FC = () => {
       {/* Trail sidebar - hidden during drawing mode */}
       {!isDrawingActive && (
         <TrailSidebar
-          trails={trails}
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
           mapMoveEndTrigger={mapMoveEndTrigger}
