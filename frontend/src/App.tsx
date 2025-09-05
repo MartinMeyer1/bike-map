@@ -1,15 +1,46 @@
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import TrailEditPanel from './components/TrailEditPanel';
+import { MobileTrailPopup } from './components/MobileTrailPopup';
+import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppProvider } from './context/AppContext';
 import { useAppContext } from './hooks/useAppContext';
-import { Trail } from './types';
+import { useIsMobile } from './hooks/useMediaQuery';
+import { useGeolocation } from './hooks/useGeolocation';
+import { useDeviceOrientation } from './hooks/useDeviceOrientation';
+import { Trail, MVTTrail } from './types';
 import './App.css';
 
 const AppContent: React.FC = () => {
+  const isMobile = useIsMobile();
+  const [mobileSelectedTrail, setMobileSelectedTrail] = useState<MVTTrail | null>(null);
+  const [showLocationTracking, setShowLocationTracking] = useState(false);
+  const [hasRequestedOrientation, setHasRequestedOrientation] = useState(false);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const locationMarkerRef = useRef<LocationMarkerRef>(null);
+  
+  // Location services for all devices
+  const {
+    position: userLocation,
+    error: locationError,
+    startWatching: startLocationTracking,
+    stopWatching: stopLocationTracking
+  } = useGeolocation({
+    enableHighAccuracy: true,
+    watch: showLocationTracking,
+    watchInterval: 2000
+  });
+  
+  // Device orientation for compass
+  const {
+    orientation,
+    permission: orientationPermission,
+    requestPermission: requestOrientationPermission
+  } = useDeviceOrientation();
+
   const {
     // Auth state
     user,
@@ -110,6 +141,75 @@ const AppContent: React.FC = () => {
     incrementMapMoveTrigger();
   }, [incrementMapMoveTrigger]);
 
+  // Mobile-specific handlers
+  const handleMobileTrailClick = useCallback((trail: MVTTrail | null) => {
+    if (isMobile) {
+      setMobileSelectedTrail(trail);
+      if (trail) {
+        selectTrail(trail);
+      }
+    } else {
+      selectTrail(trail);
+    }
+  }, [isMobile, selectTrail]);
+
+  const handleCloseMobilePopup = useCallback(() => {
+    setMobileSelectedTrail(null);
+    selectTrail(null);
+  }, [selectTrail]);
+
+  const handleLocationRequest = useCallback(async () => {
+    setIsLocationLoading(true);
+    
+    if (!showLocationTracking) {
+      setShowLocationTracking(true);
+      startLocationTracking();
+      
+      // Request orientation permission on first location request (mainly for mobile devices)
+      if (!hasRequestedOrientation && orientationPermission.prompt) {
+        try {
+          await requestOrientationPermission();
+          setHasRequestedOrientation(true);
+        } catch (error) {
+          console.warn('Orientation permission denied:', error);
+        }
+      }
+    }
+    
+    // Loading will be cleared when location is received or error occurs
+    setTimeout(() => setIsLocationLoading(false), 5000); // Fallback timeout
+  }, [showLocationTracking, startLocationTracking, hasRequestedOrientation, orientationPermission.prompt, requestOrientationPermission]);
+
+  const handleToggleLocationTracking = useCallback(() => {
+    if (showLocationTracking) {
+      setShowLocationTracking(false);
+      stopLocationTracking();
+    } else {
+      handleLocationRequest();
+    }
+  }, [showLocationTracking, stopLocationTracking, handleLocationRequest]);
+
+  const handleZoomToLocation = useCallback(() => {
+    if (locationMarkerRef.current && userLocation) {
+      locationMarkerRef.current.centerOnLocation(16); // Zoom level 16 for good detail
+    }
+  }, [userLocation]);
+
+  // Calculate user heading from device orientation
+  const userHeading = orientation?.compass;
+
+  // Clear loading state and auto-zoom when location is first received
+  React.useEffect(() => {
+    if (userLocation || locationError) {
+      setIsLocationLoading(false);
+    }
+    
+    // Auto-zoom to location when first received (if it was requested by user)
+    if (userLocation && isLocationLoading && locationMarkerRef.current) {
+      locationMarkerRef.current.centerOnLocation(16);
+    }
+  }, [userLocation, locationError, isLocationLoading]);
+
   if (isAuthLoading) {
     return (
       <div style={{
@@ -127,7 +227,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="App">
+    <div className={`App ${isMobile ? 'mobile-app' : ''}`}>
       {error && (
         <div style={{
           position: 'fixed',
@@ -162,7 +262,7 @@ const AppContent: React.FC = () => {
       <Map 
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
-        onTrailClick={selectTrail}
+        onTrailClick={isMobile ? handleMobileTrailClick : selectTrail}
         onTrailsLoaded={updateVisibleTrailsFromMVT}
         onMapMoveEnd={handleMapMoveEnd}
         refreshTrigger={mvtRefreshTrigger}
@@ -170,10 +270,14 @@ const AppContent: React.FC = () => {
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
         initialGpxContent={getPreviousGpxContent(drawingMode || 'upload')}
+        userLocation={userLocation}
+        showUserLocation={!!userLocation}
+        userHeading={userHeading}
+        locationMarkerRef={locationMarkerRef}
       />
 
-      {/* Trail sidebar - hidden during drawing mode */}
-      {!isDrawingActive && (
+      {/* Trail sidebar - hidden during drawing mode and on mobile */}
+      {!isDrawingActive && !isMobile && (
         <TrailSidebar
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
@@ -185,11 +289,42 @@ const AppContent: React.FC = () => {
         />
       )}
 
+      {/* Mobile trail popup */}
+      {isMobile && mobileSelectedTrail && (
+        <MobileTrailPopup
+          trail={mobileSelectedTrail}
+          user={user}
+          onClose={handleCloseMobilePopup}
+          onEditTrailClick={(trail) => {
+            showEditPanel(trail);
+            handleCloseMobilePopup();
+          }}
+        />
+      )}
+
+      {/* Location controls - available on all devices */}
+      {!isDrawingActive && (
+        <LocationControls
+          onLocationRequest={handleLocationRequest}
+          onToggleTracking={handleToggleLocationTracking}
+          onZoomToLocation={handleZoomToLocation}
+          isTracking={showLocationTracking}
+          hasLocation={!!userLocation}
+          isLoading={isLocationLoading}
+          locationError={locationError?.message}
+        />
+      )}
+
       {/* Upload panel */}
       <UploadPanel
         isVisible={isUploadPanelVisible}
         onClose={hideUploadPanel}
-        onTrailCreated={handleTrailCreatedComplete}
+        onTrailCreated={(newTrail) => {
+          handleTrailCreatedComplete(newTrail);
+          if (isMobile) {
+            setMobileSelectedTrail(null);
+          }
+        }}
         onStartDrawing={handleStartDrawing}
         drawnGpxContent={getGpxContent('upload')}
       />

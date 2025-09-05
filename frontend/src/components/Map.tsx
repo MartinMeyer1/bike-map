@@ -1,10 +1,12 @@
-import { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds, MVTTrail } from '../types';
 import { setupLeafletCompatibility } from '../utils/browserCompat';
 import { MVTTrailService } from '../services/mvtTrails';
 import RouteDrawer from './RouteDrawer';
+import { LocationMarker, LocationMarkerRef } from './LocationMarker';
+import { UserPosition } from '../hooks/useGeolocation';
 
 // Set up browser compatibility once
 setupLeafletCompatibility();
@@ -28,6 +30,11 @@ interface MapProps {
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
   initialGpxContent?: string;
+  // Location features
+  userLocation?: UserPosition | null;
+  showUserLocation?: boolean;
+  userHeading?: number;
+  locationMarkerRef?: React.RefObject<LocationMarkerRef>;
 }
 
 // Component to handle map events and trail zoom
@@ -186,7 +193,11 @@ export default function Map({
   isDrawingActive = false,
   onRouteComplete,
   onDrawingCancel,
-  initialGpxContent
+  initialGpxContent,
+  userLocation,
+  showUserLocation = false,
+  userHeading,
+  locationMarkerRef
 }: MapProps) {
   const trailClickedRef = useRef(false);
 
@@ -240,6 +251,20 @@ export default function Map({
         onCancel={onDrawingCancel || (() => {})}
         initialGpxContent={initialGpxContent}
       />
+
+      {/* User location marker */}
+      {showUserLocation && userLocation && (
+        <LocationMarker
+          ref={locationMarkerRef}
+          latitude={userLocation.latitude}
+          longitude={userLocation.longitude}
+          accuracy={userLocation.accuracy}
+          heading={userHeading}
+          showAccuracyCircle={true}
+          autoCenter={false}
+        />
+      )}
+      
     </MapContainer>
   );
 }

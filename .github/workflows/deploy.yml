@@ -39,11 +39,15 @@ jobs:
             # Pull latest Docker images
             docker compose pull
 
-            # Stop services to safely remove volume
-            docker compose down
+            # Stop postgis to safely remove volume
+            docker compose down postgis
             
-            # Remove postgis service volume
-            docker volume rm $(docker compose config --volumes | grep postgis) 2>/dev/null || echo "Postgis volume not found or already removed"
+            # Remove postgis service volume (with project prefix)
+            PROJECT_NAME=$(basename $(pwd))
+            POSTGIS_VOLUME=$(docker compose config --volumes | grep postgis || echo "")
+            if [ ! -z "$POSTGIS_VOLUME" ]; then
+              docker volume rm "${PROJECT_NAME}_${POSTGIS_VOLUME}" 2>/dev/null || echo "Postgis volume not found or already removed"
+            fi
             
             # Restart services with zero-downtime deployment
             docker compose up -d
