@@ -35,7 +35,6 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
   useImperativeHandle(ref, () => ({
     centerOnLocation: (zoomLevel: number = 16) => {
       const currentPosition = positionRef.current;
-      console.log('centerOnLocation called with position:', currentPosition, 'zoom:', zoomLevel);
       
       if (currentPosition) {
         isZoomingRef.current = true;
@@ -48,17 +47,12 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
         // Reset zooming flag after zoom completes
         setTimeout(() => {
           isZoomingRef.current = false;
-          console.log('Zoom completed, creating/updating marker if needed');
           
           // Recreate marker after zoom if it was removed
           if (!markerRef.current && positionRef.current) {
             createLocationMarker(positionRef.current);
           }
         }, 1500); // Wait for zoom animation to complete
-        
-        console.log('Map centered on location:', currentPosition);
-      } else {
-        console.warn('No position available for centering');
       }
     },
     getPosition: () => positionRef.current
@@ -71,13 +65,24 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       markerRef.current = null;
     }
     
-    console.log('Creating location marker at:', position);
+    // Create custom GPS location icon
+    const gpsIcon = L.divIcon({
+      className: 'gps-location-marker',
+      html: `
+        <div class="gps-marker-container">
+          <div class="gps-marker-outer"></div>
+          <div class="gps-marker-inner"></div>
+          <div class="gps-marker-dot"></div>
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
     
     markerRef.current = L.marker(position, { 
+      icon: gpsIcon,
       zIndexOffset: 1000
     }).addTo(map);
-    
-    console.log('Location marker created successfully');
   }, [map]);
 
   useEffect(() => {
@@ -86,11 +91,11 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
     // Check if this is the first location
     const isFirstLocation = !positionRef.current;
     
-    // Reduce sensitivity - only update if position changes by more than ~10 meters
+    // Reduce sensitivity - only update if position changes by more than ~1 meters
     const hasPositionChanged = isFirstLocation || 
       (positionRef.current && (
-        Math.abs(positionRef.current[0] - latitude) > 0.0001 || 
-        Math.abs(positionRef.current[1] - longitude) > 0.0001
+        Math.abs(positionRef.current[0] - latitude) > 0.00001 || 
+        Math.abs(positionRef.current[1] - longitude) > 0.00001
       ));
 
     // Only proceed if position changed significantly
@@ -101,7 +106,6 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
 
     // Don't create marker if we're in the middle of zooming
     if (isZoomingRef.current) {
-      console.log('Skipping marker creation during zoom animation');
       return;
     }
 
@@ -110,7 +114,6 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       createLocationMarker(position);
     } else {
       markerRef.current.setLatLng(position);
-      console.log('Location marker updated to:', position);
     }
 
     // Create or update accuracy circle
@@ -137,8 +140,8 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
 
     // Create or update heading line
     if (typeof heading === 'number') {
-      // Calculate end point for heading line (50 meters in the heading direction)
-      const distance = 0.0005; // Approximate degrees for ~50 meters
+      // Calculate end point for heading line (75 meters in the heading direction)
+      const distance = 0.0007; // Approximate degrees for ~75 meters
       const headingRadians = (heading * Math.PI) / 180;
       
       const endLat = latitude + (distance * Math.cos(headingRadians));
@@ -151,9 +154,11 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
 
       if (!headingLineRef.current) {
         headingLineRef.current = L.polyline(headingLine, {
-          color: '#007AFF',
-          weight: 3,
-          opacity: 0.8
+          color: '#FF3B30',
+          weight: 4,
+          opacity: 0.9,
+          lineCap: 'round',
+          dashArray: '0, 8, 4, 8' // Creates arrow-like pattern
         }).addTo(map);
       } else {
         headingLineRef.current.setLatLngs(headingLine);
@@ -169,33 +174,21 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       map.setView(position, map.getZoom());
     }
 
-  }, [map, latitude, longitude, accuracy, heading, showAccuracyCircle, autoCenter]);
+  }, [map, latitude, longitude, accuracy, heading, showAccuracyCircle, autoCenter, createLocationMarker]);
 
-  // Log when component mounts/unmounts
-  useEffect(() => {
-    console.log('LocationMarker component mounted');
-    return () => {
-      console.log('LocationMarker component unmounting');
-    };
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
-    console.log('LocationMarker cleanup effect registered');
     return () => {
-      console.log('LocationMarker cleanup executing - removing markers');
       if (markerRef.current) {
-        console.log('Removing location marker from map');
         map.removeLayer(markerRef.current);
         markerRef.current = null;
       }
       if (accuracyCircleRef.current) {
-        console.log('Removing accuracy circle from map');
         map.removeLayer(accuracyCircleRef.current);
         accuracyCircleRef.current = null;
       }
       if (headingLineRef.current) {
-        console.log('Removing heading line from map');
         map.removeLayer(headingLineRef.current);
         headingLineRef.current = null;
       }
@@ -226,25 +219,15 @@ export const LocationControls: React.FC<{
   locationError
 }) => {
   const handleClick = () => {
-    console.log('LocationControls clicked', { 
-      hasLocation, 
-      isTracking, 
-      locationError,
-      isLoading 
-    });
-    
     if (isLoading) {
       return; // Do nothing while loading
     }
     
     if (locationError) {
-      console.log('Retrying location request due to error');
       onLocationRequest(); // Retry on error
     } else if (hasLocation) {
-      console.log('Zooming to existing location');
       onZoomToLocation(); // Zoom to location if we have one
     } else {
-      console.log('Requesting new location and will auto-zoom when received');
       onLocationRequest(); // Get location if we don't have one
     }
   };
@@ -329,6 +312,66 @@ export const LocationControls: React.FC<{
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.1); }
+        }
+        
+        /* GPS Location Marker Styles */
+        .gps-location-marker {
+          background: none !important;
+          border: none !important;
+        }
+        
+        .gps-marker-container {
+          position: relative;
+          width: 24px;
+          height: 24px;
+        }
+        
+        .gps-marker-outer {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 24px;
+          height: 24px;
+          background: rgba(0, 122, 255, 0.2);
+          border: 2px solid #007AFF;
+          border-radius: 50%;
+          animation: gps-pulse 2s ease-out infinite;
+        }
+        
+        .gps-marker-inner {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 16px;
+          height: 16px;
+          background: #007AFF;
+          border: 2px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .gps-marker-dot {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 6px;
+          height: 6px;
+          background: white;
+          border-radius: 50%;
+        }
+        
+        @keyframes gps-pulse {
+          0% {
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(1.5);
+            opacity: 0;
+          }
         }
         
         @media (max-width: 768px) {

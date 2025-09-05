@@ -31,11 +31,14 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
     prompt: true
   });
 
-  const isSupported = typeof DeviceOrientationEvent !== 'undefined';
+  // Check for modern orientation support
+  const isSupported = typeof DeviceOrientationEvent !== 'undefined' && 
+    (typeof (DeviceOrientationEvent as any).requestPermission === 'function' || 
+     'ondeviceorientationabsolute' in window);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) {
-      setError('DeviceOrientationEvent is not supported');
+      setError('Device orientation is not supported on this device');
       return false;
     }
 
@@ -54,7 +57,7 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
           return false;
         }
       } else {
-        // For other devices, assume permission is granted
+        // For Android and other devices, check if compass events are available
         setPermission({ granted: true, denied: false, prompt: false });
         setError(null);
         return true;
@@ -101,10 +104,42 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
       }
     };
 
-    window.addEventListener('deviceorientation', handleOrientation, true);
+    const handleOrientationAbsolute = (event: DeviceOrientationEvent) => {
+      try {
+        const { alpha, beta, gamma } = event;
+        
+        // For Android devices, use the absolute event when available
+        const orientationData: DeviceOrientationData = {
+          alpha,
+          beta,
+          gamma,
+          absolute: true,
+          compass: calculateCompass(alpha)
+        };
+
+        setOrientation(orientationData);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error reading device orientation');
+      }
+    };
+
+    // Try to use deviceorientationabsolute first (more reliable for compass)
+    const hasAbsoluteEvent = 'ondeviceorientationabsolute' in window;
+    
+    if (hasAbsoluteEvent) {
+      (window as any).addEventListener('deviceorientationabsolute', handleOrientationAbsolute, true);
+    } else {
+      // Fallback to regular deviceorientation
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
 
     return () => {
-      window.removeEventListener('deviceorientation', handleOrientation, true);
+      if (hasAbsoluteEvent) {
+        (window as any).removeEventListener('deviceorientationabsolute', handleOrientationAbsolute, true);
+      } else {
+        window.removeEventListener('deviceorientation', handleOrientation, true);
+      }
     };
   }, [isSupported, permission.granted, calculateCompass]);
 

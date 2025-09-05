@@ -190,19 +190,8 @@ const AppContent: React.FC = () => {
   }, [showLocationTracking, stopLocationTracking, handleLocationRequest]);
 
   const handleZoomToLocation = useCallback(() => {
-    console.log('handleZoomToLocation called', {
-      hasLocationMarkerRef: !!locationMarkerRef.current,
-      hasUserLocation: !!userLocation,
-      userLocation
-    });
-    
     if (locationMarkerRef.current && userLocation) {
       locationMarkerRef.current.centerOnLocation(16); // Zoom level 16 for good detail
-    } else {
-      console.warn('Cannot zoom to location:', {
-        locationMarkerRef: locationMarkerRef.current,
-        userLocation
-      });
     }
   }, [userLocation]);
 
@@ -217,7 +206,6 @@ const AppContent: React.FC = () => {
     
     // Auto-zoom to location when first received (if it was requested by user)
     if (userLocation && isLocationLoading && locationMarkerRef.current) {
-      console.log('Auto-zooming to newly acquired location');
       locationMarkerRef.current.centerOnLocation(16);
     }
   }, [userLocation, locationError, isLocationLoading]);
