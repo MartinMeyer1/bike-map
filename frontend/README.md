@@ -12,9 +12,15 @@ src/
 │   ├── TrailSidebar.tsx # Trail list and filters
 │   ├── TrailCard.tsx    # Individual trail display
 │   ├── UploadPanel.tsx  # Trail upload form
+│   ├── MobileHeader.tsx # Mobile navigation header
+│   ├── MobileTrailPopup.tsx # Mobile trail details popup
+│   ├── LocationMarker.tsx # GPS location marker with compass
 │   └── *.module.css     # Component-specific styles
 ├── hooks/               # Custom React hooks
-│   └── useAppContext.ts # App context hook
+│   ├── useAppContext.ts # App context hook
+│   ├── useGeolocation.ts # GPS location tracking
+│   ├── useDeviceOrientation.ts # Device compass orientation
+│   └── useMediaQuery.ts # Mobile/touch device detection
 ├── context/             # React Context providers
 │   └── AppContext.tsx   # Global app state
 ├── services/            # API and data services
@@ -38,6 +44,9 @@ src/
 
 - **Component Library**: Reusable UI components with CSS modules
 - **MVT Tile System**: High-performance vector tile rendering with cache management
+- **Mobile Responsive Design**: Touch-optimized interface with mobile-specific components
+- **Location Tracking**: Real-time GPS positioning with compass direction indicator
+- **Enhanced Touch Interaction**: Improved trail selection with clickable markers and increased tap tolerance
 - **Type Safety**: Strict TypeScript with proper interfaces
 - **Centralized State**: React Context with useReducer for global state
 - **Performance Optimized**: Debounced map events, memoized components, throttled tile loading
@@ -60,3 +69,4 @@ npm run lint      # Run ESLint
 - **Leaflet** - Interactive maps with MVT support
 - **PocketBase** - Backend client
 - **Chart.js** - Elevation charts
+- **Device APIs** - Geolocation and DeviceOrientationEvent for location tracking
