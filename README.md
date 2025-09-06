@@ -20,6 +20,9 @@ Check it out on [bike-map.ch](https://bike-map.ch).
 - Vector Tile Layers: Smooth rendering with zoom-level optimization
 - Trail selection highlighting with filtered MVT layers
 - Real-time route drawing with BRouter pathfinding
+- GPS location tracking with compass-based direction indicator
+- Mobile-responsive interface with touch-optimized controls
+- Enhanced trail selection via clickable markers
 - Elevation profiles and distance tracking
 - GPX export functionality
 - Difficulty-based color coding with dynamic styling
@@ -48,6 +51,8 @@ Check it out on [bike-map.ch](https://bike-map.ch).
 - Modern React 18 with TypeScript for type safety
 - Vector Tile Integration: Leaflet with efficient MVT layer support
 - Trail selection highlighting using filtered MVT layers
+- Mobile-first responsive design with touch interaction optimization
+- Device API integration for location and orientation services
 - Component library with CSS modules
 - Custom hooks for business logic separation
 
