@@ -219,7 +219,7 @@ export default function Map({
 
   return (
     <MapContainer
-      {...{ center: [46.2, 7.65], zoom: 10 } as any} // Center on Valais, Switzerland
+      {...{ center: [46.2, 7.65], zoom: 10, zoomControl: false } as any} // Center on Valais, Switzerland
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Swisstopo base layer */}
