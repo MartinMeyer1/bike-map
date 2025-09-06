@@ -27,7 +27,6 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
-  const headingLineRef = useRef<L.Polyline | null>(null);
   const positionRef = useRef<[number, number] | null>(null);
   const isZoomingRef = useRef<boolean>(false);
 
@@ -59,24 +58,25 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
   }), [map]);
 
   // Extract marker creation logic
-  const createLocationMarker = useCallback((position: [number, number]) => {
+  const createLocationMarker = useCallback((position: [number, number], currentHeading?: number) => {
     if (markerRef.current) {
       map.removeLayer(markerRef.current);
       markerRef.current = null;
     }
     
-    // Create custom GPS location icon
+    // Create custom GPS location icon with directional pointer
     const gpsIcon = L.divIcon({
       className: 'gps-location-marker',
       html: `
         <div class="gps-marker-container">
+          <div class="gps-direction-cone" style="transform: rotate(${currentHeading || 0}deg); opacity: ${typeof currentHeading === 'number' ? 1 : 0.4};"></div>
           <div class="gps-marker-outer"></div>
           <div class="gps-marker-inner"></div>
           <div class="gps-marker-dot"></div>
         </div>
       `,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      iconSize: [60, 60],
+      iconAnchor: [30, 45]
     });
     
     markerRef.current = L.marker(position, { 
@@ -111,9 +111,12 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
 
     // Create or update the main location marker
     if (!markerRef.current) {
-      createLocationMarker(position);
+      createLocationMarker(position, heading);
     } else {
+      // Update position
       markerRef.current.setLatLng(position);
+      // Always recreate marker to update heading (even if undefined)
+      createLocationMarker(position, heading);
     }
 
     // Create or update accuracy circle
@@ -138,36 +141,6 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       accuracyCircleRef.current = null;
     }
 
-    // Create or update heading line
-    if (typeof heading === 'number') {
-      // Calculate end point for heading line (75 meters in the heading direction)
-      const distance = 0.0007; // Approximate degrees for ~75 meters
-      const headingRadians = (heading * Math.PI) / 180;
-      
-      const endLat = latitude + (distance * Math.cos(headingRadians));
-      const endLng = longitude + (distance * Math.sin(headingRadians));
-      
-      const headingLine: [number, number][] = [
-        [latitude, longitude],
-        [endLat, endLng]
-      ];
-
-      if (!headingLineRef.current) {
-        headingLineRef.current = L.polyline(headingLine, {
-          color: '#FF3B30',
-          weight: 4,
-          opacity: 0.9,
-          lineCap: 'round',
-          dashArray: '0, 8, 4, 8' // Creates arrow-like pattern
-        }).addTo(map);
-      } else {
-        headingLineRef.current.setLatLngs(headingLine);
-      }
-    } else if (headingLineRef.current) {
-      // Remove heading line if not available
-      map.removeLayer(headingLineRef.current);
-      headingLineRef.current = null;
-    }
 
     // Auto center map if requested
     if (autoCenter) {
@@ -187,10 +160,6 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       if (accuracyCircleRef.current) {
         map.removeLayer(accuracyCircleRef.current);
         accuracyCircleRef.current = null;
-      }
-      if (headingLineRef.current) {
-        map.removeLayer(headingLineRef.current);
-        headingLineRef.current = null;
       }
     };
   }, [map]);
@@ -322,17 +291,17 @@ export const LocationControls: React.FC<{
         
         .gps-marker-container {
           position: relative;
-          width: 24px;
-          height: 24px;
+          width: 60px;
+          height: 60px;
         }
         
         .gps-marker-outer {
           position: absolute;
-          top: 50%;
+          bottom: 0;
           left: 50%;
-          transform: translate(-50%, -50%);
-          width: 24px;
-          height: 24px;
+          transform: translateX(-50%);
+          width: 28px;
+          height: 28px;
           background: rgba(0, 122, 255, 0.2);
           border: 2px solid #007AFF;
           border-radius: 50%;
@@ -341,9 +310,9 @@ export const LocationControls: React.FC<{
         
         .gps-marker-inner {
           position: absolute;
-          top: 50%;
+          bottom: 6px;
           left: 50%;
-          transform: translate(-50%, -50%);
+          transform: translateX(-50%);
           width: 16px;
           height: 16px;
           background: #007AFF;
@@ -354,22 +323,38 @@ export const LocationControls: React.FC<{
         
         .gps-marker-dot {
           position: absolute;
-          top: 50%;
+          bottom: 11px;
           left: 50%;
-          transform: translate(-50%, -50%);
+          transform: translateX(-50%);
           width: 6px;
           height: 6px;
           background: white;
           border-radius: 50%;
         }
         
+        .gps-direction-cone {
+          position: absolute;
+          bottom: 14px; /* Position from bottom edge, centering on the dot */
+          left: 50%;
+          transform-origin: 50% 100%; /* Rotate around bottom center */
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(to top, rgba(0, 122, 255, 0.8) 0%, rgba(0, 122, 255, 0.5) 50%, rgba(0, 122, 255, 0.2) 100%);
+          clip-path: polygon(50% 100%, 20% 20%, 80% 20%);
+          pointer-events: none;
+          transition: transform 0.3s ease-out;
+          margin-left: -20px; /* Center the 40px width */
+          z-index: -1; /* Behind the circular marker */
+        }
+        
+        
         @keyframes gps-pulse {
           0% {
-            transform: translate(-50%, -50%) scale(0.8);
+            transform: translateX(-50%) scale(0.8);
             opacity: 1;
           }
           100% {
-            transform: translate(-50%, -50%) scale(1.5);
+            transform: translateX(-50%) scale(1.5);
             opacity: 0;
           }
         }
