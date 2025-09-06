@@ -58,7 +58,6 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
   if (!trail) return null;
 
   const canEdit = user && PocketBaseService.canEditTrail(trail, user);
-  const hasEngagement = trail.rating_count > 0 || trail.comment_count > 0;
 
   return (
     <>

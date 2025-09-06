@@ -257,7 +257,7 @@ export const LocationControls: React.FC<{
                 : 'Click to get current location'
         }
       >
-        {isLoading ? '⏳' : locationError ? '⚠️' : isTracking ? '🔵' : hasLocation ? '📍' : '📍'}
+        {isLoading ? '⏳' : locationError ? '⚠️' : isTracking ? '📍' : hasLocation ? '📍' : '📍'}
       </button>
       
       <style>{`
