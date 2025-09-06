@@ -216,10 +216,15 @@ export default function Map({
       onTrailClick(null);
     }
   }, [selectedTrail, onTrailClick]);
-
+  
   return (
     <MapContainer
-      {...{ center: [46.2, 7.65], zoom: 10 } as any} // Center on Valais, Switzerland
+      {...{ 
+        center: [46.2, 7.65], 
+        zoom: 10, 
+        zoomControl: false,
+        tapTolerance: 44 // Increase touch tolerance on mobile
+      } as any} // Center on Valais, Switzerland
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Swisstopo base layer */}
