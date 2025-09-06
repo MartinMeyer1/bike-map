@@ -4,6 +4,7 @@ import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import TrailEditPanel from './components/TrailEditPanel';
 import { MobileTrailPopup } from './components/MobileTrailPopup';
+import { MobileHeader } from './components/MobileHeader';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppProvider } from './context/AppContext';
@@ -256,6 +257,14 @@ const AppContent: React.FC = () => {
             ×
           </button>
         </div>
+      )}
+
+      {/* Mobile Header - only shown on mobile */}
+      {isMobile && !isDrawingActive && (
+        <MobileHeader
+          user={user}
+          onAddTrailClick={showUploadPanel}
+        />
       )}
 
       {/* Main map */}

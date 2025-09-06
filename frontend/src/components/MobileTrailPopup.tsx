@@ -58,7 +58,6 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
   if (!trail) return null;
 
   const canEdit = user && PocketBaseService.canEditTrail(trail, user);
-  const hasEngagement = trail.rating_count > 0 || trail.comment_count > 0;
 
   return (
     <>
@@ -91,27 +90,26 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
             <div className={styles.elevationStats}>
               {trail.elevation ? (
                 <>
-                  <div className={styles.elevationItem}>
-                    <span className={styles.elevationIcon}>▲</span>
-                    <span className={styles.elevationValue}>{Math.round(trail.elevation.gain)}m</span>
-                    <span className={styles.elevationLabel}>Gain</span>
+                  <div className={styles.elevationGain}>
+                    <span>▲</span>
+                    <span>{Math.round(trail.elevation.gain)}m</span>
                   </div>
-                  <div className={styles.elevationItem}>
-                    <span className={styles.elevationIcon}>▼</span>
-                    <span className={styles.elevationValue}>{Math.round(trail.elevation.loss)}m</span>
-                    <span className={styles.elevationLabel}>Loss</span>
+                  <div className={styles.elevationLoss}>
+                    <span>▼</span>
+                    <span>{Math.round(trail.elevation.loss)}m</span>
                   </div>
                 </>
               ) : (
-                <span className={styles.gpxAvailable}>📁 GPX file available</span>
+                <span className={styles.gpxAvailable}>📁 GPX available</span>
               )}
             </div>
 
             {/* Engagement Stats */}
-            {hasEngagement && (
+            <div className={styles.engagementContainer}>
               <button 
                 className={styles.engagementButton}
                 onClick={handleShowRatingsComments}
+                title="View ratings and comments"
               >
                 <div className={styles.engagementStats}>
                   {Number(trail.rating_count) > 0 ? (
@@ -126,7 +124,7 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
                   </span>
                 </div>
               </button>
-            )}
+            </div>
           </div>
 
           {/* Loading/Error states */}
@@ -173,23 +171,23 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
         </div>
 
         {/* Action buttons */}
-        <div className={styles.actions}>
+        <div className={`${styles.actions} ${canEdit ? styles.twoColumns : styles.oneColumn}`}>
           <Button
             variant="success"
-            size="large"
+            size="medium"
             onClick={() => detailedTrail && handleDownloadGPX(detailedTrail)}
             disabled={!detailedTrail}
           >
-            📥 Download GPX
+            📥 GPX
           </Button>
           
           {canEdit && (
             <Button
               variant="warning"
-              size="large"
+              size="medium"
               onClick={handleEdit}
             >
-              ✏️ Edit Trail
+              ✏️ Edit
             </Button>
           )}
         </div>

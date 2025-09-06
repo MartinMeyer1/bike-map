@@ -179,6 +179,14 @@ export class MVTTrailService {
       })
     }).addTo(this.map);
 
+    // Add click handlers to markers for trail selection
+    const handleMarkerClick = () => {
+      this.events.onTrailClick?.(trail);
+    };
+
+    startMarker.on('click', handleMarkerClick);
+    endMarker.on('click', handleMarkerClick);
+
     // Store markers
     this.trailMarkers.set(trail.id, { start: startMarker, end: endMarker });
   }
