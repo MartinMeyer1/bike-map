@@ -175,7 +175,7 @@
 }
 
 .loginButton {
-  width: 100%;
+  width: calc(100% - 32px);
   padding: 12px 16px;
   background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
   color: white;
