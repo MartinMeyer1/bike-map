@@ -25,6 +25,8 @@ type MVTService struct {
 	config     *config.Config
 	cache      map[string]*CacheEntry // Memory cache: "z-x-y" -> CacheEntry
 	cacheMutex sync.RWMutex           // Thread-safe access to cache
+	minZoom    int
+	maxZoom    int
 }
 
 // NewMVTService creates a new MVT service instance
@@ -46,12 +48,22 @@ func NewMVTService(cfg *config.Config) (*MVTService, error) {
 		db:     db,
 		config: cfg,
 		cache:  make(map[string]*CacheEntry),
+		minZoom: 6,
+		maxZoom: 18,
 	}, nil
 }
 
 // Close closes the database connection
 func (m *MVTService) Close() error {
 	return m.db.Close()
+}
+
+func (m *MVTService) GetMinZoom() int {
+	return m.minZoom
+}
+
+func (m *MVTService) GetMaxZoom() int {
+	return m.maxZoom
 }
 
 // InvalidateTilesForBBox invalidates cache entries for tiles that intersect with a trail's bounding box
@@ -66,13 +78,8 @@ func (m *MVTService) InvalidateTilesForBBox(trailBBox entities.BoundingBox) {
 
 	invalidatedCount := 0
 
-	// Define zoom level range for invalidation
-	// Cover all zoom levels that are commonly used for trail viewing
-	minZoom := 8  // Regional overview
-	maxZoom := 18 // Very detailed view
-
 	// Calculate and invalidate tiles for each zoom level
-	for zoom := minZoom; zoom <= maxZoom; zoom++ {
+	for zoom := m.minZoom; zoom <= m.maxZoom; zoom++ {
 		// Get tile coordinate ranges for this bounding box at current zoom level
 		minX, minY, maxX, maxY := m.boundingBoxToTileRange(trailBBox, zoom)
 
@@ -89,7 +96,7 @@ func (m *MVTService) InvalidateTilesForBBox(trailBBox entities.BoundingBox) {
 	}
 
 	if invalidatedCount > 0 {
-		log.Printf("Invalidated %d cached tiles for bbox update (zoom %d-%d)", invalidatedCount, minZoom, maxZoom)
+		log.Printf("Invalidated %d cached tiles for bbox update (zoom %d-%d)", invalidatedCount, m.minZoom, m.maxZoom)
 	}
 }
 
@@ -105,6 +112,13 @@ func (m *MVTService) InvalidateAllCache() {
 
 // GenerateTrailsMVT generates MVT for trails with caching support
 func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
+	if z < m.minZoom {
+		return []byte{}, nil
+	}
+	if z > m.maxZoom {
+		return []byte{}, nil
+	}
+
 	// Create cache key
 	tileKey := fmt.Sprintf("%d-%d-%d", z, x, y)
 

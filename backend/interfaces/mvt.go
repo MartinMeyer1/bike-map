@@ -10,4 +10,6 @@ type MVTService interface {
 	InvalidateAllCache()
 	GetCacheStats() map[string]interface{}
 	Close() error
+	GetMinZoom() int
+	GetMaxZoom() int
 }
