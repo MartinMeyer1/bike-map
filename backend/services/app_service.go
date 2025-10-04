@@ -8,7 +8,6 @@ import (
 	"bike-map-backend/apiHandlers"
 	"bike-map-backend/config"
 	"bike-map-backend/entities"
-	"bike-map-backend/events"
 	"bike-map-backend/interfaces"
 	repos "bike-map-backend/repositories"
 
@@ -40,8 +39,6 @@ type AppService struct {
 	engagementRepo  interfaces.EngagementRepository
 	userRepo        interfaces.UserRepository
 	validator       *entities.ValidatorSuite
-	eventRegistry   *events.EventRegistry
-	eventDispatcher *events.Dispatcher
 
 	// Database connection for PostGIS
 	postgisDB *sql.DB
@@ -125,16 +122,12 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 	a.engagementRepo = repos.NewPocketBaseEngagementRepository(app)
 	a.userRepo = repos.NewPocketBaseUserRepository(app)
 
-	// Initialize event dispatcher
-	a.eventDispatcher = events.NewDispatcher()
-
 	// Initialize domain services that depend on repositories
 	a.engagementService = NewEngagementService(
 		a.engagementRepo,
 		a.trailRepo,
 		a.userRepo,
 		a.validator,
-		a.eventDispatcher,
 	)
 
 	// Initialize sync service if PostGIS is available
@@ -142,20 +135,9 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 		a.syncService = NewSyncService(
 			a.trailRepo,
 			a.engagementRepo,
-			a.eventDispatcher,
 			a.postgisDB,
 			a.gpxService, // Pass GPXService for geometry processing
 		)
-	}
-
-	// Initialize event registry with services
-	if a.syncService != nil {
-		a.eventRegistry = events.NewEventRegistry(
-			a.syncService,                           // sync service
-			&cacheService{mvtService: a.mvtService}, // cache service adapter
-			&auditService{},                         // audit service stub
-		)
-		a.eventDispatcher = a.eventRegistry.GetDispatcher()
 	}
 
 	// Initialize hook manager service
@@ -164,7 +146,6 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 		a.engagementService,
 		a.syncService,
 		a.mvtService,
-		a.eventDispatcher,
 	)
 
 	return nil
@@ -293,56 +274,3 @@ func (a *AppService) GetEngagementRepository() interfaces.EngagementRepository {
 func (a *AppService) GetUserRepository() interfaces.UserRepository {
 	return a.userRepo
 }
-
-func (a *AppService) GetEventDispatcher() *events.Dispatcher {
-	return a.eventDispatcher
-}
-
-// Adapter services for event system
-
-// cacheService adapts MVTService to the cache interface expected by event handlers
-type cacheService struct {
-	mvtService *MVTService
-}
-
-func (c *cacheService) InvalidateTrailCache(ctx context.Context, trailID string) error {
-	// For now, invalidate all MVT cache
-	if c.mvtService != nil {
-		c.mvtService.InvalidateAllCache()
-	}
-	return nil
-}
-
-func (c *cacheService) InvalidateMVTCache(ctx context.Context) error {
-	if c.mvtService != nil {
-		c.mvtService.InvalidateAllCache()
-	}
-	return nil
-}
-
-func (c *cacheService) InvalidateEngagementCache(ctx context.Context, trailID string) error {
-	// For now, invalidate all MVT cache
-	if c.mvtService != nil {
-		c.mvtService.InvalidateAllCache()
-	}
-	return nil
-}
-
-// Compile-time check to ensure cacheService implements interfaces.CacheService
-var _ interfaces.CacheService = (*cacheService)(nil)
-
-// auditService is a stub implementation for the audit interface
-type auditService struct{}
-
-func (a *auditService) LogEvent(ctx context.Context, eventType, aggregateID string, data interface{}) error {
-	log.Printf("Audit: Event %s for %s: %+v", eventType, aggregateID, data)
-	return nil
-}
-
-func (a *auditService) LogUserAction(ctx context.Context, userID, action, resource string, metadata map[string]interface{}) error {
-	log.Printf("Audit: User %s performed %s on %s: %+v", userID, action, resource, metadata)
-	return nil
-}
-
-// Compile-time check to ensure auditService implements interfaces.AuditService
-var _ interfaces.AuditService = (*auditService)(nil)

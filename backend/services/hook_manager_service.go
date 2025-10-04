@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"bike-map-backend/events"
 	"bike-map-backend/entities"
 
 	"github.com/pocketbase/pocketbase/apis"
@@ -17,7 +16,6 @@ type HookManagerService struct {
 	engagementService *EngagementService
 	syncService       *SyncService
 	mvtService        *MVTService
-	eventDispatcher   *events.Dispatcher
 }
 
 // NewHookManagerService creates a new hook manager service
@@ -26,14 +24,12 @@ func NewHookManagerService(
 	engagementService *EngagementService,
 	syncService *SyncService,
 	mvtService *MVTService,
-	eventDispatcher *events.Dispatcher,
 ) *HookManagerService {
 	return &HookManagerService{
 		authService:       authService,
 		engagementService: engagementService,
 		syncService:       syncService,
 		mvtService:        mvtService,
-		eventDispatcher:   eventDispatcher,
 	}
 }
 
