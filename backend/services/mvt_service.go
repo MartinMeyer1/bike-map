@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -53,34 +54,43 @@ func (m *MVTService) Close() error {
 	return m.db.Close()
 }
 
-// InvalidateTilesForTrail invalidates cache entries for tiles that intersect with a trail's bounding box
-func (m *MVTService) InvalidateTilesForTrail(trailBBox entities.BoundingBox) {
-	m.InvalidateAllCache() //TODO only invalidate the trail's tiles
-	// 	m.cacheMutex.Lock()
-	// 	defer m.cacheMutex.Unlock()
+// InvalidateTilesForBBox invalidates cache entries for tiles that intersect with a trail's bounding box
+func (m *MVTService) InvalidateTilesForBBox(trailBBox entities.BoundingBox) {
 
-	// invalidatedCount := 0
+	cacheStats := m.GetCacheStats()
+	log.Println("Cache stats before invalidation:")
+	log.Println(cacheStats)
 
-	// // Find tiles that might intersect with the trail's bounding box
-	// // For efficiency, we invalidate tiles across multiple zoom levels
-	// for tileKey := range m.cache {
-	// 	// Parse tile coordinates from key "z-x-y"
-	// 	var z, x, y int
-	// 	if _, err := fmt.Sscanf(tileKey, "%d-%d-%d", &z, &x, &y); err != nil {
-	// 		continue
-	// 	}
+	m.cacheMutex.Lock()
+	defer m.cacheMutex.Unlock()
 
-	// 	// Calculate tile bounds and check if it intersects with trail bbox
-	// 	tileBounds := m.calculateTileBounds(z, x, y)
-	// 	if m.boundsIntersect(tileBounds, trailBBox) {
-	// 		delete(m.cache, tileKey)
-	// 		invalidatedCount++
-	// 	}
-	// }
+	invalidatedCount := 0
 
-	// if invalidatedCount > 0 {
-	// 	log.Printf("Invalidated %d cached tiles for trail update", invalidatedCount)
-	// }
+	// Define zoom level range for invalidation
+	// Cover all zoom levels that are commonly used for trail viewing
+	minZoom := 8  // Regional overview
+	maxZoom := 18 // Very detailed view
+
+	// Calculate and invalidate tiles for each zoom level
+	for zoom := minZoom; zoom <= maxZoom; zoom++ {
+		// Get tile coordinate ranges for this bounding box at current zoom level
+		minX, minY, maxX, maxY := m.boundingBoxToTileRange(trailBBox, zoom)
+
+		// Generate specific tile keys in the calculated range
+		for x := minX; x <= maxX; x++ {
+			for y := minY; y <= maxY; y++ {
+				tileKey := fmt.Sprintf("%d-%d-%d", zoom, x, y)
+				if _, exists := m.cache[tileKey]; exists {
+					delete(m.cache, tileKey)
+					invalidatedCount++
+				}
+			}
+		}
+	}
+
+	if invalidatedCount > 0 {
+		log.Printf("Invalidated %d cached tiles for bbox update (zoom %d-%d)", invalidatedCount, minZoom, maxZoom)
+	}
 }
 
 // InvalidateAllCache clears the entire cache (for major data changes)
@@ -91,14 +101,6 @@ func (m *MVTService) InvalidateAllCache() {
 	cacheSize := len(m.cache)
 	m.cache = make(map[string]*CacheEntry)
 	log.Printf("Invalidated entire MVT cache (%d tiles)", cacheSize)
-}
-
-// boundsIntersect checks if two bounding boxes intersect
-func (m *MVTService) boundsIntersect(tileBounds entities.TileBounds, trailBBox entities.BoundingBox) bool {
-	// Convert trail bbox (likely in lat/lon) to Web Mercator for comparison
-	// Simple intersection check: boxes intersect if they overlap in both X and Y
-	return tileBounds.XMax >= trailBBox.West && tileBounds.XMin <= trailBBox.East &&
-		tileBounds.YMax >= trailBBox.South && tileBounds.YMin <= trailBBox.North
 }
 
 // GenerateTrailsMVT generates MVT for trails with caching support
@@ -332,6 +334,65 @@ func (m *MVTService) calculateSimplificationTolerance(z int) float64 {
 	default:
 		return 0 // No simplification for detailed view
 	}
+}
+
+// latLngToTileCoords converts lat/lng coordinates to tile coordinates at given zoom level
+func (m *MVTService) latLngToTileCoords(lat, lng float64, zoom int) (int, int) {
+	// Clamp latitude to valid Web Mercator range
+	if lat > 85.0511 {
+		lat = 85.0511
+	}
+	if lat < -85.0511 {
+		lat = -85.0511
+	}
+
+	// Convert to radians
+	latRad := lat * math.Pi / 180.0
+	
+	// Calculate tile coordinates using standard Web Mercator formulas
+	n := math.Pow(2.0, float64(zoom))
+	x := int((lng + 180.0) / 360.0 * n)
+	y := int((1.0 - math.Asinh(math.Tan(latRad))/math.Pi) / 2.0 * n)
+	
+	// Clamp to valid tile ranges
+	if x < 0 {
+		x = 0
+	}
+	if x >= int(n) {
+		x = int(n) - 1
+	}
+	if y < 0 {
+		y = 0
+	}
+	if y >= int(n) {
+		y = int(n) - 1
+	}
+	
+	return x, y
+}
+
+// boundingBoxToTileRange calculates tile coordinate ranges for a bounding box at given zoom level
+func (m *MVTService) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int) (minX, minY, maxX, maxY int) {
+	// Validate bbox is not degenerate
+	if bbox.North <= bbox.South || bbox.East <= bbox.West {
+		// Return empty range that will be skipped in loops
+		return 0, 0, -1, -1
+	}
+	
+	// Convert bounding box corners to tile coordinates
+	// Note: North = max lat, South = min lat, East = max lng, West = min lng
+	minX, maxY = m.latLngToTileCoords(bbox.South, bbox.West, zoom) // Bottom-left corner
+	maxX, minY = m.latLngToTileCoords(bbox.North, bbox.East, zoom) // Top-right corner
+	
+	// Ensure proper ordering (min <= max) - should not be needed with valid bbox, but safety check
+	if minX > maxX {
+		minX, maxX = maxX, minX
+	}
+	if minY > maxY {
+		minY, maxY = maxY, minY
+	}
+	
+	return minX, minY, maxX, maxY
 }
 
 // GetTrailsMetadata returns trail metadata (for use with MVT geometry)
