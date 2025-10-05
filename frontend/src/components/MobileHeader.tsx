@@ -46,8 +46,11 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
     <>
       {/* Header Bar */}
       <div className={styles.header}>
-        <h1 className={styles.title}>🤘 BikeMap</h1>
-        <button 
+        <h1 className={styles.title}>
+          <img src="/rock.svg" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
+          BikeMap
+        </h1>
+        <button
           className={styles.menuButton}
           onClick={handleMenuToggle}
           aria-label="Open menu"
@@ -65,8 +68,11 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           <div className={styles.menuDrawer}>
             {/* Menu Header */}
             <div className={styles.menuHeader}>
-              <h2 className={styles.menuTitle}>🤘 BikeMap</h2>
-              <button 
+              <h2 className={styles.menuTitle}>
+                <img src="/rock.svg" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
+                BikeMap
+              </h2>
+              <button
                 className={styles.closeButton}
                 onClick={handleCloseMenu}
                 aria-label="Close menu"

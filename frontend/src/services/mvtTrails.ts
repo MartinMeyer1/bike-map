@@ -155,24 +155,22 @@ export class MVTTrailService {
       return;
     }
 
-    // Create start marker (🤘)
+    // Create start marker (rock hand)
     const startMarker = (L as any).marker([trail.startPoint.lat, trail.startPoint.lng], {
       title: `${trail.name} - Start`,
-      icon: (L as any).divIcon({
-        html: '<div style="font-size: 24px;">🤘</div>',
-        className: 'emoji-marker',
+      icon: (L as any).icon({
+        iconUrl: '/rock.png',
         iconSize: [30, 30],
         iconAnchor: [15, 15],
         popupAnchor: [0, -15]
       })
     }).addTo(this.map);
 
-    // Create end marker (🍺)
+    // Create end marker (beer)
     const endMarker = (L as any).marker([trail.endPoint.lat, trail.endPoint.lng], {
       title: `${trail.name} - End`,
-      icon: (L as any).divIcon({
-        html: '<div style="font-size: 24px;">🍺</div>',
-        className: 'emoji-marker',
+      icon: (L as any).icon({
+        iconUrl: '/beer.png',
         iconSize: [30, 30],
         iconAnchor: [15, 15],
         popupAnchor: [0, -15]

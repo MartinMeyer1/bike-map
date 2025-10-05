@@ -8,10 +8,15 @@ interface InfoModalProps {
 
 export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose} 
-      title="🤘 About BikeMap" 
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <>
+          <img src="/rock.svg" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
+          About BikeMap
+        </>
+      }
       showCloseButton={false}
       centerTitle={true}
     >
