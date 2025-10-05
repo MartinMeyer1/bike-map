@@ -1,4 +1,4 @@
-# 🤘 BikeMap
+# BikeMap
 
 A web application for sharing MTB trails among friends. Built with React, PocketBase, PostGIS, and BRouter.
 
@@ -22,7 +22,8 @@ Check it out on [bike-map.ch](https://bike-map.ch).
 - Real-time route drawing with BRouter pathfinding
 - GPS location tracking with compass-based direction indicator
 - Mobile-responsive interface with touch-optimized controls
-- Enhanced trail selection via clickable markers
+- Zoom-responsive trail markers (start/end points scale with zoom level)
+- Trail sharing with URL parameters and social media previews
 - Elevation profiles and distance tracking
 - GPX export functionality
 - Difficulty-based color coding with dynamic styling
@@ -40,6 +41,7 @@ Check it out on [bike-map.ch](https://bike-map.ch).
 - **Event-Driven Sync**: Automatic PostGIS updates via domain events with detailed audit trails
 - **Engagement System**: Ratings, comments, and statistics with real-time updates
 - **Vector Tiles**: MVT generation with engagement data and smart cache invalidation
+- **Social Sharing**: Dynamic Open Graph meta tags for trail sharing
 - **Repository Pattern**: Clean data access abstraction with PocketBase implementations
 
 ### **Routing Engine (BRouter)**
@@ -53,6 +55,8 @@ Check it out on [bike-map.ch](https://bike-map.ch).
 - Trail selection highlighting using filtered MVT layers
 - Mobile-first responsive design with touch interaction optimization
 - Device API integration for location and orientation services
+- Web Share API with clipboard fallback for trail sharing
+- Zoom-responsive marker system for optimal viewing at all zoom levels
 - Component library with CSS modules
 - Custom hooks for business logic separation
 

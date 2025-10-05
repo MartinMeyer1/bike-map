@@ -51,7 +51,8 @@ backend/
 │   └── mvt_service.go              # Vector tile generation
 ├── apiHandlers/                     # HTTP request handlers
 │   ├── auth_handler.go             # Authentication endpoints
-│   └── mvt_handler.go              # MVT endpoints
+│   ├── mvt_handler.go              # MVT endpoints
+│   └── meta_handler.go             # Social media sharing meta tags
 ├── pb_data/                         # PocketBase data directory
 └── README.md                        # This file
 ```
@@ -63,15 +64,10 @@ backend/
 - **User Authentication**: Google OAuth2 integration with role-based access control
 - **Ratings & Comments**: Full engagement system with real-time statistics
 - **Vector Tiles**: High-performance MVT (Mapbox Vector Tiles) generation using PostGIS
+- **Social Sharing**: Dynamic Open Graph meta tags for trail sharing on social media
 - **Event-Driven Sync**: Automatic PostGIS synchronization via domain events
 - **Cache Invalidation**: Smart cache invalidation for real-time updates
 - **Spatial Processing**: GPX file parsing with elevation profile calculation
-
-### Domain-Driven Architecture
-- **Domain Entities**: Rich business models with validation and behavior
-- **Repository Pattern**: Clean data access abstraction layer
-- **Event System**: Decoupled components with async event handling
-- **Service Layer**: Business logic orchestration with dependency injection
 
 ## Technology Stack
 
@@ -176,6 +172,9 @@ The server will start on port 8090 and automatically:
 
 ### Vector Tiles
 - `GET /api/tiles/{z}/{x}/{y}.mvt` - Standard MVT endpoint for trail data with engagement stats
+
+### Social Sharing
+- `GET /share/{trailId}` - Trail sharing page with Open Graph meta tags (auto-redirects to frontend)
 
 ### PocketBase Collections (Auto-generated REST API)
 - `GET /api/collections/trails/records` - Trail CRUD operations
