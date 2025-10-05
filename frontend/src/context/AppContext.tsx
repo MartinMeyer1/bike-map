@@ -233,6 +233,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Load trail from URL parameter on mount
+  useEffect(() => {
+    const loadTrailFromUrl = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const trailId = urlParams.get('trail');
+
+      if (trailId && state.visibleTrails.length > 0) {
+        // Find the trail in visible trails
+        const trail = state.visibleTrails.find(t => t.id === trailId);
+
+        if (trail) {
+          // Trail is already loaded in visible trails
+          dispatch({ type: 'SET_SELECTED_TRAIL', payload: trail });
+        } else {
+          // Trail not in visible trails yet - try to fetch it from API
+          try {
+            const fullTrail = await PocketBaseService.getTrail(trailId);
+            // Convert Trail to MVTTrail for compatibility
+            const mvtTrail: MVTTrail = {
+              id: fullTrail.id,
+              name: fullTrail.name,
+              description: fullTrail.description,
+              level: fullTrail.level,
+              tags: fullTrail.tags,
+              owner: fullTrail.owner as string,
+              created: fullTrail.created,
+              updated: fullTrail.updated,
+              bounds: { north: 0, south: 0, east: 0, west: 0 }, // Will be loaded from MVT
+              elevation: { gain: 0, loss: 0, min: 0, max: 0, start: 0, end: 0 },
+              distance: 0,
+              startPoint: { lat: 0, lng: 0 },
+              endPoint: { lat: 0, lng: 0 },
+              rating_average: 0,
+              rating_count: 0,
+              comment_count: 0,
+            };
+            dispatch({ type: 'SET_SELECTED_TRAIL', payload: mvtTrail });
+          } catch (error) {
+            console.error('Failed to load trail from URL:', error);
+            // Clear invalid trail ID from URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete('trail');
+            window.history.replaceState({}, '', url.toString());
+          }
+        }
+      }
+    };
+
+    loadTrailFromUrl();
+  }, [state.visibleTrails]);
+
   // Auth methods
   const login = useCallback(async () => {
     try {
@@ -269,6 +320,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const selectTrail = useCallback((trail: MVTTrail | null) => {
     dispatch({ type: 'SET_SELECTED_TRAIL', payload: trail });
+
+    // Update URL with trail parameter
+    if (trail) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('trail', trail.id);
+      window.history.pushState({}, '', url.toString());
+    } else {
+      // Remove trail parameter when deselecting
+      const url = new URL(window.location.href);
+      url.searchParams.delete('trail');
+      window.history.pushState({}, '', url.toString());
+    }
   }, []);
 
   const handleTrailCreated = useCallback((_newTrail: Trail) => {

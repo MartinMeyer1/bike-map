@@ -4,6 +4,7 @@ import { PocketBaseService } from '../services/pocketbase';
 import { useTrailDetails } from '../hooks';
 import { Button, Badge } from './ui';
 import { RatingsCommentsModal } from './RatingsCommentsModal';
+import { shareTrail, ShareResult } from '../utils/shareUtils';
 import styles from './MobileTrailPopup.module.css';
 
 interface MobileTrailPopupProps {
@@ -11,20 +12,22 @@ interface MobileTrailPopupProps {
   user: User | null;
   onClose: () => void;
   onEditTrailClick: (trail: MVTTrail) => void;
+  onShowToast?: (message: string, variant: 'success' | 'error') => void;
 }
 
 export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
   trail,
   user,
   onClose,
-  onEditTrailClick
+  onEditTrailClick,
+  onShowToast
 }) => {
   const [showRatingsComments, setShowRatingsComments] = useState<MVTTrail | null>(null);
 
   // Fetch detailed trail information
   const { trail: detailedTrail, loading: trailLoading, error: trailError } = useTrailDetails(trail?.id || null);
-  
-  // Extract owner info - handle both string ID and User object  
+
+  // Extract owner info - handle both string ID and User object
   const ownerInfo = detailedTrail?.owner && typeof detailedTrail.owner === 'object' ? detailedTrail.owner as User : null;
 
   const handleDownloadGPX = useCallback((downloadTrail: Trail) => {
@@ -54,6 +57,28 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
   const handleCloseRatingsComments = useCallback(() => {
     setShowRatingsComments(null);
   }, []);
+
+  const handleShare = useCallback(async () => {
+    if (!trail) return;
+
+    try {
+      const result: ShareResult = await shareTrail(trail);
+
+      // Only show toast for clipboard success or failure
+      // Web Share API provides its own feedback, so we don't need a toast
+      if (result === 'clipboard' && onShowToast) {
+        onShowToast('Link copied to clipboard!', 'success');
+      } else if (result === 'failed' && onShowToast) {
+        onShowToast('Failed to share trail', 'error');
+      }
+      // For 'web-share' and 'cancelled', no toast is shown
+    } catch (error) {
+      console.error('Share error:', error);
+      if (onShowToast) {
+        onShowToast('Failed to share trail', 'error');
+      }
+    }
+  }, [trail, onShowToast]);
 
   if (!trail) return null;
 
@@ -171,7 +196,7 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
         </div>
 
         {/* Action buttons */}
-        <div className={`${styles.actions} ${canEdit ? styles.twoColumns : styles.oneColumn}`}>
+        <div className={styles.actions}>
           <Button
             variant="success"
             size="medium"
@@ -180,7 +205,15 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
           >
             📥 GPX
           </Button>
-          
+
+          <Button
+            variant="primary"
+            size="medium"
+            onClick={handleShare}
+          >
+            🔗 Share
+          </Button>
+
           {canEdit && (
             <Button
               variant="warning"
@@ -191,7 +224,6 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
             </Button>
           )}
         </div>
-      
 
         {/* Ratings and Comments Modal */}
         <RatingsCommentsModal

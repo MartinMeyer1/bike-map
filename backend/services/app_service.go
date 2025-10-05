@@ -33,6 +33,7 @@ type AppService struct {
 	// Handlers
 	mvtHandler  *apiHandlers.MVTHandler
 	authHandler *apiHandlers.AuthHandler
+	metaHandler *apiHandlers.MetaHandler
 
 	// Domain Components
 	trailRepo       interfaces.TrailRepository
@@ -115,6 +116,11 @@ func (a *AppService) initializeHandlers() error {
 	return nil
 }
 
+// InitializeMetaHandler initializes the meta handler after PocketBase app is available
+func (a *AppService) InitializeMetaHandler(app core.App) {
+	a.metaHandler = apiHandlers.NewMetaHandler(app)
+}
+
 // InitializeForPocketBase completes initialization once PocketBase app is available
 func (a *AppService) InitializeForPocketBase(app core.App) error {
 	// Initialize repositories with PocketBase app
@@ -193,6 +199,14 @@ func (a *AppService) SetupHooks(app core.App) {
 
 // SetupRoutes configures all HTTP routes
 func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
+	// Initialize meta handler (needs app context)
+	a.InitializeMetaHandler(app)
+
+	// Setup share route for social media meta tags (must be before MVT routes)
+	if a.metaHandler != nil {
+		e.Router.GET("/share/{trailId}", a.metaHandler.HandleTrailShare)
+	}
+
 	if a.mvtHandler != nil {
 		a.mvtHandler.SetupRoutes(e)
 	}

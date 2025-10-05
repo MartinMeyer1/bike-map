@@ -7,6 +7,7 @@ import { MobileTrailPopup } from './components/MobileTrailPopup';
 import { MobileHeader } from './components/MobileHeader';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Toast } from './components/ui';
 import { AppProvider } from './context/AppContext';
 import { useAppContext } from './hooks/useAppContext';
 import { useIsMobile } from './hooks/useMediaQuery';
@@ -22,6 +23,11 @@ const AppContent: React.FC = () => {
   const [hasRequestedOrientation, setHasRequestedOrientation] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
+
+  // Toast state
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');
+  const [showToast, setShowToast] = useState(false);
   
   // Location services for all devices
   const {
@@ -137,6 +143,14 @@ const AppContent: React.FC = () => {
     showEditPanel(trailToEdit!);
   };
 
+  // Sync selectedTrail to mobileSelectedTrail when trail is loaded from URL
+  React.useEffect(() => {
+    if (isMobile && selectedTrail && !mobileSelectedTrail) {
+      // Trail was selected (likely from URL) but mobile popup isn't showing
+      setMobileSelectedTrail(selectedTrail);
+    }
+  }, [isMobile, selectedTrail, mobileSelectedTrail]);
+
   // Handle map movement end
   const handleMapMoveEnd = React.useCallback(() => {
     incrementMapMoveTrigger();
@@ -158,6 +172,13 @@ const AppContent: React.FC = () => {
     setMobileSelectedTrail(null);
     selectTrail(null);
   }, [selectTrail]);
+
+  // Toast handler
+  const handleShowToast = useCallback((message: string, variant: 'success' | 'error') => {
+    setToastMessage(message);
+    setToastVariant(variant);
+    setShowToast(true);
+  }, []);
 
   const handleLocationRequest = useCallback(async () => {
     setIsLocationLoading(true);
@@ -308,8 +329,17 @@ const AppContent: React.FC = () => {
             showEditPanel(trail);
             handleCloseMobilePopup();
           }}
+          onShowToast={handleShowToast}
         />
       )}
+
+      {/* Toast notification */}
+      <Toast
+        message={toastMessage}
+        variant={toastVariant}
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
 
       {/* Location controls - available on all devices */}
       {!isDrawingActive && (
