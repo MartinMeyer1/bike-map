@@ -2,7 +2,10 @@ package services
 
 import (
 	"context"
+	"encoding/xml"
+	"fmt"
 	"log"
+	"strings"
 
 	"bike-map-backend/entities"
 
@@ -38,6 +41,7 @@ func (h *HookManagerService) SetupAllHooks(app core.App) {
 	h.setupUserHooks(app)
 	h.setupTrailHooks(app)
 	h.setupEngagementHooks(app)
+	h.setupFileDownloadHooks(app)
 }
 
 // setupUserHooks configures user-related hooks
@@ -387,4 +391,85 @@ func (h *HookManagerService) SetGPXService(gpxService interface {
 }) {
 	// This would allow more targeted cache invalidation
 	// For now, we'll keep it simple with full cache invalidation
+}
+
+// setupFileDownloadHooks configures file download hooks
+func (h *HookManagerService) setupFileDownloadHooks(app core.App) {
+	app.OnFileDownloadRequest().BindFunc(func(e *core.FileDownloadRequestEvent) error {
+		// Only process GPX files from trails collection
+		if e.Collection.Name != "trails" {
+			return e.Next()
+		}
+
+		// Get trail name for the filename
+		trailName := e.Record.GetString("name")
+		if trailName == "" {
+			trailName = "trail"
+		}
+
+		// Sanitize filename (replace invalid characters)
+		sanitizedName := sanitizeFilename(trailName)
+
+		// Read the original GPX file
+		fsys, err := app.NewFilesystem()
+		if err != nil {
+			log.Printf("Failed to create filesystem: %v", err)
+			return e.Next()
+		}
+		defer fsys.Close()
+
+		// Read file content
+		fileReader, err := fsys.GetReader(e.ServedPath)
+		if err != nil {
+			log.Printf("Failed to read GPX file: %v", err)
+			return e.Next()
+		}
+		defer fileReader.Close()
+
+		// Parse GPX
+		var gpx entities.GPX
+		if err := xml.NewDecoder(fileReader).Decode(&gpx); err != nil {
+			log.Printf("Failed to parse GPX file: %v", err)
+			return e.Next()
+		}
+
+		// Update GPX metadata with trail name
+		for i := range gpx.Tracks {
+			gpx.Tracks[i].Name = trailName
+		}
+
+		// Marshal back to XML
+		xmlData, err := xml.MarshalIndent(gpx, "", " ")
+		if err != nil {
+			log.Printf("Failed to marshal GPX: %v", err)
+			return e.Next()
+		}
+
+		// Add XML header
+		xmlContent := []byte(xml.Header + string(xmlData))
+
+		// Set custom filename in Content-Disposition header
+		filename := sanitizedName + ".gpx"
+		e.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+		e.Response.Header().Set("Content-Type", "application/gpx+xml")
+
+		// Write modified content
+		e.Response.WriteHeader(200)
+		if _, err := e.Response.Write(xmlContent); err != nil {
+			log.Printf("Failed to write GPX response: %v", err)
+		}
+
+		return nil
+	})
+}
+
+// sanitizeFilename removes or replaces invalid characters from filenames
+func sanitizeFilename(name string) string {
+	// Replace invalid filename characters with underscores
+	invalid := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	sanitized := name
+	for _, char := range invalid {
+		sanitized = strings.ReplaceAll(sanitized, char, "_")
+	}
+	return sanitized
 }
