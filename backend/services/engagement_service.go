@@ -6,8 +6,6 @@ import (
 	"log"
 
 	"bike-map-backend/entities"
-	"bike-map-backend/events"
-	"bike-map-backend/events/types"
 	"bike-map-backend/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -19,7 +17,6 @@ type EngagementService struct {
 	trailRepo       interfaces.TrailRepository
 	userRepo        interfaces.UserRepository
 	validator       *entities.ValidatorSuite
-	eventDispatcher *events.Dispatcher
 }
 
 // NewEngagementService creates a new engagement service
@@ -28,14 +25,12 @@ func NewEngagementService(
 	trailRepo interfaces.TrailRepository,
 	userRepo interfaces.UserRepository,
 	validator *entities.ValidatorSuite,
-	eventDispatcher *events.Dispatcher,
 ) *EngagementService {
 	return &EngagementService{
 		engagementRepo:  engagementRepo,
 		trailRepo:       trailRepo,
 		userRepo:        userRepo,
 		validator:       validator,
-		eventDispatcher: eventDispatcher,
 	}
 }
 
@@ -82,12 +77,6 @@ func (s *EngagementService) CreateRating(ctx context.Context, trailID, userID st
 		return nil, fmt.Errorf("failed to create rating: %w", err)
 	}
 
-	// Publish event
-	event := types.NewRatingCreated(rating)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish rating created event: %v", err)
-	}
-
 	log.Printf("Created rating: %s for trail %s by user %s", rating.ID, trailID, userID)
 	return rating, nil
 }
@@ -116,8 +105,6 @@ func (s *EngagementService) UpdateRating(ctx context.Context, ratingID string, u
 		}
 	}
 
-	// Create updated copy
-	previous := *existing
 	existing.UpdateRating(newRatingValue)
 
 	// Validate updated entity
@@ -128,12 +115,6 @@ func (s *EngagementService) UpdateRating(ctx context.Context, ratingID string, u
 	// Save to repository
 	if err := s.engagementRepo.Ratings().Update(ctx, existing); err != nil {
 		return nil, fmt.Errorf("failed to update rating: %w", err)
-	}
-
-	// Publish event
-	event := types.NewRatingUpdated(existing, &previous)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish rating updated event: %v", err)
 	}
 
 	log.Printf("Updated rating: %s", ratingID)
@@ -162,12 +143,6 @@ func (s *EngagementService) DeleteRating(ctx context.Context, ratingID, userID s
 	// Delete from repository
 	if err := s.engagementRepo.Ratings().Delete(ctx, ratingID); err != nil {
 		return fmt.Errorf("failed to delete rating: %w", err)
-	}
-
-	// Publish event
-	event := types.NewRatingDeleted(ratingID, existing.TrailID, existing.UserID)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish rating deleted event: %v", err)
 	}
 
 	log.Printf("Deleted rating: %s", ratingID)
@@ -225,12 +200,6 @@ func (s *EngagementService) CreateComment(ctx context.Context, trailID, userID, 
 		return nil, fmt.Errorf("failed to create comment: %w", err)
 	}
 
-	// Publish event
-	event := types.NewCommentCreated(comment)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish comment created event: %v", err)
-	}
-
 	log.Printf("Created comment: %s for trail %s by user %s", comment.ID, trailID, userID)
 	return comment, nil
 }
@@ -258,8 +227,6 @@ func (s *EngagementService) UpdateComment(ctx context.Context, commentID, userID
 		return nil, fmt.Errorf("access denied: cannot edit comment")
 	}
 
-	// Create updated copy
-	previous := *existing
 	existing.UpdateContent(newContent)
 
 	// Validate updated entity
@@ -270,12 +237,6 @@ func (s *EngagementService) UpdateComment(ctx context.Context, commentID, userID
 	// Save to repository
 	if err := s.engagementRepo.Comments().Update(ctx, existing); err != nil {
 		return nil, fmt.Errorf("failed to update comment: %w", err)
-	}
-
-	// Publish event
-	event := types.NewCommentUpdated(existing, &previous)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish comment updated event: %v", err)
 	}
 
 	log.Printf("Updated comment: %s", commentID)
@@ -303,12 +264,6 @@ func (s *EngagementService) DeleteComment(ctx context.Context, commentID, userID
 	// Delete from repository
 	if err := s.engagementRepo.Comments().Delete(ctx, commentID); err != nil {
 		return fmt.Errorf("failed to delete comment: %w", err)
-	}
-
-	// Publish event
-	event := types.NewCommentDeleted(commentID, existing.TrailID, existing.UserID)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish comment deleted event: %v", err)
 	}
 
 	log.Printf("Deleted comment: %s", commentID)
@@ -382,18 +337,6 @@ func (s *EngagementService) UpdateRatingAverage(app core.App, trailId string) er
 		if err := s.engagementRepo.RatingAverages().Create(ctx, ratingAverage); err != nil {
 			return fmt.Errorf("failed to create rating average: %w", err)
 		}
-	}
-
-	// Publish stats updated event
-	stats := &entities.EngagementStats{
-		TrailID:     trailId,
-		RatingCount: ratingCount,
-		RatingAvg:   ratingAvg,
-	}
-
-	event := types.NewEngagementStatsUpdated(stats)
-	if err := s.eventDispatcher.Publish(ctx, event); err != nil {
-		log.Printf("Failed to publish engagement stats updated event: %v", err)
 	}
 
 	return nil

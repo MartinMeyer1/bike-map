@@ -8,7 +8,6 @@ import (
 	"log"
 
 	"bike-map-backend/entities"
-	"bike-map-backend/events"
 	"bike-map-backend/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -18,7 +17,6 @@ import (
 type SyncService struct {
 	trailRepo       interfaces.TrailRepository
 	engagementRepo  interfaces.EngagementRepository
-	eventDispatcher *events.Dispatcher
 	postgisDB       *sql.DB
 	gpxService      *GPXService // For GPX processing and geometry extraction
 }
@@ -27,14 +25,12 @@ type SyncService struct {
 func NewSyncService(
 	trailRepo interfaces.TrailRepository,
 	engagementRepo interfaces.EngagementRepository,
-	eventDispatcher *events.Dispatcher,
 	postgisDB *sql.DB,
 	gpxService *GPXService,
 ) *SyncService {
 	return &SyncService{
 		trailRepo:       trailRepo,
 		engagementRepo:  engagementRepo,
-		eventDispatcher: eventDispatcher,
 		postgisDB:       postgisDB,
 		gpxService:      gpxService,
 	}

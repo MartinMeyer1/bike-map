@@ -90,6 +90,43 @@ export class MVTTrailService {
     this.cacheVersion = `v${Date.now()}`;
   }
 
+  // Calculate marker size and visibility based on zoom level
+  private getMarkerSizeForZoom(zoom: number): { iconSize: [number, number]; iconAnchor: [number, number]; opacity: number } | null {
+    if (zoom <= 10) {
+      // Small markers
+      const size = 15;
+      return {
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        opacity: 1
+      };
+    } else if (zoom <= 12) {
+      // Medium markers
+      const size = 22;
+      return {
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        opacity: 1
+      };
+    } else if (zoom <= 14) {
+      // Normal markers
+      const size = 30;
+      return {
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        opacity: 1
+      };
+    } else {
+      // Large markers (zoom 17-18)
+      const size = 38;
+      return {
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        opacity: 1
+      };
+    }
+  }
+
   createMVTLayer(): any {
     // Add cache version to all tile requests
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt?cache=${this.cacheVersion}`;
@@ -155,28 +192,37 @@ export class MVTTrailService {
       return;
     }
 
-    // Create start marker (🤘)
+    // Get current zoom level and marker sizing
+    const zoom = this.map.getZoom();
+    const markerConfig = this.getMarkerSizeForZoom(zoom);
+
+    // If markers should be hidden at this zoom level, don't create them
+    if (!markerConfig) {
+      return;
+    }
+
+    // Create start marker (rock hand)
     const startMarker = (L as any).marker([trail.startPoint.lat, trail.startPoint.lng], {
       title: `${trail.name} - Start`,
-      icon: (L as any).divIcon({
-        html: '<div style="font-size: 24px;">🤘</div>',
-        className: 'emoji-marker',
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-        popupAnchor: [0, -15]
-      })
+      icon: (L as any).icon({
+        iconUrl: '/rock.png',
+        iconSize: markerConfig.iconSize,
+        iconAnchor: markerConfig.iconAnchor,
+        popupAnchor: [0, -markerConfig.iconAnchor[1]]
+      }),
+      opacity: markerConfig.opacity
     }).addTo(this.map);
 
-    // Create end marker (🍺)
+    // Create end marker (beer)
     const endMarker = (L as any).marker([trail.endPoint.lat, trail.endPoint.lng], {
       title: `${trail.name} - End`,
-      icon: (L as any).divIcon({
-        html: '<div style="font-size: 24px;">🍺</div>',
-        className: 'emoji-marker',
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-        popupAnchor: [0, -15]
-      })
+      icon: (L as any).icon({
+        iconUrl: '/beer.png',
+        iconSize: markerConfig.iconSize,
+        iconAnchor: markerConfig.iconAnchor,
+        popupAnchor: [0, -markerConfig.iconAnchor[1]]
+      }),
+      opacity: markerConfig.opacity
     }).addTo(this.map);
 
     // Add click handlers to markers for trail selection
@@ -372,13 +418,61 @@ export class MVTTrailService {
     return this.getTrailsInBounds(currentBounds);
   }
 
+  // Update marker sizes based on current zoom level
+  private updateMarkerSizes(): void {
+    const zoom = this.map.getZoom();
+    const markerConfig = this.getMarkerSizeForZoom(zoom);
+
+    // Iterate through all markers and update their sizes
+    this.trailMarkers.forEach((markers) => {
+      if (!markerConfig) {
+        // Hide markers if zoom is too far out
+        if (this.map.hasLayer(markers.start)) {
+          this.map.removeLayer(markers.start);
+        }
+        if (this.map.hasLayer(markers.end)) {
+          this.map.removeLayer(markers.end);
+        }
+      } else {
+        // Update icon sizes for existing markers
+        const startIcon = (L as any).icon({
+          iconUrl: '/rock.png',
+          iconSize: markerConfig.iconSize,
+          iconAnchor: markerConfig.iconAnchor,
+          popupAnchor: [0, -markerConfig.iconAnchor[1]]
+        });
+
+        const endIcon = (L as any).icon({
+          iconUrl: '/beer.png',
+          iconSize: markerConfig.iconSize,
+          iconAnchor: markerConfig.iconAnchor,
+          popupAnchor: [0, -markerConfig.iconAnchor[1]]
+        });
+
+        markers.start.setIcon(startIcon);
+        markers.start.setOpacity(markerConfig.opacity);
+
+        markers.end.setIcon(endIcon);
+        markers.end.setOpacity(markerConfig.opacity);
+
+        // Re-add markers if they were previously removed
+        if (!this.map.hasLayer(markers.start)) {
+          markers.start.addTo(this.map);
+        }
+        if (!this.map.hasLayer(markers.end)) {
+          markers.end.addTo(this.map);
+        }
+      }
+    });
+  }
+
   // Debounced version of updateVisibleMarkers
   private debouncedUpdateVisibleMarkers(): void {
     // Clear existing timeout
     if (this.updateMarkersTimeout) {
       clearTimeout(this.updateMarkersTimeout);
     }
-    
+
     // Set new timeout (300ms debounce)
     this.updateMarkersTimeout = window.setTimeout(() => {
       this.updateVisibleMarkers();
@@ -392,13 +486,16 @@ export class MVTTrailService {
 
     // Get current visible trails
     const visibleTrails = this.getVisibleTrails();
-    
+
     // Add missing markers for visible trails
     visibleTrails.forEach(trail => {
       if (!this.trailMarkers.has(trail.id)) {
         this.createTrailMarkers(trail);
       }
     });
+
+    // Update marker sizes based on current zoom level
+    this.updateMarkerSizes();
 
     // Notify about current visible trails
     this.events.onTrailsLoaded?.(visibleTrails);

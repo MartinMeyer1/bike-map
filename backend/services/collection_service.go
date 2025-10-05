@@ -278,6 +278,7 @@ func (c *CollectionService) EnsureTrailRatingsCollection(app core.App) error {
 		CollectionId: trailsCollection.Id,
 		MaxSelect:    1,
 		Required:     true,
+		CascadeDelete: true,
 	})
 
 	// Reference to user who created the rating
@@ -354,6 +355,7 @@ func (c *CollectionService) EnsureTrailCommentsCollection(app core.App) error {
 		CollectionId: trailsCollection.Id,
 		MaxSelect:    1,
 		Required:     true,
+		CascadeDelete: true,
 	})
 
 	// Reference to user who created the comment

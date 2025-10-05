@@ -115,7 +115,7 @@ func (h *MVTHandler) parseCoordinates(parts []string) (z, x, y int, err error) {
 
 // validateTileCoordinates validates tile coordinates
 func (h *MVTHandler) validateTileCoordinates(z, x, y int) error {
-	if z < 0 || z > 18 || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
+	if z < h.mvtService.GetMinZoom() || z > h.mvtService.GetMaxZoom() || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
 		return fmt.Errorf("invalid tile coordinates")
 	}
 	return nil
