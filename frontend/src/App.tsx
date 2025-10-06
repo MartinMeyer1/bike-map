@@ -52,20 +52,21 @@ const AppContent: React.FC = () => {
     // Auth state
     user,
     isAuthLoading,
-    
+
     // Trail state
     visibleTrails,
     selectedTrail,
-    
+    fitBoundsTarget,
+
     // UI state
     isUploadPanelVisible,
     isEditPanelVisible,
     trailToEdit,
-    
+
     // Drawing state
     isDrawingActive,
     drawingMode,
-    
+
     // General state
     error,
     mapMoveEndTrigger,
@@ -289,13 +290,14 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Main map */}
-      <Map 
+      <Map
         selectedTrail={selectedTrail}
         onBoundsChange={updateVisibleTrails}
         onTrailClick={isMobile ? handleMobileTrailClick : selectTrail}
         onTrailsLoaded={updateVisibleTrailsFromMVT}
         onMapMoveEnd={handleMapMoveEnd}
         refreshTrigger={mvtRefreshTrigger}
+        fitBoundsTarget={fitBoundsTarget}
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}

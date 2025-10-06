@@ -22,9 +22,17 @@ export function getTrailShareUrl(trailId: string): string {
 /**
  * Generate the share endpoint URL for social media preview
  */
-export function getTrailMetaUrl(trailId: string): string {
+export function getTrailMetaUrl(trailId: string, bounds?: { north: number; south: number; east: number; west: number }): string {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
-  return `${apiBaseUrl}/api/meta/${trailId}`;
+  let url = `${apiBaseUrl}/api/meta/${trailId}`;
+
+  // Add bbox parameter if bounds are provided
+  if (bounds) {
+    const bbox = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
+    url += `?bbox=${bbox}`;
+  }
+
+  return url;
 }
 
 /**
@@ -37,7 +45,9 @@ export type ShareResult = 'web-share' | 'clipboard' | 'cancelled' | 'failed';
  * Returns the method used for sharing
  */
 export async function shareTrail(trail: MVTTrail | Trail): Promise<ShareResult> {
-  const shareUrl = getTrailMetaUrl(trail.id); // Use meta URL for better social previews
+  // Pass bounds if available (MVTTrail has bounds, Trail doesn't)
+  const bounds = 'bounds' in trail ? trail.bounds : undefined;
+  const shareUrl = getTrailMetaUrl(trail.id, bounds); // Use meta URL for better social previews
 
   // Prepare share data
   const shareData: ShareData = {

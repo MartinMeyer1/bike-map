@@ -45,6 +45,9 @@ func (h *MetaHandler) HandleTrailShare(re *core.RequestEvent) error {
 		return re.String(http.StatusBadRequest, "Trail ID is required")
 	}
 
+	// Get bbox from query parameters if provided
+	bbox := re.Request.URL.Query().Get("bbox")
+
 	// Fetch trail from PocketBase
 	trail, err := h.app.FindRecordById("trails", trailID)
 	if err != nil {
@@ -84,6 +87,11 @@ func (h *MetaHandler) HandleTrailShare(re *core.RequestEvent) error {
 
 	// Build the share URL (will redirect to frontend with trail parameter)
 	shareURL := fmt.Sprintf("%s?trail=%s", h.frontendURL, html.EscapeString(trailID))
+
+	// Add bbox to share URL if provided
+	if bbox != "" {
+		shareURL = fmt.Sprintf("%s&bbox=%s", shareURL, html.EscapeString(bbox))
+	}
 
 	ogImage := fmt.Sprintf("%s/rock.png", h.frontendURL)
 
