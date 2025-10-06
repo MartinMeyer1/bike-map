@@ -132,7 +132,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       <div className={styles.header}>
         <div className={styles.titleRow}>
           <h2 className={styles.title}>
-            <img src="/rock.svg" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
+            <img src="/rock.png" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
             BikeMap
           </h2>
           {user && (user.role === 'Editor' || user.role === 'Admin') && (

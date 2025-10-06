@@ -13,7 +13,7 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
       onClose={onClose}
       title={
         <>
-          <img src="/rock.svg" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
+          <img src="/rock.png" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
           About BikeMap
         </>
       }
