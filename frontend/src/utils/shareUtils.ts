@@ -24,7 +24,7 @@ export function getTrailShareUrl(trailId: string): string {
  */
 export function getTrailMetaUrl(trailId: string): string {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090';
-  return `${apiBaseUrl}/share/${trailId}`;
+  return `${apiBaseUrl}/api/meta/${trailId}`;
 }
 
 /**

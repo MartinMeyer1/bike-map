@@ -60,9 +60,7 @@ func NewAppService(cfg *config.Config) (*AppService, error) {
 		return nil, err
 	}
 
-	if err := app.initializeHandlers(); err != nil {
-		return nil, err
-	}
+	// Note: initializeHandlers is called later in InitializeForPocketBase once app is available
 
 	return app, nil
 }
@@ -104,7 +102,7 @@ func (a *AppService) initializeServices() error {
 }
 
 // initializeHandlers creates HTTP handlers
-func (a *AppService) initializeHandlers() error {
+func (a *AppService) initializeHandlers(app core.App) error {
 	// Initialize MVT handler
 	if a.mvtService != nil {
 		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService)
@@ -113,16 +111,19 @@ func (a *AppService) initializeHandlers() error {
 	// Initialize auth handler
 	a.authHandler = apiHandlers.NewAuthHandler(a.authService)
 
-	return nil
-}
-
-// InitializeMetaHandler initializes the meta handler after PocketBase app is available
-func (a *AppService) InitializeMetaHandler(app core.App) {
+	// Initialize meta handler
 	a.metaHandler = apiHandlers.NewMetaHandler(app)
+
+	return nil
 }
 
 // InitializeForPocketBase completes initialization once PocketBase app is available
 func (a *AppService) InitializeForPocketBase(app core.App) error {
+	// Initialize handlers now that app is available
+	if err := a.initializeHandlers(app); err != nil {
+		return err
+	}
+
 	// Initialize repositories with PocketBase app
 	a.trailRepo = repos.NewPocketBaseTrailRepository(app)
 	a.engagementRepo = repos.NewPocketBaseEngagementRepository(app)
@@ -199,12 +200,8 @@ func (a *AppService) SetupHooks(app core.App) {
 
 // SetupRoutes configures all HTTP routes
 func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
-	// Initialize meta handler (needs app context)
-	a.InitializeMetaHandler(app)
-
-	// Setup share route for social media meta tags (must be before MVT routes)
 	if a.metaHandler != nil {
-		e.Router.GET("/share/{trailId}", a.metaHandler.HandleTrailShare)
+		a.metaHandler.SetupRoutes(e)
 	}
 
 	if a.mvtHandler != nil {
