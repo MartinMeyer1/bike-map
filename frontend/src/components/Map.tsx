@@ -26,6 +26,7 @@ interface MapProps {
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   onMapMoveEnd?: () => void;
   refreshTrigger?: number; // Increment this to trigger MVT refresh
+  fitBoundsTarget?: MapBounds | null; // Bounds to fit the map to
   isDrawingActive?: boolean;
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
@@ -37,13 +38,30 @@ interface MapProps {
   locationMarkerRef?: React.RefObject<LocationMarkerRef>;
 }
 
+// Component to handle map bounds fitting
+function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (fitBoundsTarget && fitBoundsTarget.north !== 0) {
+      const bounds = L.latLngBounds(
+        [fitBoundsTarget.south, fitBoundsTarget.west],
+        [fitBoundsTarget.north, fitBoundsTarget.east]
+      );
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    }
+  }, [fitBoundsTarget, map]);
+
+  return null;
+}
+
 // Component to handle map events and trail zoom
-function MapEvents({ 
-  onBoundsChange, 
+function MapEvents({
+  onBoundsChange,
   selectedTrail,
   onMapClick,
   onMapMoveEnd
-}: { 
+}: {
   onBoundsChange: (bounds: MapBounds) => void;
   selectedTrail: MVTTrail | null;
   onMapClick: () => void;
@@ -183,13 +201,14 @@ function MVTTrailLayer({
   return null;
 }
 
-export default function Map({ 
-  selectedTrail, 
-  onBoundsChange, 
-  onTrailClick, 
+export default function Map({
+  selectedTrail,
+  onBoundsChange,
+  onTrailClick,
   onTrailsLoaded,
   onMapMoveEnd,
   refreshTrigger,
+  fitBoundsTarget,
   isDrawingActive = false,
   onRouteComplete,
   onDrawingCancel,
@@ -239,6 +258,9 @@ export default function Map({
 
       {/* Map event handler */}
       <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
+
+      {/* Fit bounds handler */}
+      <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
 
       {/* MVT Trail Layer */}
       <MVTTrailLayer

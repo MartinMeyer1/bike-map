@@ -31,6 +31,12 @@ func NewMetaHandler(app core.App) *MetaHandler {
 	}
 }
 
+// SetupRoutes adds meta endpoints to the router
+func (h *MetaHandler) SetupRoutes(e *core.ServeEvent) {
+	// Register share route for social media meta tags
+	e.Router.GET("/api/meta/{trailId}", h.HandleTrailShare)
+}
+
 // HandleTrailShare generates an HTML page with Open Graph meta tags for trail sharing
 func (h *MetaHandler) HandleTrailShare(re *core.RequestEvent) error {
 	trailID := re.Request.PathValue("trailId")
@@ -38,6 +44,9 @@ func (h *MetaHandler) HandleTrailShare(re *core.RequestEvent) error {
 	if trailID == "" {
 		return re.String(http.StatusBadRequest, "Trail ID is required")
 	}
+
+	// Get bbox from query parameters if provided
+	bbox := re.Request.URL.Query().Get("bbox")
 
 	// Fetch trail from PocketBase
 	trail, err := h.app.FindRecordById("trails", trailID)
@@ -48,16 +57,28 @@ func (h *MetaHandler) HandleTrailShare(re *core.RequestEvent) error {
 
 	// Extract trail data
 	trailName := trail.GetString("name")
-	trailDescription := trail.GetString("description")
 	trailLevel := trail.GetString("level")
 
-	// Build descriptive meta content
-	ogTitle := fmt.Sprintf("%s (%s) - BikeMap", html.EscapeString(trailName), html.EscapeString(trailLevel))
-
-	ogDescription := html.EscapeString(trailDescription)
-	if ogDescription == "" {
-		ogDescription = fmt.Sprintf("Check out this %s MTB trail on BikeMap - Share and discover mountain bike singletracks!", html.EscapeString(trailLevel))
+	trailColorEmoji := ""
+	switch trailLevel {
+	case "S0":
+		trailColorEmoji = "🟢" // Green
+	case "S1":
+		trailColorEmoji = "🔵" // Blue
+	case "S2":
+		trailColorEmoji = "🟠" // Orange
+	case "S3":
+		trailColorEmoji = "🔴" // Red
+	case "S4":
+		trailColorEmoji = "🟣" // Purple
+	case "S5":
+		trailColorEmoji = "⚫" // Black
 	}
+
+	// Build descriptive meta content
+	ogTitle := fmt.Sprintf("%s %s (%s) - BikeMap", trailColorEmoji, html.EscapeString(trailName), html.EscapeString(trailLevel))
+
+	ogDescription := fmt.Sprintf("Check out this %s %s MTB trail on BikeMap - Share and discover mountain bike singletracks!", html.EscapeString(trailLevel), html.EscapeString(trailColorEmoji))
 
 	// Limit description length for social media
 	if len(ogDescription) > 200 {
@@ -67,13 +88,12 @@ func (h *MetaHandler) HandleTrailShare(re *core.RequestEvent) error {
 	// Build the share URL (will redirect to frontend with trail parameter)
 	shareURL := fmt.Sprintf("%s?trail=%s", h.frontendURL, html.EscapeString(trailID))
 
-	// Optional: Add image URL if available (you can add a default BikeMap logo)
-	// Use API base URL from environment or default
-	apiBaseURL := os.Getenv("VITE_API_BASE_URL")
-	if apiBaseURL == "" {
-		apiBaseURL = "http://localhost:8090"
+	// Add bbox to share URL if provided
+	if bbox != "" {
+		shareURL = fmt.Sprintf("%s&bbox=%s", shareURL, html.EscapeString(bbox))
 	}
-	ogImage := fmt.Sprintf("%s/favicon.svg", apiBaseURL)
+
+	ogImage := fmt.Sprintf("%s/rock.png", h.frontendURL)
 
 	// Generate HTML with meta tags
 	htmlContent := h.generateMetaHTML(ogTitle, ogDescription, shareURL, ogImage)

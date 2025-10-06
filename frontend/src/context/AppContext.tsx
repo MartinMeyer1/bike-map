@@ -7,22 +7,23 @@ interface AppState {
   // Auth state
   user: User | null;
   isAuthLoading: boolean;
-  
+
   // Trail state
   visibleTrails: MVTTrail[]; // From MVT layer - only currently visible tiles
   selectedTrail: MVTTrail | null;
   mapBounds: MapBounds | null;
-  
+  fitBoundsTarget: MapBounds | null; // Bounds to fit map to (one-time action)
+
   // UI state
   isUploadPanelVisible: boolean;
   isEditPanelVisible: boolean;
   trailToEdit: MVTTrail | null;
-  
+
   // Drawing state
   isDrawingActive: boolean;
   drawingMode: 'upload' | 'edit' | null;
   drawnGpxContent: { upload?: string; edit?: string };
-  
+
   // General state
   error: string;
   mapMoveEndTrigger: number;
@@ -33,11 +34,12 @@ type AppAction =
   // Auth actions
   | { type: 'SET_USER'; payload: User | null }
   | { type: 'SET_AUTH_LOADING'; payload: boolean }
-  
+
   // Trail actions
   | { type: 'SET_VISIBLE_TRAILS'; payload: MVTTrail[] }
   | { type: 'SET_SELECTED_TRAIL'; payload: MVTTrail | null }
   | { type: 'SET_MAP_BOUNDS'; payload: MapBounds | null }
+  | { type: 'FIT_MAP_TO_BOUNDS'; payload: MapBounds | null }
   
   // UI actions
   | { type: 'SET_UPLOAD_PANEL_VISIBLE'; payload: boolean }
@@ -60,11 +62,12 @@ const initialState: AppState = {
   // Auth state
   user: null,
   isAuthLoading: true,
-  
+
   // Trail state
   visibleTrails: [],
   selectedTrail: null,
   mapBounds: null,
+  fitBoundsTarget: null,
   
   // UI state
   isUploadPanelVisible: false,
@@ -106,6 +109,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, selectedTrail: action.payload };
     case 'SET_MAP_BOUNDS':
       return { ...state, mapBounds: action.payload };
+    case 'FIT_MAP_TO_BOUNDS':
+      return { ...state, fitBoundsTarget: action.payload };
     
     // UI actions
     case 'SET_UPLOAD_PANEL_VISIBLE':
@@ -238,18 +243,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loadTrailFromUrl = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const trailId = urlParams.get('trail');
+      const bboxParam = urlParams.get('bbox');
 
       if (trailId && state.visibleTrails.length > 0) {
         // Find the trail in visible trails
         const trail = state.visibleTrails.find(t => t.id === trailId);
 
         if (trail) {
-          // Trail is already loaded in visible trails
+          // Trail is already loaded in visible trails - just select it, don't pan
           dispatch({ type: 'SET_SELECTED_TRAIL', payload: trail });
         } else {
           // Trail not in visible trails yet - try to fetch it from API
           try {
             const fullTrail = await PocketBaseService.getTrail(trailId);
+
+            // Parse bbox if provided
+            let bounds = { north: 0, south: 0, east: 0, west: 0 };
+            if (bboxParam) {
+              const bboxParts = bboxParam.split(',').map(parseFloat);
+              if (bboxParts.length === 4 && bboxParts.every(n => !isNaN(n))) {
+                bounds = {
+                  west: bboxParts[0],
+                  south: bboxParts[1],
+                  east: bboxParts[2],
+                  north: bboxParts[3],
+                };
+              }
+            }
+
             // Convert Trail to MVTTrail for compatibility
             const mvtTrail: MVTTrail = {
               id: fullTrail.id,
@@ -260,7 +281,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               owner: fullTrail.owner as string,
               created: fullTrail.created,
               updated: fullTrail.updated,
-              bounds: { north: 0, south: 0, east: 0, west: 0 }, // Will be loaded from MVT
+              bounds: bounds, // Use bbox from URL if available
               elevation: { gain: 0, loss: 0, min: 0, max: 0, start: 0, end: 0 },
               distance: 0,
               startPoint: { lat: 0, lng: 0 },
@@ -270,11 +291,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               comment_count: 0,
             };
             dispatch({ type: 'SET_SELECTED_TRAIL', payload: mvtTrail });
+
+            // Pan map to bbox if provided
+            if (bboxParam && bounds.north !== 0) {
+              dispatch({
+                type: 'FIT_MAP_TO_BOUNDS',
+                payload: bounds
+              });
+            }
           } catch (error) {
             console.error('Failed to load trail from URL:', error);
             // Clear invalid trail ID from URL
             const url = new URL(window.location.href);
             url.searchParams.delete('trail');
+            url.searchParams.delete('bbox');
             window.history.replaceState({}, '', url.toString());
           }
         }
@@ -321,15 +351,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const selectTrail = useCallback((trail: MVTTrail | null) => {
     dispatch({ type: 'SET_SELECTED_TRAIL', payload: trail });
 
-    // Update URL with trail parameter
+    // Update URL with trail parameter and bbox
     if (trail) {
       const url = new URL(window.location.href);
       url.searchParams.set('trail', trail.id);
+
+      // Add bbox if bounds are available
+      if (trail.bounds && trail.bounds.north !== 0) {
+        const bbox = `${trail.bounds.west},${trail.bounds.south},${trail.bounds.east},${trail.bounds.north}`;
+        url.searchParams.set('bbox', bbox);
+      }
+
       window.history.pushState({}, '', url.toString());
     } else {
-      // Remove trail parameter when deselecting
+      // Remove trail and bbox parameters when deselecting
       const url = new URL(window.location.href);
       url.searchParams.delete('trail');
+      url.searchParams.delete('bbox');
       window.history.pushState({}, '', url.toString());
     }
   }, []);
