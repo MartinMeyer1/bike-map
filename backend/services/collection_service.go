@@ -422,10 +422,11 @@ func (c *CollectionService) EnsureRatingAverageCollection(app core.App) error {
 
 	// Reference to trail (unique constraint)
 	collection.Fields.Add(&core.RelationField{
-		Name:         "trail",
-		CollectionId: trailsCollection.Id,
-		MaxSelect:    1,
-		Required:     true,
+		Name:          "trail",
+		CollectionId:  trailsCollection.Id,
+		MaxSelect:     1,
+		Required:      true,
+		CascadeDelete: true,
 	})
 
 	// Average rating (0.0 to 5.0)
