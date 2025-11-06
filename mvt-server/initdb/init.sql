@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS trails (
     -- Engagement data (ratings and comments)
     rating_average DECIMAL(3,2) DEFAULT 0.0,
     rating_count INTEGER DEFAULT 0,
-    comment_count INTEGER DEFAULT 0
+    comment_count INTEGER DEFAULT 0,
+    -- Ridden status
+    ridden BOOLEAN DEFAULT true
 );
 
 -- Create spatial indexes for performance

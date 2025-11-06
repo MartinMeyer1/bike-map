@@ -199,6 +199,8 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 					rating_average,
 					rating_count,
 					comment_count,
+					-- Ridden status
+					ridden,
 					-- Simplify geometry based on zoom level
 					ST_AsMVTGeom(
 						ST_Transform(
@@ -278,6 +280,8 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 					rating_average,
 					rating_count,
 					comment_count,
+					-- Ridden status
+					ridden,
 					-- No simplification
 					ST_AsMVTGeom(
 						ST_Transform(geom, 3857),
