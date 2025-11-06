@@ -96,6 +96,9 @@ export interface MVTTrailProperties {
   rating_average: number;
   rating_count: number;
   comment_count: number;
+
+  // Ridden status
+  ridden: boolean;
 }
 
 // Simplified trail interface for MVT-based system
@@ -127,7 +130,10 @@ export interface MVTTrail {
   rating_average: number;
   rating_count: number;
   comment_count: number;
-  
+
+  // Ridden status
+  ridden: boolean;
+
   // For compatibility with existing components
   ownerInfo?: User;
 }
