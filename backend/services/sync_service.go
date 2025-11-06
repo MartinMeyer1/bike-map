@@ -73,11 +73,11 @@ func (s *SyncService) SyncTrailToPostGISWithApp(ctx context.Context, app core.Ap
 func (s *SyncService) insertTrailMetadataToPostGIS(ctx context.Context, trail *entities.Trail, stats *entities.EngagementStats) error {
 	query := `
 		INSERT INTO trails (
-			id, name, description, level, tags, owner_id, gpx_file, 
-			distance_m, rating_average, rating_count, comment_count, 
-			created_at, updated_at
+			id, name, description, level, tags, owner_id, gpx_file,
+			distance_m, rating_average, rating_count, comment_count,
+			ridden, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		)`
 
 	var tagsJSON interface{} = nil
@@ -106,6 +106,7 @@ func (s *SyncService) insertTrailMetadataToPostGIS(ctx context.Context, trail *e
 		stats.RatingAvg,
 		stats.RatingCount,
 		stats.CommentCount,
+		trail.Ridden,
 		trail.CreatedAt,
 		trail.UpdatedAt,
 	)
@@ -122,11 +123,11 @@ func (s *SyncService) insertTrailMetadataToPostGIS(ctx context.Context, trail *e
 func (s *SyncService) insertTrailToPostGIS(ctx context.Context, trail *entities.Trail, stats *entities.EngagementStats) error {
 	query := `
 		INSERT INTO trails (
-			id, name, description, level, tags, owner_id, gpx_file, 
-			distance_m, rating_average, rating_count, comment_count, 
-			created_at, updated_at
+			id, name, description, level, tags, owner_id, gpx_file,
+			distance_m, rating_average, rating_count, comment_count,
+			ridden, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		)`
 
 	var tagsJSON interface{} = nil
@@ -155,6 +156,7 @@ func (s *SyncService) insertTrailToPostGIS(ctx context.Context, trail *entities.
 		stats.RatingAvg,
 		stats.RatingCount,
 		stats.CommentCount,
+		trail.Ridden,
 		trail.CreatedAt,
 		trail.UpdatedAt,
 	)
@@ -170,7 +172,7 @@ func (s *SyncService) insertTrailToPostGIS(ctx context.Context, trail *entities.
 // updateTrailInPostGIS updates an existing trail in PostGIS
 func (s *SyncService) updateTrailInPostGIS(ctx context.Context, trail *entities.Trail, stats *entities.EngagementStats) error {
 	query := `
-		UPDATE trails SET 
+		UPDATE trails SET
 			name = $2,
 			description = $3,
 			level = $4,
@@ -181,7 +183,8 @@ func (s *SyncService) updateTrailInPostGIS(ctx context.Context, trail *entities.
 			rating_average = $9,
 			rating_count = $10,
 			comment_count = $11,
-			updated_at = $12
+			ridden = $12,
+			updated_at = $13
 		WHERE id = $1`
 
 	var tagsJSON interface{} = nil
@@ -210,6 +213,7 @@ func (s *SyncService) updateTrailInPostGIS(ctx context.Context, trail *entities.
 		stats.RatingAvg,
 		stats.RatingCount,
 		stats.CommentCount,
+		trail.Ridden,
 		trail.UpdatedAt,
 	)
 

@@ -2,22 +2,23 @@ export interface Trail {
   id: string;
   name: string;
   description?: string;
-  level: 'S0' | 'S1' | 'S2' | 'S3' | 'S4' | 'S5';
+  level: "S0" | "S1" | "S2" | "S3" | "S4" | "S5";
   tags: string[];
   file: string;
   owner: string; // Owner ID reference
   created: string;
   updated: string;
   elevation_profile?: Array<{ distance: number; elevation: number }>;
+  ridden: boolean;
 }
 
 export interface GeoJsonGeometry {
-  type: 'LineString';
+  type: "LineString";
   coordinates: number[][];
 }
 
 export interface GeoJsonFeature {
-  type: 'Feature';
+  type: "Feature";
   properties: {
     name: string;
     level: string;
@@ -45,7 +46,7 @@ export interface User {
   email: string;
   name?: string;
   avatar?: string;
-  role?: 'Viewer' | 'Editor' | 'Admin';
+  role?: "Viewer" | "Editor" | "Admin";
 }
 
 export interface AuthState {
@@ -66,13 +67,13 @@ export interface MVTTrailProperties {
   id: string;
   name: string;
   description?: string;
-  level: 'S0' | 'S1' | 'S2' | 'S3' | 'S4' | 'S5';
+  level: "S0" | "S1" | "S2" | "S3" | "S4" | "S5";
   tags?: string;
   owner_id: string;
   created_at: string;
   updated_at: string;
   gpx_file: string;
-  
+
   // Geometric data
   start_lat: number;
   start_lng: number;
@@ -82,7 +83,7 @@ export interface MVTTrailProperties {
   bbox_south: number;
   bbox_east: number;
   bbox_west: number;
-  
+
   // Pre-calculated metrics from backend
   distance_m: number;
   elevation_gain_meters: number;
@@ -91,11 +92,14 @@ export interface MVTTrailProperties {
   max_elevation_meters: number;
   elevation_start_meters: number;
   elevation_end_meters: number;
-  
+
   // Engagement data from backend
   rating_average: number;
   rating_count: number;
   comment_count: number;
+
+  // Ridden status
+  ridden: boolean;
 }
 
 // Simplified trail interface for MVT-based system
@@ -103,12 +107,12 @@ export interface MVTTrail {
   id: string;
   name: string;
   description?: string;
-  level: 'S0' | 'S1' | 'S2' | 'S3' | 'S4' | 'S5';
+  level: "S0" | "S1" | "S2" | "S3" | "S4" | "S5";
   tags: string[];
   owner: string;
   created: string;
   updated: string;
-  
+
   // Pre-calculated from backend
   bounds: TrailBounds;
   elevation: {
@@ -122,12 +126,15 @@ export interface MVTTrail {
   distance: number;
   startPoint: { lat: number; lng: number };
   endPoint: { lat: number; lng: number };
-  
+
   // Engagement data
   rating_average: number;
   rating_count: number;
   comment_count: number;
-  
+
+  // Ridden status
+  ridden: boolean;
+
   // For compatibility with existing components
   ownerInfo?: User;
 }
@@ -135,9 +142,9 @@ export interface MVTTrail {
 // Rating types
 export interface TrailRating {
   id: string;
-  trail: string;   // Trail ID
-  user: string;    // User ID
-  rating: number;  // 1-5 stars
+  trail: string; // Trail ID
+  user: string; // User ID
+  rating: number; // 1-5 stars
   created: string;
   updated: string;
 }
@@ -157,9 +164,9 @@ export interface RatingStats {
 // Rating average collection from backend
 export interface RatingAverage {
   id: string;
-  trail: string;   // Trail ID
+  trail: string; // Trail ID
   average: number; // 0-5 average rating
-  count: number;   // Number of ratings
+  count: number; // Number of ratings
   created: string;
   updated: string;
 }
@@ -167,8 +174,8 @@ export interface RatingAverage {
 // Comment types
 export interface TrailComment {
   id: string;
-  trail: string;   // Trail ID
-  user: string;    // User ID
+  trail: string; // Trail ID
+  user: string; // User ID
   comment: string;
   created: string;
   updated: string;

@@ -26,9 +26,37 @@ func NewCollectionService(cfg *config.Config, authService *AuthService) *Collect
 // EnsureTrailsCollection creates the trails collection if it doesn't exist
 func (c *CollectionService) EnsureTrailsCollection(app core.App) error {
 	// Check if trails collection already exists
-	_, err := app.FindCollectionByNameOrId("trails")
+	trails, err := app.FindCollectionByNameOrId("trails")
 	if err == nil {
 		// Collection already exists
+		if _, exists := trails.Fields.AsMap()["ridden"]; !exists {
+			// Add the ridden field to existing collection
+			trails.Fields.Add(&core.BoolField{
+				Name:     "ridden",
+				Required: false,
+			})
+			if err := app.Save(trails); err != nil {
+				return fmt.Errorf("failed to add ridden field to trails collection: %w", err)
+			}
+			log.Println("✅ Added ridden field to existing trails collection")
+
+			// Set all existing records to ridden=true
+			records, err := app.FindAllRecords("trails")
+			if err != nil {
+				return fmt.Errorf("failed to query trails for migration: %w", err)
+			}
+
+			updatedCount := 0
+			for _, record := range records {
+				record.Set("ridden", true)
+				if err := app.Save(record); err != nil {
+					log.Printf("⚠️  Failed to update trail %s: %v", record.Id, err)
+					continue
+				}
+				updatedCount++
+			}
+			log.Printf("✅ Migration complete: set ridden=true for %d existing trails", updatedCount)
+		}
 		return nil
 	}
 
@@ -85,6 +113,10 @@ func (c *CollectionService) EnsureTrailsCollection(app core.App) error {
 		CollectionId: "_pb_users_auth_",
 		MaxSelect:    1,
 		Required:     true,
+	})
+	collection.Fields.Add(&core.BoolField{
+		Name:     "ridden",
+		Required: false,
 	})
 
 	// Save collection
@@ -422,10 +454,11 @@ func (c *CollectionService) EnsureRatingAverageCollection(app core.App) error {
 
 	// Reference to trail (unique constraint)
 	collection.Fields.Add(&core.RelationField{
-		Name:         "trail",
-		CollectionId: trailsCollection.Id,
-		MaxSelect:    1,
-		Required:     true,
+		Name:          "trail",
+		CollectionId:  trailsCollection.Id,
+		MaxSelect:     1,
+		Required:      true,
+		CascadeDelete: true,
 	})
 
 	// Average rating (0.0 to 5.0)

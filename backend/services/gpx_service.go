@@ -179,8 +179,8 @@ func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx 
 
 	// Insert into PostGIS
 	query := `
-		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14)
+		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count, ridden)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -193,7 +193,8 @@ func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx 
 			updated_at = EXCLUDED.updated_at,
 			rating_average = EXCLUDED.rating_average,
 			rating_count = EXCLUDED.rating_count,
-			comment_count = EXCLUDED.comment_count`
+			comment_count = EXCLUDED.comment_count,
+			ridden = EXCLUDED.ridden`
 
 	_, err = g.db.Exec(query,
 		trail.Id,
@@ -210,6 +211,7 @@ func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx 
 		ratingAvg,
 		ratingCount,
 		commentCount,
+		trail.GetBool("ridden"), // Default to false if not set
 	)
 
 	return err

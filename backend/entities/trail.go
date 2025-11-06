@@ -35,6 +35,7 @@ type Trail struct {
 	Tags          []string       `json:"tags"`
 	OwnerID       string         `json:"owner_id"`
 	GPXFile       string         `json:"gpx_file"`
+	Ridden        bool           `json:"ridden"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	ElevationData *ElevationData `json:"elevation_data,omitempty"`
@@ -73,6 +74,7 @@ func NewTrail(id, name, description string, level TrailLevel, ownerID string) *T
 		Level:       level,
 		OwnerID:     ownerID,
 		Tags:        make([]string, 0),
+		Ridden:      true,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

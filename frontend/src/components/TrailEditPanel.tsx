@@ -30,6 +30,7 @@ export default function TrailEditPanel({
     level: 'S1' as Trail['level'],
     tags: [] as string[],
     file: null as File | null,
+    ridden: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -46,6 +47,7 @@ export default function TrailEditPanel({
         level: trail.level,
         tags: trail.tags || [],
         file: null, // Reset file when editing different trail
+        ridden: trail.ridden || false,
       });
     }
   }, [trail]);
@@ -76,9 +78,16 @@ export default function TrailEditPanel({
   const handleTagChange = (tag: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      tags: checked 
+      tags: checked
         ? [...prev.tags, tag]
         : prev.tags.filter(t => t !== tag),
+    }));
+  };
+
+  const handleRiddenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      ridden: e.target.checked,
     }));
   };
 
@@ -113,7 +122,8 @@ export default function TrailEditPanel({
       submitData.append('description', formData.description.trim());
       submitData.append('level', formData.level);
       submitData.append('tags', JSON.stringify(formData.tags));
-      
+      submitData.append('ridden', String(formData.ridden));
+
       // Handle file upload: either new file or drawn GPX content
       if (formData.file) {
         submitData.append('file', formData.file);
@@ -308,21 +318,61 @@ export default function TrailEditPanel({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="level">Difficulty Level *</label>
-            <select
-              id="level"
-              name="level"
-              value={formData.level}
-              onChange={handleInputChange}
-              required
-            >
-              {DIFFICULTY_LEVELS.map(level => (
-                <option key={level.value} value={level.value}>
-                  {level.label}
-                </option>
-              ))}
-            </select>
+          {/* Difficulty Level and Ridden Status Row */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label htmlFor="level">Difficulty Level *</label>
+              <select
+                id="level"
+                name="level"
+                value={formData.level}
+                onChange={handleInputChange}
+                required
+              >
+                {DIFFICULTY_LEVELS.map(level => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{
+              flex: '0 0 auto',
+              marginBottom: 0,
+              minWidth: '140px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '42px',
+              marginTop: '26px'
+            }}>
+              <label htmlFor="ridden" style={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                margin: 0,
+                fontSize: '14px',
+                fontWeight: 500
+              }}>
+                <span style={{ marginRight: '10px' }}>Ridden</span>
+                <input
+                  type="checkbox"
+                  id="ridden"
+                  checked={formData.ridden}
+                  onChange={handleRiddenChange}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    cursor: 'pointer',
+                    margin: 0
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           <div className="form-group">
