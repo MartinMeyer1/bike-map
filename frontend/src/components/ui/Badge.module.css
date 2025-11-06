@@ -1,39 +1,77 @@
 .badge {
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: inline-block;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    border: 2px solid transparent;
 }
 
 .s0 {
-  background: #28a745;
-  color: white;
+    background: #28a745;
+    color: white;
 }
 
 .s1 {
-  background: #007bff;
-  color: white;
+    background: #007bff;
+    color: white;
 }
 
 .s2 {
-  background: #fd7e14;
-  color: white;
+    background: #fd7e14;
+    color: white;
 }
 
 .s3 {
-  background: #dc3545;
-  color: white;
+    background: #dc3545;
+    color: white;
 }
 
 .s4 {
-  background: #6f42c1;
-  color: white;
+    background: #6f42c1;
+    color: white;
 }
 
 .s5 {
-  background: #495057;
-  color: white;
+    background: #495057;
+    color: white;
+}
+
+/* Outlined variant for non-ridden trails */
+.outlined.s0 {
+    background: transparent;
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.outlined.s1 {
+    background: transparent;
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.outlined.s2 {
+    background: transparent;
+    color: #fd7e14;
+    border-color: #fd7e14;
+}
+
+.outlined.s3 {
+    background: transparent;
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.outlined.s4 {
+    background: transparent;
+    color: #6f42c1;
+    border-color: #6f42c1;
+}
+
+.outlined.s5 {
+    background: transparent;
+    color: #495057;
+    border-color: #495057;
 }
