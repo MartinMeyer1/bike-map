@@ -316,29 +316,41 @@ export default function UploadPanel({ isVisible, onClose, onTrailCreated, onStar
             </select>
           </div>
 
-          <div className="form-group" style={{ flex: '0 0 auto', marginBottom: 0, minWidth: '120px' }}>
-            <label htmlFor="ridden" style={{ display: 'block', marginBottom: '5px' }}>
-              Ridden
-            </label>
-            <div style={{
+          <div style={{
+            flex: '0 0 auto',
+            marginBottom: 0,
+            minWidth: '140px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '42px',
+            marginTop: '26px'
+          }}>
+            <label htmlFor="ridden" style={{
               display: 'flex',
               alignItems: 'center',
-              height: '42px',
-              paddingLeft: '8px'
+              cursor: 'pointer',
+              margin: 0,
+              fontSize: '14px',
+              fontWeight: 500
             }}>
+              <span style={{ marginRight: '10px' }}>Ridden</span>
               <input
                 type="checkbox"
                 id="ridden"
                 checked={formData.ridden}
                 onChange={handleRiddenChange}
                 style={{
-                  width: '20px',
-                  height: '20px',
+                  width: '18px',
+                  height: '18px',
                   cursor: 'pointer',
                   margin: 0
                 }}
               />
-            </div>
+            </label>
           </div>
         </div>
 
