@@ -9,6 +9,7 @@ export interface Trail {
   created: string;
   updated: string;
   elevation_profile?: Array<{ distance: number; elevation: number }>;
+  ridden?: boolean;
 }
 
 export interface GeoJsonGeometry {
