@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"strings"
 	"sync"
 	"time"
 
@@ -415,78 +414,6 @@ func (m *MVTService) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int)
 	}
 
 	return minX, minY, maxX, maxY
-}
-
-// GetTrailsMetadata returns trail metadata (for use with MVT geometry)
-func (m *MVTService) GetTrailsMetadata(trailIDs []string) ([]map[string]interface{}, error) {
-	if len(trailIDs) == 0 {
-		return []map[string]interface{}{}, nil
-	}
-
-	// Build IN clause for SQL query
-	placeholders := make([]string, len(trailIDs))
-	args := make([]interface{}, len(trailIDs))
-	for i, id := range trailIDs {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = id
-	}
-
-	query := fmt.Sprintf(`
-		SELECT 
-			id, name, description, level, tags, owner_id, 
-			created_at, updated_at, elevation_data, distance_m,
-			ST_AsGeoJSON(bbox) as bbox_geojson
-		FROM trails 
-		WHERE id IN (%s)`, strings.Join(placeholders, ","))
-
-	rows, err := m.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query trail metadata: %w", err)
-	}
-	defer rows.Close()
-
-	var results []map[string]interface{}
-	for rows.Next() {
-		var (
-			id, name, description, level, ownerID, elevationDataStr, bboxGeoJSON string
-			tags                                                                 sql.NullString
-			createdAt, updatedAt                                                 string
-			distanceM                                                            sql.NullFloat64
-		)
-
-		err := rows.Scan(&id, &name, &description, &level, &tags, &ownerID,
-			&createdAt, &updatedAt, &elevationDataStr, &distanceM, &bboxGeoJSON)
-		if err != nil {
-			continue
-		}
-
-		result := map[string]interface{}{
-			"id":          id,
-			"name":        name,
-			"description": description,
-			"level":       level,
-			"owner_id":    ownerID,
-			"created_at":  createdAt,
-			"updated_at":  updatedAt,
-		}
-
-		if tags.Valid {
-			result["tags"] = tags.String
-		}
-		if distanceM.Valid {
-			result["distance_m"] = distanceM.Float64
-		}
-		if elevationDataStr != "" {
-			result["elevation_data"] = elevationDataStr
-		}
-		if bboxGeoJSON != "" {
-			result["bbox"] = bboxGeoJSON
-		}
-
-		results = append(results, result)
-	}
-
-	return results, nil
 }
 
 // GetTileCacheVersion returns the cache version for a specific tile

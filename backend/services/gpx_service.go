@@ -280,26 +280,6 @@ func (g *GPXService) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
 	return R * c
 }
 
-// DeleteTrailFromPostGIS removes a trail from PostGIS
-func (g *GPXService) DeleteTrailFromPostGIS(trailID string) error {
-	query := `DELETE FROM trails WHERE id = $1`
-	result, err := g.db.Exec(query, trailID)
-	if err != nil {
-		return fmt.Errorf("failed to delete trail %s from PostGIS: %w", trailID, err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected for trail deletion: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("trail %s not found in PostGIS", trailID)
-	}
-
-	return nil
-}
-
 // ClearAllTrails removes all trails from PostGIS
 func (g *GPXService) ClearAllTrails() error {
 	query := `DELETE FROM trails`
@@ -372,25 +352,6 @@ func (g *GPXService) getTrailEngagementData(app core.App, trailId string) (float
 	}
 
 	return ratingAvg, ratingCount, commentCount
-}
-
-// UpdateTrailEngagement updates only the engagement data for a trail in PostGIS
-func (g *GPXService) UpdateTrailEngagement(app core.App, trailId string) error {
-	// Get engagement data from PocketBase
-	ratingAvg, ratingCount, commentCount := g.getTrailEngagementData(app, trailId)
-
-	// Update PostGIS record
-	query := `
-		UPDATE trails 
-		SET rating_average = $1, rating_count = $2, comment_count = $3, updated_at = NOW()
-		WHERE id = $4`
-
-	_, err := g.db.Exec(query, ratingAvg, ratingCount, commentCount, trailId)
-	if err != nil {
-		return fmt.Errorf("failed to update trail engagement in PostGIS: %w", err)
-	}
-
-	return nil
 }
 
 // GetDB returns the database connection for external use

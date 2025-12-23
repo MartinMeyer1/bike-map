@@ -132,9 +132,6 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 	// Initialize domain services that depend on repositories
 	a.engagementService = NewEngagementService(
 		a.engagementRepo,
-		a.trailRepo,
-		a.userRepo,
-		a.validator,
 	)
 
 	// Initialize sync service if PostGIS is available
