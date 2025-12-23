@@ -197,7 +197,7 @@ func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
 
 	log.Println("Starting initial sync of all trails to PostGIS...")
 	go func() {
-		if err := a.syncService.SyncAllTrails(context.Background(), app); err != nil {
+		if err := a.syncService.SyncAllTrailsFromPBToPostgis(context.Background(), app); err != nil {
 			log.Printf("Failed to sync trails at startup: %v", err)
 		} else {
 			log.Println("Successfully synced all trails to PostGIS at startup")

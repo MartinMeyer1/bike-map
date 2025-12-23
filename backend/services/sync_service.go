@@ -43,7 +43,7 @@ func NewSyncService(
 func (s *SyncService) HandleTrailCreated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling trail creation: %s", trailID)
 
-	if err := s.SyncTrailToPostGIS(ctx, app, trailID); err != nil {
+	if err := s.syncTrailFromPBToPostGIS(ctx, app, trailID); err != nil {
 		return fmt.Errorf("failed to sync trail to PostGIS: %w", err)
 	}
 
@@ -63,7 +63,7 @@ func (s *SyncService) HandleTrailUpdated(ctx context.Context, app core.App, trai
 	}
 
 	// Sync trail to PostGIS
-	if err := s.SyncTrailToPostGIS(ctx, app, trailID); err != nil {
+	if err := s.syncTrailFromPBToPostGIS(ctx, app, trailID); err != nil {
 		return fmt.Errorf("failed to sync trail to PostGIS: %w", err)
 	}
 
@@ -89,7 +89,7 @@ func (s *SyncService) HandleTrailDeleted(ctx context.Context, trailID string) er
 	}
 
 	// Delete from PostGIS
-	if err := s.RemoveTrailFromPostGIS(ctx, trailID); err != nil {
+	if err := s.removeTrailFromPostGIS(ctx, trailID); err != nil {
 		return fmt.Errorf("failed to delete trail from PostGIS: %w", err)
 	}
 
@@ -159,7 +159,7 @@ func (s *SyncService) HandleCommentDeleted(ctx context.Context, trailID string) 
 
 // updateEngagementAndInvalidate updates engagement stats in PostGIS and invalidates cache
 func (s *SyncService) updateEngagementAndInvalidate(ctx context.Context, trailID string) error {
-	if err := s.UpdateEngagementStats(ctx, trailID); err != nil {
+	if err := s.updateEngagementStatsToPostgis(ctx, trailID); err != nil {
 		return err
 	}
 	s.invalidateCacheForTrail(ctx, trailID)
@@ -183,8 +183,8 @@ func (s *SyncService) invalidateCacheForTrail(ctx context.Context, trailID strin
 	log.Printf("Invalidated MVT cache for trail %s", trailID)
 }
 
-// SyncTrailToPostGIS synchronizes a trail with full GPX processing
-func (s *SyncService) SyncTrailToPostGIS(ctx context.Context, app core.App, trailID string) error {
+// syncTrailFromPBToPostGIS synchronizes a trail with full GPX processing
+func (s *SyncService) syncTrailFromPBToPostGIS(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Syncing trail %s to PostGIS", trailID)
 
 	// 1. Get trail record from PocketBase
@@ -212,7 +212,7 @@ func (s *SyncService) SyncTrailToPostGIS(ctx context.Context, app core.App, trai
 	}
 
 	// 5. Get engagement data
-	ratingAvg, ratingCount, commentCount := s.getTrailEngagementData(app, trailID)
+	ratingAvg, ratingCount, commentCount := s.getTrailEngagementDataFromPB(app, trailID)
 
 	// 6. Serialize elevation data
 	elevationJSON, err := json.Marshal(parsedGPX.ElevationData)
@@ -253,14 +253,14 @@ func (s *SyncService) SyncTrailToPostGIS(ctx context.Context, app core.App, trai
 	return nil
 }
 
-// RemoveTrailFromPostGIS removes a trail from PostGIS
-func (s *SyncService) RemoveTrailFromPostGIS(ctx context.Context, trailID string) error {
+// removeTrailFromPostGIS removes a trail from PostGIS
+func (s *SyncService) removeTrailFromPostGIS(ctx context.Context, trailID string) error {
 	log.Printf("Removing trail %s from PostGIS", trailID)
 	return s.postgisService.DeleteTrail(ctx, trailID)
 }
 
-// UpdateEngagementStats updates only the engagement statistics for a trail in PostGIS
-func (s *SyncService) UpdateEngagementStats(ctx context.Context, trailID string) error {
+// updateEngagementStatsToPostgis updates only the engagement statistics for a trail in PostGIS
+func (s *SyncService) updateEngagementStatsToPostgis(ctx context.Context, trailID string) error {
 	log.Printf("Updating engagement stats for trail %s in PostGIS", trailID)
 
 	// Get engagement statistics from repository
@@ -283,8 +283,8 @@ func (s *SyncService) UpdateEngagementStats(ctx context.Context, trailID string)
 	return nil
 }
 
-// SyncAllTrails synchronizes all trails from PocketBase to PostGIS
-func (s *SyncService) SyncAllTrails(ctx context.Context, app core.App) error {
+// SyncAllTrailsFromPBToPostgis synchronizes all trails from PocketBase to PostGIS
+func (s *SyncService) SyncAllTrailsFromPBToPostgis(ctx context.Context, app core.App) error {
 	log.Println("Starting full trail synchronization to PostGIS")
 
 	// Clear all existing trails from PostGIS first
@@ -303,7 +303,7 @@ func (s *SyncService) SyncAllTrails(ctx context.Context, app core.App) error {
 	for i, trail := range trails {
 		log.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
 
-		if err := s.SyncTrailToPostGIS(ctx, app, trail.Id); err != nil {
+		if err := s.syncTrailFromPBToPostGIS(ctx, app, trail.Id); err != nil {
 			log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
 			continue
 		}
@@ -313,13 +313,8 @@ func (s *SyncService) SyncAllTrails(ctx context.Context, app core.App) error {
 	return nil
 }
 
-// GetTrailBoundingBox retrieves the bounding box of a trail from PostGIS
-func (s *SyncService) GetTrailBoundingBox(ctx context.Context, trailID string) (*entities.BoundingBox, error) {
-	return s.postgisService.GetTrailBoundingBox(ctx, trailID)
-}
-
-// getTrailEngagementData retrieves rating and comment engagement data for a trail from PocketBase
-func (s *SyncService) getTrailEngagementData(app core.App, trailId string) (float64, int, int) {
+// getTrailEngagementDataFromPB retrieves rating and comment engagement data for a trail from PocketBase
+func (s *SyncService) getTrailEngagementDataFromPB(app core.App, trailId string) (float64, int, int) {
 	var ratingAvg float64 = 0.0
 	var ratingCount int = 0
 	var commentCount int = 0
