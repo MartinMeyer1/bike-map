@@ -13,9 +13,10 @@ import (
 	"bike-map-backend/config"
 	"bike-map-backend/entities"
 
+	"log"
+
 	_ "github.com/lib/pq"
 	"github.com/pocketbase/pocketbase/core"
-	"log"
 )
 
 // GPXService handles GPX file processing and PostGIS operations
@@ -33,6 +34,10 @@ func NewGPXService(cfg *config.Config) (*GPXService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to PostGIS: %w", err)
 	}
+
+	// Set max connections
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(30)
 
 	// Test connection
 	if err := db.Ping(); err != nil {

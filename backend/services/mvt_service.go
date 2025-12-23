@@ -39,15 +39,19 @@ func NewMVTService(cfg *config.Config) (*MVTService, error) {
 		return nil, fmt.Errorf("failed to connect to PostGIS: %w", err)
 	}
 
+	// Set max connections
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(30)
+
 	// Test connection
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
 	}
 
 	return &MVTService{
-		db:     db,
-		config: cfg,
-		cache:  make(map[string]*CacheEntry),
+		db:      db,
+		config:  cfg,
+		cache:   make(map[string]*CacheEntry),
 		minZoom: 6,
 		maxZoom: 18,
 	}, nil
@@ -366,12 +370,12 @@ func (m *MVTService) latLngToTileCoords(lat, lng float64, zoom int) (int, int) {
 
 	// Convert to radians
 	latRad := lat * math.Pi / 180.0
-	
+
 	// Calculate tile coordinates using standard Web Mercator formulas
 	n := math.Pow(2.0, float64(zoom))
 	x := int((lng + 180.0) / 360.0 * n)
 	y := int((1.0 - math.Asinh(math.Tan(latRad))/math.Pi) / 2.0 * n)
-	
+
 	// Clamp to valid tile ranges
 	if x < 0 {
 		x = 0
@@ -385,7 +389,7 @@ func (m *MVTService) latLngToTileCoords(lat, lng float64, zoom int) (int, int) {
 	if y >= int(n) {
 		y = int(n) - 1
 	}
-	
+
 	return x, y
 }
 
@@ -396,12 +400,12 @@ func (m *MVTService) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int)
 		// Return empty range that will be skipped in loops
 		return 0, 0, -1, -1
 	}
-	
+
 	// Convert bounding box corners to tile coordinates
 	// Note: North = max lat, South = min lat, East = max lng, West = min lng
 	minX, maxY = m.latLngToTileCoords(bbox.South, bbox.West, zoom) // Bottom-left corner
 	maxX, minY = m.latLngToTileCoords(bbox.North, bbox.East, zoom) // Top-right corner
-	
+
 	// Ensure proper ordering (min <= max) - should not be needed with valid bbox, but safety check
 	if minX > maxX {
 		minX, maxX = maxX, minX
@@ -409,7 +413,7 @@ func (m *MVTService) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int)
 	if minY > maxY {
 		minY, maxY = maxY, minY
 	}
-	
+
 	return minX, minY, maxX, maxY
 }
 
