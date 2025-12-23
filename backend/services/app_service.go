@@ -7,7 +7,6 @@ import (
 
 	"bike-map-backend/apiHandlers"
 	"bike-map-backend/config"
-	"bike-map-backend/entities"
 	"bike-map-backend/interfaces"
 	repos "bike-map-backend/repositories"
 
@@ -25,8 +24,6 @@ type AppService struct {
 	engagementService  *EngagementService
 	syncService        *SyncService
 	hookManagerService *HookManagerService
-
-	// Legacy Services (for backward compatibility)
 	gpxService *GPXService
 	mvtService *MVTService
 
@@ -39,7 +36,6 @@ type AppService struct {
 	trailRepo       interfaces.TrailRepository
 	engagementRepo  interfaces.EngagementRepository
 	userRepo        interfaces.UserRepository
-	validator       *entities.ValidatorSuite
 
 	// Database connection for PostGIS
 	postgisDB *sql.DB
@@ -51,11 +47,6 @@ func NewAppService(cfg *config.Config) (*AppService, error) {
 		config: cfg,
 	}
 
-	// Initialize components in dependency order
-	if err := app.initializeDomainComponents(); err != nil {
-		return nil, err
-	}
-
 	if err := app.initializeServices(); err != nil {
 		return nil, err
 	}
@@ -63,14 +54,6 @@ func NewAppService(cfg *config.Config) (*AppService, error) {
 	// Note: initializeHandlers is called later in InitializeForPocketBase once app is available
 
 	return app, nil
-}
-
-// initializeDomainComponents sets up domain-level components
-func (a *AppService) initializeDomainComponents() error {
-	// Initialize validator suite
-	a.validator = entities.NewValidatorSuite()
-
-	return nil
 }
 
 // initializeServices creates and wires all services
@@ -255,30 +238,4 @@ func (a *AppService) Close() error {
 	}
 
 	return nil
-}
-
-// Service getters for external access
-
-func (a *AppService) GetEngagementService() *EngagementService {
-	return a.engagementService
-}
-
-func (a *AppService) GetSyncService() *SyncService {
-	return a.syncService
-}
-
-func (a *AppService) GetAuthService() *AuthService {
-	return a.authService
-}
-
-func (a *AppService) GetTrailRepository() interfaces.TrailRepository {
-	return a.trailRepo
-}
-
-func (a *AppService) GetEngagementRepository() interfaces.EngagementRepository {
-	return a.engagementRepo
-}
-
-func (a *AppService) GetUserRepository() interfaces.UserRepository {
-	return a.userRepo
 }
