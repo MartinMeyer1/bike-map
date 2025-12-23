@@ -6,8 +6,6 @@ import (
 
 	"bike-map-backend/apiHandlers"
 	"bike-map-backend/config"
-	"bike-map-backend/interfaces"
-	repos "bike-map-backend/repositories"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -31,9 +29,6 @@ type AppService struct {
 	mvtHandler  *apiHandlers.MVTHandler
 	authHandler *apiHandlers.AuthHandler
 	metaHandler *apiHandlers.MetaHandler
-
-	// Domain Components
-	engagementRepo interfaces.EngagementRepository
 }
 
 // NewAppService creates a new application service with all dependencies properly wired
@@ -98,18 +93,12 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 		return err
 	}
 
-	// Initialize repositories with PocketBase app
-	a.engagementRepo = repos.NewPocketBaseEngagementRepository(app)
-
-	// Initialize domain services that depend on repositories
-	a.engagementService = NewEngagementService(
-		a.engagementRepo,
-	)
+	// Initialize engagement service with PocketBase app
+	a.engagementService = NewEngagementService(app)
 
 	// Initialize sync service if PostGIS is available
 	if a.postgisService != nil {
 		a.syncService = NewSyncService(
-			a.engagementRepo,
 			a.postgisService,
 			a.gpxService,
 			a.mvtService,

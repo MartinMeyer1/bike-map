@@ -15,23 +15,20 @@ import (
 // SyncService handles synchronization between PocketBase and PostGIS
 // It acts as the controller coordinating GPXService, PostGISService, MVTService, and EngagementService
 type SyncService struct {
-	engagementRepo    interfaces.EngagementRepository
 	postgisService    interfaces.PostGISService
 	gpxService        *GPXService
 	mvtService        interfaces.MVTService
-	engagementService *EngagementService
+	engagementService interfaces.EngagementService
 }
 
 // NewSyncService creates a new sync service
 func NewSyncService(
-	engagementRepo interfaces.EngagementRepository,
 	postgisService interfaces.PostGISService,
 	gpxService *GPXService,
 	mvtService interfaces.MVTService,
-	engagementService *EngagementService,
+	engagementService interfaces.EngagementService,
 ) *SyncService {
 	return &SyncService{
-		engagementRepo:    engagementRepo,
 		postgisService:    postgisService,
 		gpxService:        gpxService,
 		mvtService:        mvtService,
@@ -200,7 +197,7 @@ func (s *SyncService) syncTrailFromPBToPostGIS(ctx context.Context, app core.App
 	}
 
 	// 3. Download GPX file via GPXService
-	gpxData, err := s.gpxService.DownloadGPXFromPocketBase(trail, gpxFile)
+	gpxData, err := s.gpxService.GetTrailGPXFromPB(trail, gpxFile)
 	if err != nil {
 		return fmt.Errorf("failed to download GPX: %w", err)
 	}
@@ -263,8 +260,8 @@ func (s *SyncService) removeTrailFromPostGIS(ctx context.Context, trailID string
 func (s *SyncService) updateEngagementStatsToPostgis(ctx context.Context, trailID string) error {
 	log.Printf("Updating engagement stats for trail %s in PostGIS", trailID)
 
-	// Get engagement statistics from repository
-	stats, err := s.engagementRepo.GetEngagementStats(ctx, trailID)
+	// Get engagement statistics from service
+	stats, err := s.engagementService.GetEngagementStats(ctx, trailID)
 	if err != nil {
 		return fmt.Errorf("failed to get engagement stats: %w", err)
 	}

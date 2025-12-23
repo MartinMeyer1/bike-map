@@ -25,12 +25,11 @@ type GPXService struct {
 
 // NewGPXService creates a new GPX service instance
 func NewGPXService() *GPXService {
-	return &GPXService{
-	}
+	return &GPXService{}
 }
 
-// DownloadGPXFromPocketBase downloads GPX file from PocketBase storage
-func (g *GPXService) DownloadGPXFromPocketBase(trail *core.Record, filename string) ([]byte, error) {
+// GetTrailGPXFromPB downloads GPX file from PocketBase storage
+func (g *GPXService) GetTrailGPXFromPB(trail *core.Record, filename string) ([]byte, error) {
 	// Construct file URL
 	fileURL := fmt.Sprintf("%s/api/files/trails/%s/%s", "http://localhost:8090", trail.Id, filename)
 

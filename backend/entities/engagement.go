@@ -32,22 +32,6 @@ type EngagementStats struct {
 	CommentCount int     `json:"comment_count"`
 }
 
-// NewRatingAverage creates a new rating average entry
-func NewRatingAverage(id, trailID string) *RatingAverage {
-	return &RatingAverage{
-		ID:      id,
-		TrailID: trailID,
-		Average: 0.0,
-		Count:   0,
-	}
-}
-
-// UpdateStats updates the rating average statistics
-func (ra *RatingAverage) UpdateStats(average float64, count int) {
-	ra.Average = average
-	ra.Count = count
-}
-
 // EngagementStatsData contains engagement statistics for updating
 type EngagementStatsData struct {
 	RatingAvg    float64

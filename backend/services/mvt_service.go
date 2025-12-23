@@ -109,7 +109,7 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 	m.cacheMutex.RUnlock()
 
 	// Cache miss - generate tile via PostGISService
-	tolerance := m.CalculateSimplificationTolerance(z)
+	tolerance := m.calculateSimplificationTolerance(z)
 	mvtData, err := m.postgisService.GenerateMVTForTile(context.Background(), z, x, y, tolerance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate MVT: %w", err)
@@ -222,8 +222,8 @@ func (m *MVTService) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int)
 	return minX, minY, maxX, maxY
 }
 
-// CalculateSimplificationTolerance returns geometry simplification tolerance based on zoom level
-func (m *MVTService) CalculateSimplificationTolerance(z int) float64 {
+// calculateSimplificationTolerance returns geometry simplification tolerance based on zoom level
+func (m *MVTService) calculateSimplificationTolerance(z int) float64 {
 	// More aggressive simplification at lower zoom levels
 	switch {
 	case z <= 8:
