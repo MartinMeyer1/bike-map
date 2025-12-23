@@ -33,7 +33,6 @@ type AppService struct {
 	metaHandler *apiHandlers.MetaHandler
 
 	// Domain Components
-	trailRepo      interfaces.TrailRepository
 	engagementRepo interfaces.EngagementRepository
 	userRepo       interfaces.UserRepository
 }
@@ -101,7 +100,6 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 	}
 
 	// Initialize repositories with PocketBase app
-	a.trailRepo = repos.NewPocketBaseTrailRepository(app)
 	a.engagementRepo = repos.NewPocketBaseEngagementRepository(app)
 	a.userRepo = repos.NewPocketBaseUserRepository(app)
 
@@ -113,7 +111,6 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 	// Initialize sync service if PostGIS is available
 	if a.postgisService != nil {
 		a.syncService = NewSyncService(
-			a.trailRepo,
 			a.engagementRepo,
 			a.postgisService,
 			a.gpxService,

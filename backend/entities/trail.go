@@ -63,3 +63,22 @@ type BoundingBox struct {
 	East  float64 `json:"east"`  // Maximum longitude
 	West  float64 `json:"west"`  // Minimum longitude
 }
+
+// TrailInsertData contains all data needed to insert a trail into PostGIS
+type TrailInsertData struct {
+	ID            string
+	Name          string
+	Description   string
+	Level         string
+	Tags          string
+	OwnerID       string
+	GPXFile       string
+	LineStringWKT string
+	ElevationJSON string
+	CreatedAt     interface{}
+	UpdatedAt     interface{}
+	RatingAvg     float64
+	RatingCount   int
+	CommentCount  int
+	Ridden        bool
+}

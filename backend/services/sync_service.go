@@ -15,7 +15,6 @@ import (
 // SyncService handles synchronization between PocketBase and PostGIS
 // It acts as the controller coordinating GPXService, PostGISService, MVTService, and EngagementService
 type SyncService struct {
-	trailRepo         interfaces.TrailRepository
 	engagementRepo    interfaces.EngagementRepository
 	postgisService    interfaces.PostGISService
 	gpxService        *GPXService
@@ -25,7 +24,6 @@ type SyncService struct {
 
 // NewSyncService creates a new sync service
 func NewSyncService(
-	trailRepo interfaces.TrailRepository,
 	engagementRepo interfaces.EngagementRepository,
 	postgisService interfaces.PostGISService,
 	gpxService *GPXService,
@@ -33,7 +31,6 @@ func NewSyncService(
 	engagementService *EngagementService,
 ) *SyncService {
 	return &SyncService{
-		trailRepo:         trailRepo,
 		engagementRepo:    engagementRepo,
 		postgisService:    postgisService,
 		gpxService:        gpxService,
@@ -230,7 +227,7 @@ func (s *SyncService) SyncTrailToPostGIS(ctx context.Context, app core.App, trai
 	}
 
 	// 8. Insert into PostGIS via PostGISService
-	trailData := interfaces.TrailInsertData{
+	trailData := entities.TrailInsertData{
 		ID:            trail.Id,
 		Name:          trail.GetString("name"),
 		Description:   trail.GetString("description"),
@@ -272,7 +269,7 @@ func (s *SyncService) UpdateEngagementStats(ctx context.Context, trailID string)
 		return fmt.Errorf("failed to get engagement stats: %w", err)
 	}
 
-	engagementData := interfaces.EngagementStatsData{
+	engagementData := entities.EngagementStatsData{
 		RatingAvg:    stats.RatingAvg,
 		RatingCount:  stats.RatingCount,
 		CommentCount: stats.CommentCount,

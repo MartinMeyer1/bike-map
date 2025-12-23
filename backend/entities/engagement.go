@@ -62,3 +62,10 @@ func (ra *RatingAverage) UpdateStats(average float64, count int) {
 	ra.Count = count
 	ra.Updated = time.Now()
 }
+
+// EngagementStatsData contains engagement statistics for updating
+type EngagementStatsData struct {
+	RatingAvg    float64
+	RatingCount  int
+	CommentCount int
+}

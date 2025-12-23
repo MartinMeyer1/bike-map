@@ -50,7 +50,7 @@ func (p *PostGISService) Close() error {
 }
 
 // InsertTrail inserts or updates a trail in PostGIS
-func (p *PostGISService) InsertTrail(ctx context.Context, trail interfaces.TrailInsertData) error {
+func (p *PostGISService) InsertTrail(ctx context.Context, trail entities.TrailInsertData) error {
 	query := `
 		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count, ridden)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14, $15)
@@ -141,7 +141,7 @@ func (p *PostGISService) GetTrailBoundingBox(ctx context.Context, trailID string
 }
 
 // UpdateEngagementStats updates only the engagement statistics for a trail in PostGIS
-func (p *PostGISService) UpdateEngagementStats(ctx context.Context, trailID string, stats interfaces.EngagementStatsData) error {
+func (p *PostGISService) UpdateEngagementStats(ctx context.Context, trailID string, stats entities.EngagementStatsData) error {
 	query := `
 		UPDATE trails SET
 			rating_average = $2,
