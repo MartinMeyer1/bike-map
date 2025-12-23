@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"bike-map-backend/entities"
 	"bike-map-backend/interfaces"
@@ -68,7 +67,6 @@ func (r *PocketBaseEngagementRepository) GetEngagementStats(ctx context.Context,
 		RatingCount:  ratingCount,
 		RatingAvg:    ratingAvg,
 		CommentCount: commentCount,
-		LastUpdated:  time.Now(),
 	}, nil
 }
 
@@ -145,8 +143,6 @@ func (r *PocketBaseRatingRepository) recordToRating(record *core.Record) *entiti
 		TrailID: record.GetString("trail"),
 		UserID:  record.GetString("user"),
 		Rating:  record.GetInt("rating"),
-		Created: record.GetDateTime("created").Time(),
-		Updated: record.GetDateTime("updated").Time(),
 	}
 }
 
@@ -195,8 +191,6 @@ func (r *PocketBaseCommentRepository) recordToComment(record *core.Record) *enti
 		TrailID: record.GetString("trail"),
 		UserID:  record.GetString("user"),
 		Content: record.GetString("content"),
-		Created: record.GetDateTime("created").Time(),
-		Updated: record.GetDateTime("updated").Time(),
 	}
 }
 // PocketBaseRatingAverageRepository implements RatingAverageRepository using PocketBase
@@ -318,7 +312,5 @@ func (r *PocketBaseRatingAverageRepository) recordToRatingAverage(record *core.R
 		TrailID: record.GetString("trail"),
 		Average: record.GetFloat("average"),
 		Count:   record.GetInt("count"),
-		Created: record.GetDateTime("created").Time(),
-		Updated: record.GetDateTime("updated").Time(),
 	}
 }

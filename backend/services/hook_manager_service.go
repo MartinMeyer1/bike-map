@@ -178,85 +178,6 @@ func (h *HookManagerService) setupEngagementHooks(app core.App) {
 	})
 }
 
-// Trail event handlers - delegate to SyncService
-
-func (h *HookManagerService) handleTrailCreated(app core.App, record *core.Record) {
-	if err := h.syncService.HandleTrailCreated(context.Background(), app, record.Id); err != nil {
-		log.Printf("Failed to handle trail creation %s: %v", record.Id, err)
-	}
-}
-
-func (h *HookManagerService) handleTrailUpdated(app core.App, record *core.Record) {
-	if err := h.syncService.HandleTrailUpdated(context.Background(), app, record.Id); err != nil {
-		log.Printf("Failed to handle trail update %s: %v", record.Id, err)
-	}
-}
-
-func (h *HookManagerService) handleTrailDeleted(record *core.Record) {
-	if err := h.syncService.HandleTrailDeleted(context.Background(), record.Id); err != nil {
-		log.Printf("Failed to handle trail deletion %s: %v", record.Id, err)
-	}
-}
-
-// Rating event handlers - delegate to SyncService
-
-func (h *HookManagerService) handleRatingCreated(app core.App, record *core.Record) {
-	trailID := record.GetString("trail")
-	if trailID == "" {
-		log.Printf("Warning: Rating created without trail ID")
-		return
-	}
-	if err := h.syncService.HandleRatingCreated(context.Background(), app, trailID); err != nil {
-		log.Printf("Failed to handle rating creation for trail %s: %v", trailID, err)
-	}
-}
-
-func (h *HookManagerService) handleRatingUpdated(app core.App, record *core.Record) {
-	trailID := record.GetString("trail")
-	if trailID == "" {
-		log.Printf("Warning: Rating updated without trail ID")
-		return
-	}
-	if err := h.syncService.HandleRatingUpdated(context.Background(), app, trailID); err != nil {
-		log.Printf("Failed to handle rating update for trail %s: %v", trailID, err)
-	}
-}
-
-func (h *HookManagerService) handleRatingDeleted(app core.App, record *core.Record) {
-	trailID := record.GetString("trail")
-	if trailID == "" {
-		log.Printf("Warning: Rating deleted without trail ID")
-		return
-	}
-	if err := h.syncService.HandleRatingDeleted(context.Background(), app, trailID); err != nil {
-		log.Printf("Failed to handle rating deletion for trail %s: %v", trailID, err)
-	}
-}
-
-// Comment event handlers - delegate to SyncService
-
-func (h *HookManagerService) handleCommentCreated(record *core.Record) {
-	trailID := record.GetString("trail")
-	if trailID == "" {
-		log.Printf("Warning: Comment created without trail ID")
-		return
-	}
-	if err := h.syncService.HandleCommentCreated(context.Background(), trailID); err != nil {
-		log.Printf("Failed to handle comment creation for trail %s: %v", trailID, err)
-	}
-}
-
-func (h *HookManagerService) handleCommentDeleted(record *core.Record) {
-	trailID := record.GetString("trail")
-	if trailID == "" {
-		log.Printf("Warning: Comment deleted without trail ID")
-		return
-	}
-	if err := h.syncService.HandleCommentDeleted(context.Background(), trailID); err != nil {
-		log.Printf("Failed to handle comment deletion for trail %s: %v", trailID, err)
-	}
-}
-
 // setupFileDownloadHooks configures file download hooks
 func (h *HookManagerService) setupFileDownloadHooks(app core.App) {
 	app.OnFileDownloadRequest().BindFunc(func(e *core.FileDownloadRequestEvent) error {
@@ -336,4 +257,83 @@ func sanitizeFilename(name string) string {
 		sanitized = strings.ReplaceAll(sanitized, char, "_")
 	}
 	return sanitized
+}
+
+// Trail event handlers - delegate to SyncService
+
+func (h *HookManagerService) handleTrailCreated(app core.App, record *core.Record) {
+	if err := h.syncService.HandleTrailCreated(context.Background(), app, record.Id); err != nil {
+		log.Printf("Failed to handle trail creation %s: %v", record.Id, err)
+	}
+}
+
+func (h *HookManagerService) handleTrailUpdated(app core.App, record *core.Record) {
+	if err := h.syncService.HandleTrailUpdated(context.Background(), app, record.Id); err != nil {
+		log.Printf("Failed to handle trail update %s: %v", record.Id, err)
+	}
+}
+
+func (h *HookManagerService) handleTrailDeleted(record *core.Record) {
+	if err := h.syncService.HandleTrailDeleted(context.Background(), record.Id); err != nil {
+		log.Printf("Failed to handle trail deletion %s: %v", record.Id, err)
+	}
+}
+
+// Rating event handlers - delegate to SyncService
+
+func (h *HookManagerService) handleRatingCreated(app core.App, record *core.Record) {
+	trailID := record.GetString("trail")
+	if trailID == "" {
+		log.Printf("Warning: Rating created without trail ID")
+		return
+	}
+	if err := h.syncService.HandleRatingCreated(context.Background(), app, trailID); err != nil {
+		log.Printf("Failed to handle rating creation for trail %s: %v", trailID, err)
+	}
+}
+
+func (h *HookManagerService) handleRatingUpdated(app core.App, record *core.Record) {
+	trailID := record.GetString("trail")
+	if trailID == "" {
+		log.Printf("Warning: Rating updated without trail ID")
+		return
+	}
+	if err := h.syncService.HandleRatingUpdated(context.Background(), app, trailID); err != nil {
+		log.Printf("Failed to handle rating update for trail %s: %v", trailID, err)
+	}
+}
+
+func (h *HookManagerService) handleRatingDeleted(app core.App, record *core.Record) {
+	trailID := record.GetString("trail")
+	if trailID == "" {
+		log.Printf("Warning: Rating deleted without trail ID")
+		return
+	}
+	if err := h.syncService.HandleRatingDeleted(context.Background(), app, trailID); err != nil {
+		log.Printf("Failed to handle rating deletion for trail %s: %v", trailID, err)
+	}
+}
+
+// Comment event handlers - delegate to SyncService
+
+func (h *HookManagerService) handleCommentCreated(record *core.Record) {
+	trailID := record.GetString("trail")
+	if trailID == "" {
+		log.Printf("Warning: Comment created without trail ID")
+		return
+	}
+	if err := h.syncService.HandleCommentCreated(context.Background(), trailID); err != nil {
+		log.Printf("Failed to handle comment creation for trail %s: %v", trailID, err)
+	}
+}
+
+func (h *HookManagerService) handleCommentDeleted(record *core.Record) {
+	trailID := record.GetString("trail")
+	if trailID == "" {
+		log.Printf("Warning: Comment deleted without trail ID")
+		return
+	}
+	if err := h.syncService.HandleCommentDeleted(context.Background(), trailID); err != nil {
+		log.Printf("Failed to handle comment deletion for trail %s: %v", trailID, err)
+	}
 }

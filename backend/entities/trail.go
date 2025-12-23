@@ -16,16 +16,6 @@ const (
 	LevelS5 TrailLevel = "S5"
 )
 
-// IsValid checks if the trail level is valid
-func (l TrailLevel) IsValid() bool {
-	switch l {
-	case LevelS0, LevelS1, LevelS2, LevelS3, LevelS4, LevelS5:
-		return true
-	default:
-		return false
-	}
-}
-
 // Trail represents a mountain bike trail with all its properties
 type Trail struct {
 	ID            string         `json:"id"`

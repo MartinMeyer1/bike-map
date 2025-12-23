@@ -1,17 +1,11 @@
 package entities
 
-import (
-	"time"
-)
-
 // Rating represents a user's rating for a trail
 type Rating struct {
 	ID       string    `json:"id"`
 	TrailID  string    `json:"trail_id"`
 	UserID   string    `json:"user_id"`
 	Rating   int       `json:"rating"` // 1-5 stars
-	Created  time.Time `json:"created"`
-	Updated  time.Time `json:"updated"`
 }
 
 // Comment represents a user's comment on a trail
@@ -20,8 +14,6 @@ type Comment struct {
 	TrailID  string    `json:"trail_id"`
 	UserID   string    `json:"user_id"`
 	Content  string    `json:"content"`
-	Created  time.Time `json:"created"`
-	Updated  time.Time `json:"updated"`
 }
 
 // RatingAverage represents aggregated rating data for a trail
@@ -30,8 +22,6 @@ type RatingAverage struct {
 	TrailID string    `json:"trail_id"`
 	Average float64   `json:"average"` // 0.0-5.0
 	Count   int       `json:"count"`   // Number of ratings
-	Created time.Time `json:"created"`
-	Updated time.Time `json:"updated"`
 }
 
 // EngagementStats represents comprehensive engagement statistics for a trail
@@ -40,19 +30,15 @@ type EngagementStats struct {
 	RatingCount  int     `json:"rating_count"`
 	RatingAvg    float64 `json:"rating_average"`
 	CommentCount int     `json:"comment_count"`
-	LastUpdated  time.Time `json:"last_updated"`
 }
 
 // NewRatingAverage creates a new rating average entry
 func NewRatingAverage(id, trailID string) *RatingAverage {
-	now := time.Now()
 	return &RatingAverage{
 		ID:      id,
 		TrailID: trailID,
 		Average: 0.0,
 		Count:   0,
-		Created: now,
-		Updated: now,
 	}
 }
 
@@ -60,7 +46,6 @@ func NewRatingAverage(id, trailID string) *RatingAverage {
 func (ra *RatingAverage) UpdateStats(average float64, count int) {
 	ra.Average = average
 	ra.Count = count
-	ra.Updated = time.Now()
 }
 
 // EngagementStatsData contains engagement statistics for updating
