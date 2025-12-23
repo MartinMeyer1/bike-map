@@ -34,13 +34,6 @@ func NewSyncService(
 	}
 }
 
-// SyncTrailToPostGIS synchronizes a trail from PocketBase to PostGIS (for interface compatibility)
-func (s *SyncService) SyncTrailToPostGIS(ctx context.Context, trailID string) error {
-	// This method is kept for interface compatibility but should not be used directly
-	// Use SyncTrailToPostGISWithApp for full GPX processing including geometry
-	return fmt.Errorf("SyncTrailToPostGIS requires PocketBase app instance - use SyncTrailToPostGISWithApp instead")
-}
-
 // SyncTrailToPostGISWithGeometry synchronizes a trail with full GPX processing (for hook handlers)
 func (s *SyncService) SyncTrailToPostGISWithGeometry(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Syncing trail %s to PostGIS with full GPX processing", trailID)
@@ -96,7 +89,7 @@ func (s *SyncService) UpdateEngagementStats(ctx context.Context, trailID string)
 			updated_at = NOW()
 		WHERE id = $1`
 
-	result, err := s.postgisDB.ExecContext(ctx, query,
+	_, err = s.postgisDB.ExecContext(ctx, query,
 		trailID,
 		stats.RatingAvg,
 		stats.RatingCount,
@@ -105,17 +98,6 @@ func (s *SyncService) UpdateEngagementStats(ctx context.Context, trailID string)
 
 	if err != nil {
 		return fmt.Errorf("failed to update engagement stats in PostGIS: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		log.Printf("Trail %s not found in PostGIS for engagement stats update", trailID)
-		// Try to sync the entire trail if it doesn't exist
-		return s.SyncTrailToPostGIS(ctx, trailID)
 	}
 
 	log.Printf("Updated engagement stats for trail %s in PostGIS", trailID)
