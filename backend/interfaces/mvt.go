@@ -12,4 +12,5 @@ type MVTService interface {
 	Close() error
 	GetMinZoom() int
 	GetMaxZoom() int
+	CalculateSimplificationTolerance(z int) float64
 }

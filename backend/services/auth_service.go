@@ -30,7 +30,7 @@ func (a *AuthService) CanCreateTrails(user *core.Record) bool {
 // CanManageUsers checks if the user has permission to manage other users
 func (a *AuthService) CanManageUsers(user *core.Record) bool {
 	role := entities.UserRole(user.GetString("role"))
-	return role.CanModerateContent()
+	return role.CanManageUsers()
 }
 
 // CanUpdateTrail checks if the user can update a specific trail

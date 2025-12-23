@@ -374,22 +374,5 @@ func (p *PostGISService) calculateTileBounds(z, x, y int) entities.TileBounds {
 	}
 }
 
-// CalculateSimplificationTolerance returns geometry simplification tolerance based on zoom level
-func (p *PostGISService) CalculateSimplificationTolerance(z int) float64 {
-	// More aggressive simplification at lower zoom levels
-	switch {
-	case z <= 8:
-		return 0.05 // Very simplified for country/regional view
-	case z <= 10:
-		return 0.01 // Simplified for regional view
-	case z <= 11:
-		return 0.001 // Moderate simplification for city view
-	case z <= 12:
-		return 0.0005 // Light simplification for neighborhood view
-	default:
-		return 0 // No simplification for detailed view
-	}
-}
-
 // Compile-time check to ensure PostGISService implements interfaces.PostGISService
 var _ interfaces.PostGISService = (*PostGISService)(nil)

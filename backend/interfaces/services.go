@@ -24,7 +24,6 @@ type PostGISService interface {
 	UpdateEngagementStats(ctx context.Context, trailID string, stats EngagementStatsData) error
 	ClearAllTrails(ctx context.Context) error
 	GenerateMVTForTile(ctx context.Context, z, x, y int, tolerance float64) ([]byte, error)
-	CalculateSimplificationTolerance(z int) float64
 	Close() error
 }
 
@@ -52,12 +51,4 @@ type EngagementStatsData struct {
 	RatingAvg    float64
 	RatingCount  int
 	CommentCount int
-}
-
-// BoundingBox represents a geographic bounding box
-type BoundingBox struct {
-	North float64
-	South float64
-	East  float64
-	West  float64
 }

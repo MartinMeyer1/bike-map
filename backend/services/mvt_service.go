@@ -109,7 +109,7 @@ func (m *MVTService) GenerateTrailsMVT(z, x, y int) ([]byte, error) {
 	m.cacheMutex.RUnlock()
 
 	// Cache miss - generate tile via PostGISService
-	tolerance := m.postgisService.CalculateSimplificationTolerance(z)
+	tolerance := m.CalculateSimplificationTolerance(z)
 	mvtData, err := m.postgisService.GenerateMVTForTile(context.Background(), z, x, y, tolerance)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate MVT: %w", err)
@@ -220,6 +220,23 @@ func (m *MVTService) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int)
 	}
 
 	return minX, minY, maxX, maxY
+}
+
+// CalculateSimplificationTolerance returns geometry simplification tolerance based on zoom level
+func (m *MVTService) CalculateSimplificationTolerance(z int) float64 {
+	// More aggressive simplification at lower zoom levels
+	switch {
+	case z <= 8:
+		return 0.05 // Very simplified for country/regional view
+	case z <= 10:
+		return 0.01 // Simplified for regional view
+	case z <= 11:
+		return 0.001 // Moderate simplification for city view
+	case z <= 12:
+		return 0.0005 // Light simplification for neighborhood view
+	default:
+		return 0 // No simplification for detailed view
+	}
 }
 
 // Close is a no-op as MVTService no longer owns a database connection
