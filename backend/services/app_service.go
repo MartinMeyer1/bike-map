@@ -34,7 +34,6 @@ type AppService struct {
 
 	// Domain Components
 	engagementRepo interfaces.EngagementRepository
-	userRepo       interfaces.UserRepository
 }
 
 // NewAppService creates a new application service with all dependencies properly wired
@@ -101,7 +100,6 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 
 	// Initialize repositories with PocketBase app
 	a.engagementRepo = repos.NewPocketBaseEngagementRepository(app)
-	a.userRepo = repos.NewPocketBaseUserRepository(app)
 
 	// Initialize domain services that depend on repositories
 	a.engagementService = NewEngagementService(
