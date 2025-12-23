@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"database/sql"
 	"log"
 
 	"bike-map-backend/apiHandlers"
@@ -24,8 +23,9 @@ type AppService struct {
 	engagementService  *EngagementService
 	syncService        *SyncService
 	hookManagerService *HookManagerService
-	gpxService *GPXService
-	mvtService *MVTService
+	postgisService     *PostGISService
+	gpxService         *GPXService
+	mvtService         *MVTService
 
 	// Handlers
 	mvtHandler  *apiHandlers.MVTHandler
@@ -33,12 +33,9 @@ type AppService struct {
 	metaHandler *apiHandlers.MetaHandler
 
 	// Domain Components
-	trailRepo       interfaces.TrailRepository
-	engagementRepo  interfaces.EngagementRepository
-	userRepo        interfaces.UserRepository
-
-	// Database connection for PostGIS
-	postgisDB *sql.DB
+	trailRepo      interfaces.TrailRepository
+	engagementRepo interfaces.EngagementRepository
+	userRepo       interfaces.UserRepository
 }
 
 // NewAppService creates a new application service with all dependencies properly wired
@@ -51,8 +48,6 @@ func NewAppService(cfg *config.Config) (*AppService, error) {
 		return nil, err
 	}
 
-	// Note: initializeHandlers is called later in InitializeForPocketBase once app is available
-
 	return app, nil
 }
 
@@ -64,22 +59,20 @@ func (a *AppService) initializeServices() error {
 	// Initialize collection service
 	a.collectionService = NewCollectionService(a.config, a.authService)
 
-	// Initialize legacy services for backward compatibility
+	// Initialize PostGIS service first (owns the database connection)
 	var err error
-	a.gpxService, err = NewGPXService(a.config)
+	a.postgisService, err = NewPostGISService(a.config)
 	if err != nil {
-		log.Printf("⚠️  Failed to initialize GPX service: %v", err)
-		log.Printf("PostGIS sync will not be available")
-	} else {
-		// Get PostGIS connection from GPX service
-		a.postgisDB = a.gpxService.GetDB()
+		log.Printf("Failed to initialize PostGIS service: %v", err)
+		log.Printf("PostGIS sync and MVT endpoints will not be available")
+		return nil // Continue without PostGIS - PocketBase will still work
 	}
 
-	a.mvtService, err = NewMVTService(a.config)
-	if err != nil {
-		log.Printf("⚠️  Failed to initialize MVT service: %v", err)
-		log.Printf("MVT endpoints will not be available")
-	}
+	// Initialize GPX service (no database, just parsing)
+	a.gpxService = NewGPXService()
+
+	// Initialize MVT service with PostGIS service
+	a.mvtService = NewMVTService(a.postgisService)
 
 	return nil
 }
@@ -118,21 +111,21 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 	)
 
 	// Initialize sync service if PostGIS is available
-	if a.postgisDB != nil {
+	if a.postgisService != nil {
 		a.syncService = NewSyncService(
 			a.trailRepo,
 			a.engagementRepo,
-			a.postgisDB,
-			a.gpxService, // Pass GPXService for geometry processing
+			a.postgisService,
+			a.gpxService,
+			a.mvtService,
+			a.engagementService,
 		)
 	}
 
 	// Initialize hook manager service
 	a.hookManagerService = NewHookManagerService(
 		a.authService,
-		a.engagementService,
 		a.syncService,
-		a.mvtService,
 	)
 
 	return nil
@@ -207,12 +200,12 @@ func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
 		return
 	}
 
-	log.Println("🔄 Starting initial sync of all trails to PostGIS...")
+	log.Println("Starting initial sync of all trails to PostGIS...")
 	go func() {
-		if err := a.syncService.SyncAllTrailsWithApp(context.Background(), app); err != nil {
-			log.Printf("⚠️  Failed to sync trails at startup: %v", err)
+		if err := a.syncService.SyncAllTrails(context.Background(), app); err != nil {
+			log.Printf("Failed to sync trails at startup: %v", err)
 		} else {
-			log.Println("✅ Successfully synced all trails to PostGIS at startup")
+			log.Println("Successfully synced all trails to PostGIS at startup")
 
 			// Invalidate MVT cache after startup sync
 			if a.mvtService != nil {
@@ -225,15 +218,9 @@ func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
 
 // Close cleans up all service resources
 func (a *AppService) Close() error {
-	if a.gpxService != nil {
-		if err := a.gpxService.Close(); err != nil {
-			log.Printf("Error closing GPX service: %v", err)
-		}
-	}
-
-	if a.mvtService != nil {
-		if err := a.mvtService.Close(); err != nil {
-			log.Printf("Error closing MVT service: %v", err)
+	if a.postgisService != nil {
+		if err := a.postgisService.Close(); err != nil {
+			log.Printf("Error closing PostGIS service: %v", err)
 		}
 	}
 

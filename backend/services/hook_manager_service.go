@@ -15,24 +15,18 @@ import (
 
 // HookManagerService manages all PocketBase event hooks with proper decoupling
 type HookManagerService struct {
-	authService       *AuthService
-	engagementService *EngagementService
-	syncService       *SyncService
-	mvtService        *MVTService
+	authService *AuthService
+	syncService *SyncService
 }
 
 // NewHookManagerService creates a new hook manager service
 func NewHookManagerService(
 	authService *AuthService,
-	engagementService *EngagementService,
 	syncService *SyncService,
-	mvtService *MVTService,
 ) *HookManagerService {
 	return &HookManagerService{
-		authService:       authService,
-		engagementService: engagementService,
-		syncService:       syncService,
-		mvtService:        mvtService,
+		authService: authService,
+		syncService: syncService,
 	}
 }
 
@@ -142,6 +136,10 @@ func (h *HookManagerService) setupTrailHooks(app core.App) {
 
 // setupEngagementHooks configures engagement-related hooks (ratings and comments)
 func (h *HookManagerService) setupEngagementHooks(app core.App) {
+	if h.syncService == nil {
+		return
+	}
+
 	// Rating hooks
 	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_ratings" {
@@ -167,98 +165,40 @@ func (h *HookManagerService) setupEngagementHooks(app core.App) {
 	// Comment hooks
 	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_comments" {
-			go h.handleCommentCreated(app, e.Record)
-		}
-		return e.Next()
-	})
-
-	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name == "trail_comments" {
-			go h.handleCommentUpdated(app, e.Record)
+			go h.handleCommentCreated(e.Record)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_comments" {
-			go h.handleCommentDeleted(app, e.Record)
+			go h.handleCommentDeleted(e.Record)
 		}
 		return e.Next()
 	})
 }
 
-// Trail event handlers
+// Trail event handlers - delegate to SyncService
 
 func (h *HookManagerService) handleTrailCreated(app core.App, record *core.Record) {
-	trailID := record.Id
-	log.Printf("Handling trail creation: %s", trailID)
-
-	// Sync to PostGIS with full GPX processing including geometry
-	if err := h.syncService.SyncTrailToPostGISWithGeometry(context.Background(), app, trailID); err != nil {
-		log.Printf("Failed to sync trail %s to PostGIS after creation: %v", trailID, err)
-	} else {
-		log.Printf("Successfully synced trail to PostGIS after creation")
-		// Invalidate MVT cache
-		h.invalidateMVTCacheForTrail(trailID)
+	if err := h.syncService.HandleTrailCreated(context.Background(), app, record.Id); err != nil {
+		log.Printf("Failed to handle trail creation %s: %v", record.Id, err)
 	}
 }
 
 func (h *HookManagerService) handleTrailUpdated(app core.App, record *core.Record) {
-	trailID := record.Id
-	log.Printf("Handling trail update: %s", trailID)
-
-	// Get old bounding box before update to invalidate old position
-	oldBBox, err := h.syncService.gpxService.GetTrailBoundingBox(trailID)
-	if err != nil {
-		log.Printf("Could not get old bbox for trail %s: %v", trailID, err)
-	}
-
-	// Sync to PostGIS with full GPX processing including geometry
-	if err := h.syncService.SyncTrailToPostGISWithGeometry(context.Background(), app, trailID); err != nil {
-		log.Printf("Failed to sync trail %s to PostGIS after update: %v", trailID, err)
-	} else {
-		log.Printf("Successfully synced trail to PostGIS after update")
-		
-		// Invalidate cache for old position if we got it
-		if oldBBox != nil {
-			h.mvtService.InvalidateTilesForBBox(*oldBBox)
-		} else{
-			h.mvtService.InvalidateAllCache()
-		}
-		
-		// Invalidate cache for new position
-		h.invalidateMVTCacheForTrail(trailID)
+	if err := h.syncService.HandleTrailUpdated(context.Background(), app, record.Id); err != nil {
+		log.Printf("Failed to handle trail update %s: %v", record.Id, err)
 	}
 }
 
 func (h *HookManagerService) handleTrailDeleted(record *core.Record) {
-	trailID := record.Id
-	trailName := record.GetString("name")
-	log.Printf("Handling trail deletion: %s (%s)", trailID, trailName)
-
-	// Get bounding box before deletion to invalidate cache
-	oldBBox, err := h.syncService.gpxService.GetTrailBoundingBox(trailID)
-	if err != nil {
-		log.Printf("Could not get bbox for trail %s before deletion: %v", trailID, err)
-	}
-
-	// Remove from PostGIS
-	if err := h.syncService.RemoveTrailFromPostGIS(context.Background(), trailID); err != nil {
-		log.Printf("Failed to delete trail %s from PostGIS: %v", trailID, err)
-	} else {
-		log.Printf("Successfully deleted trail %s from PostGIS", trailName)
-
-		// Invalidate cache for deleted trail position
-		if oldBBox != nil {
-			h.mvtService.InvalidateTilesForBBox(*oldBBox)
-		} else {
-			// Fall back to full cache invalidation if we couldn't get bbox
-			h.mvtService.InvalidateAllCache()
-		}
+	if err := h.syncService.HandleTrailDeleted(context.Background(), record.Id); err != nil {
+		log.Printf("Failed to handle trail deletion %s: %v", record.Id, err)
 	}
 }
 
-// Engagement event handlers
+// Rating event handlers - delegate to SyncService
 
 func (h *HookManagerService) handleRatingCreated(app core.App, record *core.Record) {
 	trailID := record.GetString("trail")
@@ -266,16 +206,9 @@ func (h *HookManagerService) handleRatingCreated(app core.App, record *core.Reco
 		log.Printf("Warning: Rating created without trail ID")
 		return
 	}
-
-	log.Printf("Handling rating creation for trail: %s", trailID)
-
-	// Update rating average using the legacy method (for now)
-	if err := h.engagementService.UpdateRatingAverage(app, trailID); err != nil {
-		log.Printf("Failed to update rating average after creation: %v", err)
+	if err := h.syncService.HandleRatingCreated(context.Background(), app, trailID); err != nil {
+		log.Printf("Failed to handle rating creation for trail %s: %v", trailID, err)
 	}
-
-	// Update engagement data in PostGIS and invalidate MVT cache
-	h.updateEngagementAndInvalidateCache(trailID, "rating creation")
 }
 
 func (h *HookManagerService) handleRatingUpdated(app core.App, record *core.Record) {
@@ -284,16 +217,9 @@ func (h *HookManagerService) handleRatingUpdated(app core.App, record *core.Reco
 		log.Printf("Warning: Rating updated without trail ID")
 		return
 	}
-
-	log.Printf("Handling rating update for trail: %s", trailID)
-
-	// Update rating average using the legacy method (for now)
-	if err := h.engagementService.UpdateRatingAverage(app, trailID); err != nil {
-		log.Printf("Failed to update rating average after update: %v", err)
+	if err := h.syncService.HandleRatingUpdated(context.Background(), app, trailID); err != nil {
+		log.Printf("Failed to handle rating update for trail %s: %v", trailID, err)
 	}
-
-	// Update engagement data in PostGIS and invalidate MVT cache
-	h.updateEngagementAndInvalidateCache(trailID, "rating update")
 }
 
 func (h *HookManagerService) handleRatingDeleted(app core.App, record *core.Record) {
@@ -302,95 +228,33 @@ func (h *HookManagerService) handleRatingDeleted(app core.App, record *core.Reco
 		log.Printf("Warning: Rating deleted without trail ID")
 		return
 	}
-
-	log.Printf("Handling rating deletion for trail: %s", trailID)
-
-	// Update rating average using the legacy method (for now)
-	if err := h.engagementService.DeleteRatingAverage(app, trailID); err != nil {
-		log.Printf("Failed to update rating average after deletion: %v", err)
+	if err := h.syncService.HandleRatingDeleted(context.Background(), app, trailID); err != nil {
+		log.Printf("Failed to handle rating deletion for trail %s: %v", trailID, err)
 	}
-
-	// Update engagement data in PostGIS and invalidate MVT cache
-	h.updateEngagementAndInvalidateCache(trailID, "rating deletion")
 }
 
-func (h *HookManagerService) handleCommentCreated(app core.App, record *core.Record) {
+// Comment event handlers - delegate to SyncService
+
+func (h *HookManagerService) handleCommentCreated(record *core.Record) {
 	trailID := record.GetString("trail")
 	if trailID == "" {
 		log.Printf("Warning: Comment created without trail ID")
 		return
 	}
-
-	log.Printf("Handling comment creation for trail: %s", trailID)
-
-	// Update engagement data in PostGIS and invalidate MVT cache
-	h.updateEngagementAndInvalidateCache(trailID, "comment creation")
-}
-
-func (h *HookManagerService) handleCommentUpdated(app core.App, record *core.Record) {
-	trailID := record.GetString("trail")
-	if trailID == "" {
-		log.Printf("Warning: Comment updated without trail ID")
-		return
+	if err := h.syncService.HandleCommentCreated(context.Background(), trailID); err != nil {
+		log.Printf("Failed to handle comment creation for trail %s: %v", trailID, err)
 	}
-
-	log.Printf("Handling comment update for trail: %s", trailID)
-	// Comments updates don't change engagement stats, so no action needed
-	// But we could add audit logging here if needed
 }
 
-func (h *HookManagerService) handleCommentDeleted(app core.App, record *core.Record) {
+func (h *HookManagerService) handleCommentDeleted(record *core.Record) {
 	trailID := record.GetString("trail")
 	if trailID == "" {
 		log.Printf("Warning: Comment deleted without trail ID")
 		return
 	}
-
-	log.Printf("Handling comment deletion for trail: %s", trailID)
-
-	// Update engagement data in PostGIS and invalidate MVT cache
-	h.updateEngagementAndInvalidateCache(trailID, "comment deletion")
-}
-
-// Helper methods
-
-func (h *HookManagerService) updateEngagementAndInvalidateCache(trailID, operation string) {
-	if h.syncService == nil {
-		return
+	if err := h.syncService.HandleCommentDeleted(context.Background(), trailID); err != nil {
+		log.Printf("Failed to handle comment deletion for trail %s: %v", trailID, err)
 	}
-
-	// Update engagement stats in PostGIS
-	if err := h.syncService.UpdateEngagementStats(context.Background(), trailID); err != nil {
-		log.Printf("Failed to update PostGIS engagement after %s: %v", operation, err)
-		return
-	}
-
-	// Invalidate MVT cache for this trail
-	h.invalidateMVTCacheForTrail(trailID)
-}
-
-func (h *HookManagerService) invalidateMVTCacheForTrail(trailID string) {
-	if h.mvtService == nil {
-		return
-	}
-
-	bbox, err := h.syncService.gpxService.GetTrailBoundingBox(trailID)
-	if err != nil || bbox == nil {
-		log.Printf("Could not get bbox for trail %s, invalidating full cache: %v", trailID, err)
-		h.mvtService.InvalidateAllCache()
-		return
-	}
-
-	h.mvtService.InvalidateTilesForBBox(*bbox)
-	log.Printf("Invalidated MVT cache for trail %s", trailID)
-}
-
-// Legacy compatibility method for when GPX service is available
-func (h *HookManagerService) SetGPXService(gpxService interface {
-	GetTrailBoundingBox(trailID string) (*entities.BoundingBox, error)
-}) {
-	// This would allow more targeted cache invalidation
-	// For now, we'll keep it simple with full cache invalidation
 }
 
 // setupFileDownloadHooks configures file download hooks

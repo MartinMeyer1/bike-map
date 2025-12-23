@@ -1,8 +1,6 @@
 package services
 
 import (
-	"database/sql"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -10,106 +8,29 @@ import (
 	"net/http"
 	"strings"
 
-	"bike-map-backend/config"
 	"bike-map-backend/entities"
 
-	"log"
-
-	_ "github.com/lib/pq"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// GPXService handles GPX file processing and PostGIS operations
+// ParsedGPXData contains the result of parsing a GPX file
+type ParsedGPXData struct {
+	LineStringWKT string
+	ElevationData *entities.ElevationData
+}
+
+// GPXService handles GPX file parsing and processing (no database operations)
 type GPXService struct {
-	db     *sql.DB
-	config *config.Config
 }
 
 // NewGPXService creates a new GPX service instance
-func NewGPXService(cfg *config.Config) (*GPXService, error) {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Database)
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to PostGIS: %w", err)
-	}
-
-	// Set max connections
-	db.SetMaxIdleConns(10)
-	db.SetMaxOpenConns(30)
-
-	// Test connection
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
-	}
-
+func NewGPXService() *GPXService {
 	return &GPXService{
-		db:     db,
-		config: cfg,
-	}, nil
+	}
 }
 
-// Close closes the database connection
-func (g *GPXService) Close() error {
-	return g.db.Close()
-}
-
-// GetTrailBoundingBox retrieves the bounding box of a trail from PostGIS
-func (g *GPXService) GetTrailBoundingBox(trailID string) (*entities.BoundingBox, error) {
-	query := `
-		SELECT 
-			ST_XMin(bbox) as west,
-			ST_YMin(bbox) as south, 
-			ST_XMax(bbox) as east,
-			ST_YMax(bbox) as north
-		FROM trails 
-		WHERE id = $1 AND geom IS NOT NULL
-	`
-
-	var bbox entities.BoundingBox
-	err := g.db.QueryRow(query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("trail %s not found or has no geometry", trailID)
-		}
-		return nil, fmt.Errorf("failed to get trail bounding box: %w", err)
-	}
-
-	return &bbox, nil
-}
-
-// ImportTrailFromPocketBase imports a trail from PocketBase to PostGIS
-func (g *GPXService) ImportTrailFromPocketBase(app core.App, trailID string) error {
-	// Get trail record from PocketBase
-	trail, err := app.FindRecordById("trails", trailID)
-	if err != nil {
-		return fmt.Errorf("failed to find trail %s: %w", trailID, err)
-	}
-
-	// Get GPX file URL
-	gpxFile := trail.GetString("file")
-	if gpxFile == "" {
-		return fmt.Errorf("trail %s has no GPX file", trailID)
-	}
-
-	// Download and parse GPX file
-	gpxData, err := g.downloadGPXFromPocketBase(trail, gpxFile)
-	if err != nil {
-		return fmt.Errorf("failed to download GPX: %w", err)
-	}
-
-	gpx, err := g.parseGPX(gpxData)
-	if err != nil {
-		return fmt.Errorf("failed to parse GPX: %w", err)
-	}
-
-	// Convert to PostGIS format and insert
-	return g.insertTrailToPostGIS(app, trail, gpx)
-}
-
-// downloadGPXFromPocketBase downloads GPX file from PocketBase storage
-func (g *GPXService) downloadGPXFromPocketBase(trail *core.Record, filename string) ([]byte, error) {
+// DownloadGPXFromPocketBase downloads GPX file from PocketBase storage
+func (g *GPXService) DownloadGPXFromPocketBase(trail *core.Record, filename string) ([]byte, error) {
 	// Construct file URL
 	fileURL := fmt.Sprintf("%s/api/files/trails/%s/%s", "http://localhost:8090", trail.Id, filename)
 
@@ -126,22 +47,13 @@ func (g *GPXService) downloadGPXFromPocketBase(trail *core.Record, filename stri
 	return io.ReadAll(resp.Body)
 }
 
-// parseGPX parses GPX XML data
-func (g *GPXService) parseGPX(data []byte) (*entities.GPX, error) {
-	var gpx entities.GPX
-	if err := xml.Unmarshal(data, &gpx); err != nil {
-		return nil, fmt.Errorf("failed to parse GPX XML: %w", err)
+// ParseGPXFile parses GPX data and returns structured data ready for PostGIS insertion
+func (g *GPXService) ParseGPXFile(data []byte) (*ParsedGPXData, error) {
+	gpx, err := g.parseGPX(data)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(gpx.Tracks) == 0 {
-		return nil, fmt.Errorf("no tracks found in GPX")
-	}
-
-	return &gpx, nil
-}
-
-// insertTrailToPostGIS inserts trail data into PostGIS
-func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx *entities.GPX) error {
 	// Use the first track (most GPX files have only one track)
 	track := gpx.Tracks[0]
 
@@ -152,7 +64,7 @@ func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx 
 	}
 
 	if len(allPoints) == 0 {
-		return fmt.Errorf("no track points found")
+		return nil, fmt.Errorf("no track points found")
 	}
 
 	// Build LineString coordinates for PostGIS
@@ -165,61 +77,27 @@ func (g *GPXService) insertTrailToPostGIS(app core.App, trail *core.Record, gpx 
 	// Calculate elevation data
 	elevationData, err := g.calculateElevationData(allPoints)
 	if err != nil {
-		return fmt.Errorf("failed to calculate elevation data: %w", err)
+		return nil, fmt.Errorf("failed to calculate elevation data: %w", err)
 	}
 
-	elevationJSON, err := json.Marshal(elevationData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal elevation data: %w", err)
+	return &ParsedGPXData{
+		LineStringWKT: lineString,
+		ElevationData: elevationData,
+	}, nil
+}
+
+// parseGPX parses GPX XML data
+func (g *GPXService) parseGPX(data []byte) (*entities.GPX, error) {
+	var gpx entities.GPX
+	if err := xml.Unmarshal(data, &gpx); err != nil {
+		return nil, fmt.Errorf("failed to parse GPX XML: %w", err)
 	}
 
-	// Prepare tags JSON
-	tagsJSON := trail.GetString("tags")
-	if tagsJSON == "" {
-		tagsJSON = "[]"
+	if len(gpx.Tracks) == 0 {
+		return nil, fmt.Errorf("no tracks found in GPX")
 	}
 
-	// Get engagement data from PocketBase
-	ratingAvg, ratingCount, commentCount := g.getTrailEngagementData(app, trail.Id)
-
-	// Insert into PostGIS
-	query := `
-		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count, ridden)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14, $15)
-		ON CONFLICT (id) DO UPDATE SET
-			name = EXCLUDED.name,
-			description = EXCLUDED.description,
-			level = EXCLUDED.level,
-			tags = EXCLUDED.tags,
-			owner_id = EXCLUDED.owner_id,
-			gpx_file = EXCLUDED.gpx_file,
-			geom = EXCLUDED.geom,
-			elevation_data = EXCLUDED.elevation_data,
-			updated_at = EXCLUDED.updated_at,
-			rating_average = EXCLUDED.rating_average,
-			rating_count = EXCLUDED.rating_count,
-			comment_count = EXCLUDED.comment_count,
-			ridden = EXCLUDED.ridden`
-
-	_, err = g.db.Exec(query,
-		trail.Id,
-		trail.GetString("name"),
-		trail.GetString("description"),
-		trail.GetString("level"),
-		tagsJSON,
-		trail.GetString("owner"),
-		trail.GetString("file"), // GPX file name
-		lineString,
-		string(elevationJSON),
-		trail.GetDateTime("created").Time(),
-		trail.GetDateTime("updated").Time(),
-		ratingAvg,
-		ratingCount,
-		commentCount,
-		trail.GetBool("ridden"), // Default to false if not set
-	)
-
-	return err
+	return &gpx, nil
 }
 
 // calculateElevationData calculates elevation gain, loss, and profile
@@ -278,83 +156,4 @@ func (g *GPXService) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
 	return R * c
-}
-
-// ClearAllTrails removes all trails from PostGIS
-func (g *GPXService) ClearAllTrails() error {
-	query := `DELETE FROM trails`
-	result, err := g.db.Exec(query)
-	if err != nil {
-		return fmt.Errorf("failed to clear all trails from PostGIS: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected for trail clearing: %w", err)
-	}
-
-	log.Printf("Cleared %d trails from PostGIS\n", rowsAffected)
-	return nil
-}
-
-// SyncAllTrails syncs all trails from PocketBase to PostGIS
-func (g *GPXService) SyncAllTrails(app core.App) error {
-	// Clear all existing trails from PostGIS first
-	if err := g.ClearAllTrails(); err != nil {
-		return fmt.Errorf("failed to clear existing trails: %w", err)
-	}
-
-	// Get all trails from PocketBase
-	trails, err := app.FindAllRecords("trails")
-	if err != nil {
-		return fmt.Errorf("failed to get trails from PocketBase: %w", err)
-	}
-
-	log.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
-
-	for i, trail := range trails {
-		log.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
-
-		if err := g.ImportTrailFromPocketBase(app, trail.Id); err != nil {
-			log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
-			continue
-		}
-		log.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
-	}
-
-	return nil
-}
-
-// getTrailEngagementData retrieves rating and comment engagement data for a trail from PocketBase
-func (g *GPXService) getTrailEngagementData(app core.App, trailId string) (float64, int, int) {
-	var ratingAvg float64 = 0.0
-	var ratingCount int = 0
-	var commentCount int = 0
-
-	// Get rating average and count from rating_average collection
-	ratingAverageCollection, err := app.FindCollectionByNameOrId("rating_average")
-	if err == nil {
-		averageRecords, err := app.FindRecordsByFilter(ratingAverageCollection, fmt.Sprintf("trail = '%s'", trailId), "", 1, 0)
-		if err == nil && len(averageRecords) > 0 {
-			record := averageRecords[0]
-			ratingAvg = record.GetFloat("average")
-			ratingCount = int(record.GetFloat("count"))
-		}
-	}
-
-	// Get comment count from trail_comments collection
-	commentsCollection, err := app.FindCollectionByNameOrId("trail_comments")
-	if err == nil {
-		commentRecords, err := app.FindRecordsByFilter(commentsCollection, fmt.Sprintf("trail = '%s'", trailId), "", 0, 0)
-		if err == nil {
-			commentCount = len(commentRecords)
-		}
-	}
-
-	return ratingAvg, ratingCount, commentCount
-}
-
-// GetDB returns the database connection for external use
-func (g *GPXService) GetDB() *sql.DB {
-	return g.db
 }
