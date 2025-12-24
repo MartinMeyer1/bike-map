@@ -12,98 +12,105 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// SyncService handles synchronization between PocketBase and PostGIS
-// It acts as the controller coordinating GPXService, PostGISService, MVTService, and EngagementService
+// SyncService handles synchronization between PocketBase, MVTGenerator, and MVTStorages
+// It acts as the controller coordinating GPXService, MVTGenerator, MVTStorages, and EngagementService
 type SyncService struct {
-	postgisService    interfaces.PostGISService
+	mvtGenerator      interfaces.MVTGenerator
 	gpxService        *GPXService
-	mvtService        interfaces.MVTService
+	storages          []interfaces.MVTStorage
 	engagementService interfaces.EngagementService
 }
 
 // NewSyncService creates a new sync service
 func NewSyncService(
-	postgisService interfaces.PostGISService,
+	mvtGenerator interfaces.MVTGenerator,
 	gpxService *GPXService,
-	mvtService interfaces.MVTService,
 	engagementService interfaces.EngagementService,
+	storages []interfaces.MVTStorage,
 ) *SyncService {
 	return &SyncService{
-		postgisService:    postgisService,
+		mvtGenerator:      mvtGenerator,
 		gpxService:        gpxService,
-		mvtService:        mvtService,
+		storages:          storages,
 		engagementService: engagementService,
 	}
 }
 
-// HandleTrailCreated handles trail creation: sync to PostGIS and invalidate cache
+// HandleTrailCreated handles trail creation: sync to generator and generate tiles
 func (s *SyncService) HandleTrailCreated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling trail creation: %s", trailID)
 
-	if err := s.syncTrailFromPBToPostGIS(ctx, app, trailID); err != nil {
-		return fmt.Errorf("failed to sync trail to PostGIS: %w", err)
+	if err := s.syncTrailFromPBToGenerator(ctx, app, trailID); err != nil {
+		return fmt.Errorf("failed to sync trail to generator: %w", err)
 	}
 
-	s.invalidateCacheForTrail(ctx, trailID)
+	// Get tiles for the new trail and generate them
+	tiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	if err != nil {
+		log.Printf("Failed to get trail tiles: %v", err)
+		return nil
+	}
+
+	s.generateAndPushTiles(tiles)
 	log.Printf("Successfully handled trail creation: %s", trailID)
 	return nil
 }
 
-// HandleTrailUpdated handles trail update: get old bbox, sync, invalidate old and new positions
+// HandleTrailUpdated handles trail update: get old tiles, update generator, get new tiles, generate all
 func (s *SyncService) HandleTrailUpdated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling trail update: %s", trailID)
 
-	// Get old bounding box before update
-	oldBBox, err := s.postgisService.GetTrailBoundingBox(ctx, trailID)
+	// Get tiles for old trail position
+	oldTiles, err := s.mvtGenerator.GetTrailTiles(trailID)
 	if err != nil {
-		log.Printf("Could not get old bbox for trail %s: %v", trailID, err)
+		log.Printf("Could not get old tiles for trail %s: %v", trailID, err)
+		oldTiles = nil
 	}
 
-	// Sync trail to PostGIS
-	if err := s.syncTrailFromPBToPostGIS(ctx, app, trailID); err != nil {
-		return fmt.Errorf("failed to sync trail to PostGIS: %w", err)
+	// Update trail in generator
+	if err := s.syncTrailFromPBToGenerator(ctx, app, trailID); err != nil {
+		return fmt.Errorf("failed to sync trail to generator: %w", err)
 	}
 
-	// Invalidate cache for old position if we got it
-	if oldBBox != nil && s.mvtService != nil {
-		s.mvtService.InvalidateTilesForBBox(*oldBBox)
+	// Get tiles for new trail position
+	newTiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	if err != nil {
+		log.Printf("Could not get new tiles for trail %s: %v", trailID, err)
+		newTiles = nil
 	}
 
-	// Invalidate cache for new position
-	s.invalidateCacheForTrail(ctx, trailID)
+	// Aggregate tiles and generate
+	allTiles := mergeTiles(oldTiles, newTiles)
+	s.generateAndPushTiles(allTiles)
+
 	log.Printf("Successfully handled trail update: %s", trailID)
 	return nil
 }
 
-// HandleTrailDeleted handles trail deletion: get bbox, delete from PostGIS, invalidate cache
+// HandleTrailDeleted handles trail deletion: get tiles, delete from generator, regenerate tiles
 func (s *SyncService) HandleTrailDeleted(ctx context.Context, trailID string) error {
 	log.Printf("Handling trail deletion: %s", trailID)
 
-	// Get bounding box before deletion
-	oldBBox, err := s.postgisService.GetTrailBoundingBox(ctx, trailID)
+	// Get tiles for the trail before deletion
+	tiles, err := s.mvtGenerator.GetTrailTiles(trailID)
 	if err != nil {
-		log.Printf("Could not get bbox for trail %s before deletion: %v", trailID, err)
+		log.Printf("Could not get tiles for trail %s before deletion: %v", trailID, err)
+		tiles = nil
 	}
 
-	// Delete from PostGIS
-	if err := s.removeTrailFromPostGIS(ctx, trailID); err != nil {
-		return fmt.Errorf("failed to delete trail from PostGIS: %w", err)
+	// Delete from generator
+	if err := s.mvtGenerator.DeleteTrail(trailID); err != nil {
+		return fmt.Errorf("failed to delete trail from generator: %w", err)
 	}
 
-	// Invalidate cache
-	if s.mvtService != nil {
-		if oldBBox != nil {
-			s.mvtService.InvalidateTilesForBBox(*oldBBox)
-		} else {
-			s.mvtService.InvalidateAllCache()
-		}
-	}
+	// Regenerate tiles (without the deleted trail)
+	s.generateAndPushTiles(tiles)
 
 	log.Printf("Successfully handled trail deletion: %s", trailID)
 	return nil
 }
 
-// HandleRatingCreated handles rating creation: update PocketBase average, sync to PostGIS, invalidate cache
+// HandleRatingCreated handles rating creation: update PocketBase average, sync to generator, regenerate tiles
 func (s *SyncService) HandleRatingCreated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling rating creation for trail: %s", trailID)
 
@@ -113,10 +120,10 @@ func (s *SyncService) HandleRatingCreated(ctx context.Context, app core.App, tra
 		}
 	}
 
-	return s.updateEngagementAndInvalidate(ctx, trailID)
+	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
-// HandleRatingUpdated handles rating update: update PocketBase average, sync to PostGIS, invalidate cache
+// HandleRatingUpdated handles rating update: update PocketBase average, sync to generator, regenerate tiles
 func (s *SyncService) HandleRatingUpdated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling rating update for trail: %s", trailID)
 
@@ -126,10 +133,10 @@ func (s *SyncService) HandleRatingUpdated(ctx context.Context, app core.App, tra
 		}
 	}
 
-	return s.updateEngagementAndInvalidate(ctx, trailID)
+	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
-// HandleRatingDeleted handles rating deletion: update PocketBase average, sync to PostGIS, invalidate cache
+// HandleRatingDeleted handles rating deletion: update PocketBase average, sync to generator, regenerate tiles
 func (s *SyncService) HandleRatingDeleted(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling rating deletion for trail: %s", trailID)
 
@@ -139,50 +146,90 @@ func (s *SyncService) HandleRatingDeleted(ctx context.Context, app core.App, tra
 		}
 	}
 
-	return s.updateEngagementAndInvalidate(ctx, trailID)
+	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
-// HandleCommentCreated handles comment creation: sync engagement to PostGIS, invalidate cache
+// HandleCommentCreated handles comment creation: sync engagement to generator, regenerate tiles
 func (s *SyncService) HandleCommentCreated(ctx context.Context, trailID string) error {
 	log.Printf("Handling comment creation for trail: %s", trailID)
-	return s.updateEngagementAndInvalidate(ctx, trailID)
+	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
-// HandleCommentDeleted handles comment deletion: sync engagement to PostGIS, invalidate cache
+// HandleCommentDeleted handles comment deletion: sync engagement to generator, regenerate tiles
 func (s *SyncService) HandleCommentDeleted(ctx context.Context, trailID string) error {
 	log.Printf("Handling comment deletion for trail: %s", trailID)
-	return s.updateEngagementAndInvalidate(ctx, trailID)
+	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
-// updateEngagementAndInvalidate updates engagement stats in PostGIS and invalidates cache
-func (s *SyncService) updateEngagementAndInvalidate(ctx context.Context, trailID string) error {
-	if err := s.updateEngagementStatsToPostgis(ctx, trailID); err != nil {
+// updateEngagementAndRegenerateTiles updates engagement stats in generator and regenerates affected tiles
+func (s *SyncService) updateEngagementAndRegenerateTiles(ctx context.Context, trailID string) error {
+	if err := s.updateEngagementStatsInGenerator(ctx, trailID); err != nil {
 		return err
 	}
-	s.invalidateCacheForTrail(ctx, trailID)
+
+	// Get tiles for the trail and regenerate them
+	tiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	if err != nil {
+		log.Printf("Could not get tiles for trail %s: %v", trailID, err)
+		return nil
+	}
+
+	s.generateAndPushTiles(tiles)
 	return nil
 }
 
-// invalidateCacheForTrail invalidates MVT cache for a trail's bounding box
-func (s *SyncService) invalidateCacheForTrail(ctx context.Context, trailID string) {
-	if s.mvtService == nil {
+// generateAndPushTiles generates tiles using the generator and pushes them to all storages
+func (s *SyncService) generateAndPushTiles(tiles []entities.TileCoordinates) {
+	if len(tiles) == 0 {
 		return
 	}
 
-	bbox, err := s.postgisService.GetTrailBoundingBox(ctx, trailID)
-	if err != nil || bbox == nil {
-		log.Printf("Could not get bbox for trail %s, invalidating full cache: %v", trailID, err)
-		s.mvtService.InvalidateAllCache()
-		return
+	log.Printf("Generating and pushing %d tiles to %d storages", len(tiles), len(s.storages))
+
+	for _, tile := range tiles {
+		data, err := s.mvtGenerator.GetTile(tile)
+		if err != nil {
+			log.Printf("Failed to generate tile %d/%d/%d: %v", tile.Z, tile.X, tile.Y, err)
+			continue
+		}
+
+		for _, storage := range s.storages {
+			if err := storage.StoreTile(tile, data); err != nil {
+				log.Printf("Failed to store tile %d/%d/%d: %v", tile.Z, tile.X, tile.Y, err)
+			}
+		}
 	}
 
-	s.mvtService.InvalidateTilesForBBox(*bbox)
-	log.Printf("Invalidated MVT cache for trail %s", trailID)
+	log.Printf("Generated and pushed %d tiles", len(tiles))
 }
 
-// syncTrailFromPBToPostGIS synchronizes a trail with full GPX processing
-func (s *SyncService) syncTrailFromPBToPostGIS(ctx context.Context, app core.App, trailID string) error {
-	log.Printf("Syncing trail %s to PostGIS", trailID)
+// mergeTiles merges two tile slices, removing duplicates
+func mergeTiles(a, b []entities.TileCoordinates) []entities.TileCoordinates {
+	seen := make(map[string]bool)
+	var result []entities.TileCoordinates
+
+	for _, tile := range a {
+		key := fmt.Sprintf("%d-%d-%d", tile.Z, tile.X, tile.Y)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, tile)
+		}
+	}
+
+	for _, tile := range b {
+		key := fmt.Sprintf("%d-%d-%d", tile.Z, tile.X, tile.Y)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, tile)
+		}
+	}
+
+	return result
+}
+
+// syncTrailFromPBToGenerator synchronizes a trail with full GPX processing
+func (s *SyncService) syncTrailFromPBToGenerator(ctx context.Context, app core.App, trailID string) error {
+	log.Printf("Syncing trail %s to generator", trailID)
 
 	// 1. Get trail record from PocketBase
 	trail, err := app.FindRecordById("trails", trailID)
@@ -223,8 +270,8 @@ func (s *SyncService) syncTrailFromPBToPostGIS(ctx context.Context, app core.App
 		tagsJSON = "[]"
 	}
 
-	// 8. Insert into PostGIS via PostGISService
-	trailData := entities.TrailInsertData{
+	// 8. Create trail data and update generator
+	trailData := entities.Trail{
 		ID:            trail.Id,
 		Name:          trail.GetString("name"),
 		Description:   trail.GetString("description"),
@@ -242,23 +289,17 @@ func (s *SyncService) syncTrailFromPBToPostGIS(ctx context.Context, app core.App
 		Ridden:        trail.GetBool("ridden"),
 	}
 
-	if err := s.postgisService.InsertTrail(ctx, trailData); err != nil {
-		return fmt.Errorf("failed to insert trail into PostGIS: %w", err)
+	if err := s.mvtGenerator.UpdateTrail(ctx, trailData); err != nil {
+		return fmt.Errorf("failed to update trail in generator: %w", err)
 	}
 
-	log.Printf("Successfully synced trail %s to PostGIS", trailID)
+	log.Printf("Successfully synced trail %s to generator", trailID)
 	return nil
 }
 
-// removeTrailFromPostGIS removes a trail from PostGIS
-func (s *SyncService) removeTrailFromPostGIS(ctx context.Context, trailID string) error {
-	log.Printf("Removing trail %s from PostGIS", trailID)
-	return s.postgisService.DeleteTrail(ctx, trailID)
-}
-
-// updateEngagementStatsToPostgis updates only the engagement statistics for a trail in PostGIS
-func (s *SyncService) updateEngagementStatsToPostgis(ctx context.Context, trailID string) error {
-	log.Printf("Updating engagement stats for trail %s in PostGIS", trailID)
+// updateEngagementStatsInGenerator updates only the engagement statistics for a trail in the generator
+func (s *SyncService) updateEngagementStatsInGenerator(ctx context.Context, trailID string) error {
+	log.Printf("Updating engagement stats for trail %s in generator", trailID)
 
 	// Get engagement statistics from service
 	stats, err := s.engagementService.GetEngagementStats(ctx, trailID)
@@ -272,21 +313,28 @@ func (s *SyncService) updateEngagementStatsToPostgis(ctx context.Context, trailI
 		CommentCount: stats.CommentCount,
 	}
 
-	if err := s.postgisService.UpdateEngagementStats(ctx, trailID, engagementData); err != nil {
-		return fmt.Errorf("failed to update engagement stats in PostGIS: %w", err)
+	if err := s.mvtGenerator.UpdateEngagementStats(ctx, trailID, engagementData); err != nil {
+		return fmt.Errorf("failed to update engagement stats in generator: %w", err)
 	}
 
-	log.Printf("Updated engagement stats for trail %s in PostGIS", trailID)
+	log.Printf("Updated engagement stats for trail %s in generator", trailID)
 	return nil
 }
 
-// SyncAllTrailsFromPBToPostgis synchronizes all trails from PocketBase to PostGIS
-func (s *SyncService) SyncAllTrailsFromPBToPostgis(ctx context.Context, app core.App) error {
-	log.Println("Starting full trail synchronization to PostGIS")
+// SyncAllTrails synchronizes all trails from PocketBase to generator and generates all tiles
+func (s *SyncService) SyncAllTrails(ctx context.Context, app core.App) error {
+	log.Println("Starting full trail synchronization")
 
-	// Clear all existing trails from PostGIS first
-	if err := s.postgisService.ClearAllTrails(ctx); err != nil {
+	// Clear all existing trails from generator first
+	if err := s.mvtGenerator.ClearAllTrails(ctx); err != nil {
 		return fmt.Errorf("failed to clear existing trails: %w", err)
+	}
+
+	// Clear all tiles from all storages
+	for _, storage := range s.storages {
+		if err := storage.ClearAllTiles(); err != nil {
+			log.Printf("Failed to clear storage: %v", err)
+		}
 	}
 
 	// Get all trails from PocketBase
@@ -295,18 +343,46 @@ func (s *SyncService) SyncAllTrailsFromPBToPostgis(ctx context.Context, app core
 		return fmt.Errorf("failed to get trails from PocketBase: %w", err)
 	}
 
-	log.Printf("Syncing %d trails from PocketBase to PostGIS\n", len(trails))
+	log.Printf("Syncing %d trails from PocketBase to generator\n", len(trails))
+
+	// Collect all unique tiles from all trails
+	allTiles := make(map[string]entities.TileCoordinates)
 
 	for i, trail := range trails {
 		log.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
 
-		if err := s.syncTrailFromPBToPostGIS(ctx, app, trail.Id); err != nil {
+		if err := s.syncTrailFromPBToGenerator(ctx, app, trail.Id); err != nil {
 			log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
 			continue
 		}
+
+		// Get tiles for this trail
+		tiles, err := s.mvtGenerator.GetTrailTiles(trail.Id)
+		if err != nil {
+			log.Printf("Failed to get tiles for trail %s: %v", trail.Id, err)
+			continue
+		}
+
+		// Add to unique tiles set
+		for _, tile := range tiles {
+			key := fmt.Sprintf("%d-%d-%d", tile.Z, tile.X, tile.Y)
+			allTiles[key] = tile
+		}
+
 		log.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
 	}
 
+	// Convert map to slice
+	var uniqueTiles []entities.TileCoordinates
+	for _, tile := range allTiles {
+		uniqueTiles = append(uniqueTiles, tile)
+	}
+
+	// Generate and push all tiles
+	log.Printf("Generating %d unique tiles", len(uniqueTiles))
+	s.generateAndPushTiles(uniqueTiles)
+
+	log.Println("Completed full trail synchronization")
 	return nil
 }
 
@@ -340,4 +416,4 @@ func (s *SyncService) getTrailEngagementDataFromPB(app core.App, trailId string)
 }
 
 // Compile-time check to ensure SyncService implements interfaces.SyncService
-var _ interfaces.SyncService = (*SyncService)(nil)
+var _ interfaces.SyncTrailsService = (*SyncService)(nil)
