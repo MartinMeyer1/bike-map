@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math"
 
 	"bike-map-backend/config"
 	"bike-map-backend/entities"
@@ -13,14 +14,35 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// PostGISService handles all PostGIS database operations
-type PostGISService struct {
-	db     *sql.DB
-	config *config.Config
+// trailPostgis contains all data needed to insert a trail into PostGIS (private to this service)
+type trailPostgis struct {
+	ID            string
+	Name          string
+	Description   string
+	Level         string
+	Tags          string
+	OwnerID       string
+	GPXFile       string
+	LineStringWKT string
+	ElevationJSON string
+	CreatedAt     interface{}
+	UpdatedAt     interface{}
+	RatingAvg     float64
+	RatingCount   int
+	CommentCount  int
+	Ridden        bool
+}
+
+// MVTGeneratorPostgis handles all PostGIS database operations and implements MVTGenerator
+type MVTGeneratorPostgis struct {
+	db      *sql.DB
+	config  *config.Config
+	minZoom int
+	maxZoom int
 }
 
 // NewPostGISService creates a new PostGIS service with database connection
-func NewPostGISService(cfg *config.Config) (*PostGISService, error) {
+func NewPostGISService(cfg *config.Config) (*MVTGeneratorPostgis, error) {
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Database)
 
@@ -38,19 +60,62 @@ func NewPostGISService(cfg *config.Config) (*PostGISService, error) {
 		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
 	}
 
-	return &PostGISService{
-		db:     db,
-		config: cfg,
+	return &MVTGeneratorPostgis{
+		db:      db,
+		config:  cfg,
+		minZoom: 6,
+		maxZoom: 18,
 	}, nil
 }
 
+// GetMinZoom returns the minimum zoom level for MVT tiles
+func (p *MVTGeneratorPostgis) GetMinZoom() int {
+	return p.minZoom
+}
+
+// GetMaxZoom returns the maximum zoom level for MVT tiles
+func (p *MVTGeneratorPostgis) GetMaxZoom() int {
+	return p.maxZoom
+}
+
 // Close closes the database connection
-func (p *PostGISService) Close() error {
+func (p *MVTGeneratorPostgis) Close() error {
 	return p.db.Close()
 }
 
-// InsertTrail inserts or updates a trail in PostGIS
-func (p *PostGISService) InsertTrail(ctx context.Context, trail entities.TrailInsertData) error {
+// trailToPostgis converts a public Trail entity to internal trailPostgis format
+func (p *MVTGeneratorPostgis) trailToPostgis(trail entities.Trail) trailPostgis {
+	return trailPostgis{
+		ID:            trail.ID,
+		Name:          trail.Name,
+		Description:   trail.Description,
+		Level:         trail.Level,
+		Tags:          trail.Tags,
+		OwnerID:       trail.OwnerID,
+		GPXFile:       trail.GPXFile,
+		LineStringWKT: trail.LineStringWKT,
+		ElevationJSON: trail.ElevationJSON,
+		CreatedAt:     trail.CreatedAt,
+		UpdatedAt:     trail.UpdatedAt,
+		RatingAvg:     trail.RatingAvg,
+		RatingCount:   trail.RatingCount,
+		CommentCount:  trail.CommentCount,
+		Ridden:        trail.Ridden,
+	}
+}
+
+// CreateTrail creates a new trail in PostGIS
+func (p *MVTGeneratorPostgis) CreateTrail(ctx context.Context, trail entities.Trail) error {
+	return p.insertTrail(ctx, p.trailToPostgis(trail))
+}
+
+// UpdateTrail updates an existing trail in PostGIS
+func (p *MVTGeneratorPostgis) UpdateTrail(ctx context.Context, trail entities.Trail) error {
+	return p.insertTrail(ctx, p.trailToPostgis(trail))
+}
+
+// insertTrail inserts or updates a trail in PostGIS (internal method)
+func (p *MVTGeneratorPostgis) insertTrail(ctx context.Context, trail trailPostgis) error {
 	query := `
 		INSERT INTO trails (id, name, description, level, tags, owner_id, gpx_file, geom, elevation_data, created_at, updated_at, rating_average, rating_count, comment_count, ridden)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, ST_GeomFromText($8, 4326), $9, $10, $11, $12, $13, $14, $15)
@@ -95,9 +160,9 @@ func (p *PostGISService) InsertTrail(ctx context.Context, trail entities.TrailIn
 }
 
 // DeleteTrail removes a trail from PostGIS
-func (p *PostGISService) DeleteTrail(ctx context.Context, trailID string) error {
+func (p *MVTGeneratorPostgis) DeleteTrail(trailID string) error {
 	query := `DELETE FROM trails WHERE id = $1`
-	result, err := p.db.ExecContext(ctx, query, trailID)
+	result, err := p.db.ExecContext(context.Background(), query, trailID)
 	if err != nil {
 		return fmt.Errorf("failed to delete trail from PostGIS: %w", err)
 	}
@@ -116,8 +181,8 @@ func (p *PostGISService) DeleteTrail(ctx context.Context, trailID string) error 
 	return nil
 }
 
-// GetTrailBoundingBox retrieves the bounding box of a trail from PostGIS
-func (p *PostGISService) GetTrailBoundingBox(ctx context.Context, trailID string) (*entities.BoundingBox, error) {
+// getTrailBoundingBox retrieves the bounding box of a trail from PostGIS
+func (p *MVTGeneratorPostgis) getTrailBoundingBox(trailID string) (*entities.BoundingBox, error) {
 	query := `
 		SELECT
 			ST_XMin(bbox) as west,
@@ -129,7 +194,7 @@ func (p *PostGISService) GetTrailBoundingBox(ctx context.Context, trailID string
 	`
 
 	var bbox entities.BoundingBox
-	err := p.db.QueryRowContext(ctx, query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
+	err := p.db.QueryRowContext(context.Background(), query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("trail %s not found or has no geometry", trailID)
@@ -140,8 +205,40 @@ func (p *PostGISService) GetTrailBoundingBox(ctx context.Context, trailID string
 	return &bbox, nil
 }
 
+// GetTrailTiles returns all tile coordinates that intersect with a trail's bounding box
+func (p *MVTGeneratorPostgis) GetTrailTiles(trailID string) ([]entities.TileCoordinates, error) {
+	bbox, err := p.getTrailBoundingBox(trailID)
+	if err != nil {
+		return nil, err
+	}
+
+	var tiles []entities.TileCoordinates
+
+	// Calculate tiles for each zoom level
+	for zoom := p.minZoom; zoom <= p.maxZoom; zoom++ {
+		minX, minY, maxX, maxY := p.boundingBoxToTileRange(*bbox, zoom)
+
+		// Skip invalid ranges
+		if minX > maxX || minY > maxY {
+			continue
+		}
+
+		for x := minX; x <= maxX; x++ {
+			for y := minY; y <= maxY; y++ {
+				tiles = append(tiles, entities.TileCoordinates{
+					Z: zoom,
+					X: x,
+					Y: y,
+				})
+			}
+		}
+	}
+
+	return tiles, nil
+}
+
 // UpdateEngagementStats updates only the engagement statistics for a trail in PostGIS
-func (p *PostGISService) UpdateEngagementStats(ctx context.Context, trailID string, stats entities.EngagementStatsData) error {
+func (p *MVTGeneratorPostgis) UpdateEngagementStats(ctx context.Context, trailID string, stats entities.EngagementStatsData) error {
 	query := `
 		UPDATE trails SET
 			rating_average = $2,
@@ -165,7 +262,7 @@ func (p *PostGISService) UpdateEngagementStats(ctx context.Context, trailID stri
 }
 
 // ClearAllTrails removes all trails from PostGIS
-func (p *PostGISService) ClearAllTrails(ctx context.Context) error {
+func (p *MVTGeneratorPostgis) ClearAllTrails(ctx context.Context) error {
 	query := `DELETE FROM trails`
 	result, err := p.db.ExecContext(ctx, query)
 	if err != nil {
@@ -181,10 +278,11 @@ func (p *PostGISService) ClearAllTrails(ctx context.Context) error {
 	return nil
 }
 
-// GenerateMVTForTile generates MVT tile data for the given coordinates
-func (p *PostGISService) GenerateMVTForTile(ctx context.Context, z, x, y int, tolerance float64) ([]byte, error) {
+// GetTile generates MVT tile data for the given coordinates
+func (p *MVTGeneratorPostgis) GetTile(c entities.TileCoordinates) ([]byte, error) {
 	// Calculate tile bounds
-	bounds := p.calculateTileBounds(z, x, y)
+	bounds := p.calculateTileBounds(c.Z, c.X, c.Y)
+	tolerance := p.calculateSimplificationTolerance(c.Z)
 
 	var query string
 	var args []interface{}
@@ -351,7 +449,7 @@ func (p *PostGISService) GenerateMVTForTile(ctx context.Context, z, x, y int, to
 	}
 
 	var mvtData []byte
-	err := p.db.QueryRowContext(ctx, query, args...).Scan(&mvtData)
+	err := p.db.QueryRowContext(context.Background(), query, args...).Scan(&mvtData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate MVT: %w", err)
 	}
@@ -360,7 +458,7 @@ func (p *PostGISService) GenerateMVTForTile(ctx context.Context, z, x, y int, to
 }
 
 // calculateTileBounds calculates the bounds of a tile in Web Mercator projection
-func (p *PostGISService) calculateTileBounds(z, x, y int) entities.TileBounds {
+func (p *MVTGeneratorPostgis) calculateTileBounds(z, x, y int) entities.TileBounds {
 	// Web Mercator bounds: -20037508.34 to 20037508.34
 	const worldSize = 20037508.34278924
 
@@ -374,5 +472,81 @@ func (p *PostGISService) calculateTileBounds(z, x, y int) entities.TileBounds {
 	}
 }
 
-// Compile-time check to ensure PostGISService implements interfaces.PostGISService
-var _ interfaces.PostGISService = (*PostGISService)(nil)
+// calculateSimplificationTolerance returns geometry simplification tolerance based on zoom level
+func (p *MVTGeneratorPostgis) calculateSimplificationTolerance(z int) float64 {
+	// More aggressive simplification at lower zoom levels
+	switch {
+	case z <= 8:
+		return 0.05 // Very simplified for country/regional view
+	case z <= 10:
+		return 0.01 // Simplified for regional view
+	case z <= 11:
+		return 0.001 // Moderate simplification for city view
+	case z <= 12:
+		return 0.0005 // Light simplification for neighborhood view
+	default:
+		return 0 // No simplification for detailed view
+	}
+}
+
+// latLngToTileCoords converts lat/lng coordinates to tile coordinates at given zoom level
+func (p *MVTGeneratorPostgis) latLngToTileCoords(lat, lng float64, zoom int) (int, int) {
+	// Clamp latitude to valid Web Mercator range
+	if lat > 85.0511 {
+		lat = 85.0511
+	}
+	if lat < -85.0511 {
+		lat = -85.0511
+	}
+
+	// Convert to radians
+	latRad := lat * math.Pi / 180.0
+
+	// Calculate tile coordinates using standard Web Mercator formulas
+	n := math.Pow(2.0, float64(zoom))
+	x := int((lng + 180.0) / 360.0 * n)
+	y := int((1.0 - math.Asinh(math.Tan(latRad))/math.Pi) / 2.0 * n)
+
+	// Clamp to valid tile ranges
+	if x < 0 {
+		x = 0
+	}
+	if x >= int(n) {
+		x = int(n) - 1
+	}
+	if y < 0 {
+		y = 0
+	}
+	if y >= int(n) {
+		y = int(n) - 1
+	}
+
+	return x, y
+}
+
+// boundingBoxToTileRange calculates tile coordinate ranges for a bounding box at given zoom level
+func (p *MVTGeneratorPostgis) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int) (minX, minY, maxX, maxY int) {
+	// Validate bbox is not degenerate
+	if bbox.North <= bbox.South || bbox.East <= bbox.West {
+		// Return empty range that will be skipped in loops
+		return 0, 0, -1, -1
+	}
+
+	// Convert bounding box corners to tile coordinates
+	// Note: North = max lat, South = min lat, East = max lng, West = min lng
+	minX, maxY = p.latLngToTileCoords(bbox.South, bbox.West, zoom) // Bottom-left corner
+	maxX, minY = p.latLngToTileCoords(bbox.North, bbox.East, zoom) // Top-right corner
+
+	// Ensure proper ordering (min <= max) - should not be needed with valid bbox, but safety check
+	if minX > maxX {
+		minX, maxX = maxX, minX
+	}
+	if minY > maxY {
+		minY, maxY = maxY, minY
+	}
+
+	return minX, minY, maxX, maxY
+}
+
+// Compile-time check to ensure PostGISService implements interfaces.MVTGenerator
+var _ interfaces.MVTGenerator = (*MVTGeneratorPostgis)(nil)

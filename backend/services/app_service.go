@@ -6,6 +6,7 @@ import (
 
 	"bike-map-backend/apiHandlers"
 	"bike-map-backend/config"
+	"bike-map-backend/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -21,9 +22,9 @@ type AppService struct {
 	engagementService  *EngagementService
 	syncService        *SyncService
 	hookManagerService *HookManagerService
-	postgisService     *PostGISService
+	postgisService     *MVTGeneratorPostgis // MVTGenerator
 	gpxService         *GPXService
-	mvtService         *MVTService
+	mvtService         *MVTMemoryStorage // MVTStorage
 
 	// Handlers
 	mvtHandler  *apiHandlers.MVTHandler
@@ -52,7 +53,7 @@ func (a *AppService) initializeServices() error {
 	// Initialize collection service
 	a.collectionService = NewCollectionService(a.config, a.authService)
 
-	// Initialize PostGIS service first (owns the database connection)
+	// Initialize PostGIS service (MVTGenerator - owns the database connection)
 	var err error
 	a.postgisService, err = NewPostGISService(a.config)
 	if err != nil {
@@ -64,15 +65,15 @@ func (a *AppService) initializeServices() error {
 	// Initialize GPX service (no database, just parsing)
 	a.gpxService = NewGPXService()
 
-	// Initialize MVT service with PostGIS service
-	a.mvtService = NewMVTService(a.postgisService)
+	// Initialize MVT service (MVTStorage - memory cache, no longer depends on PostGIS)
+	a.mvtService = NewMVTService()
 
 	return nil
 }
 
 // initializeHandlers creates HTTP handlers
 func (a *AppService) initializeHandlers(app core.App) error {
-	// Initialize MVT handler
+	// Initialize MVT handler with MVTStorage
 	if a.mvtService != nil {
 		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService)
 	}
@@ -96,13 +97,16 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 	// Initialize engagement service with PocketBase app
 	a.engagementService = NewEngagementService(app)
 
-	// Initialize sync service if PostGIS is available
+	// Initialize sync service if PostGIS (MVTGenerator) is available
 	if a.postgisService != nil {
+		// Create storages slice with MVTService
+		storages := []interfaces.MVTStorage{a.mvtService}
+
 		a.syncService = NewSyncService(
-			a.postgisService,
+			a.postgisService, // MVTGenerator
 			a.gpxService,
-			a.mvtService,
 			a.engagementService,
+			storages,
 		)
 	}
 
@@ -178,24 +182,18 @@ func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
 	})
 }
 
-// SyncAllTrailsAtStartup performs initial sync of all trails to PostGIS
+// SyncAllTrailsAtStartup performs initial sync of all trails to generator and generates tiles
 func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
 	if a.syncService == nil {
 		return
 	}
 
-	log.Println("Starting initial sync of all trails to PostGIS...")
+	log.Println("Starting initial sync of all trails...")
 	go func() {
-		if err := a.syncService.SyncAllTrailsFromPBToPostgis(context.Background(), app); err != nil {
+		if err := a.syncService.SyncAllTrails(context.Background(), app); err != nil {
 			log.Printf("Failed to sync trails at startup: %v", err)
 		} else {
-			log.Println("Successfully synced all trails to PostGIS at startup")
-
-			// Invalidate MVT cache after startup sync
-			if a.mvtService != nil {
-				a.mvtService.InvalidateAllCache()
-				log.Printf("MVT cache invalidated after startup sync")
-			}
+			log.Println("Successfully synced all trails and generated tiles at startup")
 		}
 	}()
 }

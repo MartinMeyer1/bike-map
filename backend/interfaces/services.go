@@ -8,9 +8,9 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// SyncService interface for PostGIS synchronization operations
-type SyncService interface {
-	SyncAllTrailsFromPBToPostgis(ctx context.Context, app core.App) error
+// SyncTrailsService interface for PostGIS synchronization operations
+type SyncTrailsService interface {
+	SyncAllTrails(ctx context.Context, app core.App) error
 
 	HandleTrailCreated(ctx context.Context, app core.App, trailID string) error
 	HandleTrailUpdated(ctx context.Context, app core.App, trailID string) error
