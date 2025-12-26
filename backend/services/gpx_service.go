@@ -3,55 +3,21 @@ package services
 import (
 	"encoding/xml"
 	"fmt"
-	"io"
 	"math"
 	"strings"
 
 	"bike-map-backend/entities"
-
-	"github.com/pocketbase/pocketbase/core"
 )
 
-// ParsedGPXData contains the result of parsing a GPX file
-type ParsedGPXData struct {
+// parsedGPXData contains the result of parsing a GPX file
+type parsedGPXData struct {
 	LineStringWKT string
 	ElevationData *entities.ElevationData
 }
 
-// GPXService handles GPX file parsing and processing (no database operations)
-type GPXService struct {
-}
-
-// NewGPXService creates a new GPX service instance
-func NewGPXService() *GPXService {
-	return &GPXService{}
-}
-
-// GetTrailGPXFromPB reads GPX file directly from PocketBase storage filesystem
-func (g *GPXService) GetTrailGPXFromPB(app core.App, trail *core.Record, filename string) ([]byte, error) {
-	// Construct the full file key using record's base path
-	fileKey := trail.BaseFilesPath() + "/" + filename
-
-	// Initialize the filesystem
-	fsys, err := app.NewFilesystem()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize filesystem: %w", err)
-	}
-	defer fsys.Close()
-
-	// Get file reader
-	reader, err := fsys.GetReader(fileKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get GPX file: %w", err)
-	}
-	defer reader.Close()
-
-	return io.ReadAll(reader)
-}
-
-// ParseGPXFile parses GPX data and returns structured data ready for PostGIS insertion
-func (g *GPXService) ParseGPXFile(data []byte) (*ParsedGPXData, error) {
-	gpx, err := g.parseGPX(data)
+// parseGPXFile parses GPX data and returns structured data ready for PostGIS insertion
+func parseGPXFile(data []byte) (*parsedGPXData, error) {
+	gpx, err := parseGPX(data)
 	if err != nil {
 		return nil, err
 	}
@@ -77,19 +43,16 @@ func (g *GPXService) ParseGPXFile(data []byte) (*ParsedGPXData, error) {
 	lineString := fmt.Sprintf("LINESTRING(%s)", strings.Join(coordinates, ","))
 
 	// Calculate elevation data
-	elevationData, err := g.calculateElevationData(allPoints)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate elevation data: %w", err)
-	}
+	elevationData := calculateElevationData(allPoints)
 
-	return &ParsedGPXData{
+	return &parsedGPXData{
 		LineStringWKT: lineString,
 		ElevationData: elevationData,
 	}, nil
 }
 
 // parseGPX parses GPX XML data
-func (g *GPXService) parseGPX(data []byte) (*entities.GPX, error) {
+func parseGPX(data []byte) (*entities.GPX, error) {
 	var gpx entities.GPX
 	if err := xml.Unmarshal(data, &gpx); err != nil {
 		return nil, fmt.Errorf("failed to parse GPX XML: %w", err)
@@ -103,7 +66,7 @@ func (g *GPXService) parseGPX(data []byte) (*entities.GPX, error) {
 }
 
 // calculateElevationData calculates elevation gain, loss, and profile
-func (g *GPXService) calculateElevationData(points []entities.TrackPoint) (*entities.ElevationData, error) {
+func calculateElevationData(points []entities.TrackPoint) *entities.ElevationData {
 	data := &entities.ElevationData{
 		Profile: make([]entities.ElevationPoint, 0, len(points)),
 	}
@@ -115,7 +78,7 @@ func (g *GPXService) calculateElevationData(points []entities.TrackPoint) (*enti
 			prevPoint := points[i-1]
 
 			// Calculate distance using Haversine formula
-			distance := g.haversineDistance(
+			distance := haversineDistance(
 				prevPoint.Lat, prevPoint.Lon,
 				point.Lat, point.Lon,
 			)
@@ -141,11 +104,11 @@ func (g *GPXService) calculateElevationData(points []entities.TrackPoint) (*enti
 		}
 	}
 
-	return data, nil
+	return data
 }
 
 // haversineDistance calculates distance between two lat/lng points in meters
-func (g *GPXService) haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
+func haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
 	const R = 6371000 // Earth's radius in meters
 
 	dLat := (lat2 - lat1) * math.Pi / 180

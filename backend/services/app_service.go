@@ -26,8 +26,7 @@ type AppService struct {
 	syncService        *SyncService
 	hookManagerService *HookManagerService
 	postgisService     *MVTGeneratorPostgis // MVTGenerator
-	gpxService         *GPXService
-	mvtService         *MVTMemoryStorage // MVTStorage
+	mvtService         *MVTMemoryStorage    // MVTStorage
 
 	// Handlers
 	mvtHandler  *apiHandlers.MVTHandler
@@ -66,9 +65,6 @@ func (a *AppService) initializeServices() error {
 		return nil // Continue without PostGIS - PocketBase will still work
 	}
 
-	// Initialize GPX service (no database, just parsing)
-	a.gpxService = NewGPXService()
-
 	// Initialize MVT service (MVTStorage - memory cache)
 	a.mvtService = NewMVTService()
 
@@ -80,7 +76,6 @@ func (a *AppService) initializeServices() error {
 		storages := []interfaces.MVTStorage{a.mvtService}
 		a.syncService = NewSyncService(
 			a.postgisService,
-			a.gpxService,
 			a.engagementService,
 			storages,
 		)

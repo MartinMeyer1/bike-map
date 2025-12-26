@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 
 	"bike-map-backend/entities"
@@ -13,10 +14,9 @@ import (
 )
 
 // SyncService handles synchronization between PocketBase, MVTGenerator, and MVTStorages
-// It acts as the controller coordinating GPXService, MVTGenerator, MVTStorages, and EngagementService
+// It acts as the controller coordinating MVTGenerator, MVTStorages, and EngagementService
 type SyncService struct {
 	mvtGenerator      interfaces.MVTGenerator
-	gpxService        *GPXService
 	storages          []interfaces.MVTStorage
 	engagementService interfaces.EngagementService
 }
@@ -24,13 +24,11 @@ type SyncService struct {
 // NewSyncService creates a new sync service
 func NewSyncService(
 	mvtGenerator interfaces.MVTGenerator,
-	gpxService *GPXService,
 	engagementService interfaces.EngagementService,
 	storages []interfaces.MVTStorage,
 ) *SyncService {
 	return &SyncService{
 		mvtGenerator:      mvtGenerator,
-		gpxService:        gpxService,
 		storages:          storages,
 		engagementService: engagementService,
 	}
@@ -243,14 +241,14 @@ func (s *SyncService) syncTrailFromPBToGenerator(ctx context.Context, app core.A
 		return fmt.Errorf("trail %s has no GPX file", trailID)
 	}
 
-	// 3. Read GPX file via GPXService
-	gpxData, err := s.gpxService.GetTrailGPXFromPB(app, trail, gpxFile)
+	// 3. Read GPX file from PocketBase filesystem
+	gpxData, err := readGPXFromPocketBase(app, trail, gpxFile)
 	if err != nil {
-		return fmt.Errorf("failed to download GPX: %w", err)
+		return fmt.Errorf("failed to read GPX: %w", err)
 	}
 
-	// 4. Parse GPX via GPXService
-	parsedGPX, err := s.gpxService.ParseGPXFile(gpxData)
+	// 4. Parse GPX data
+	parsedGPX, err := parseGPXFile(gpxData)
 	if err != nil {
 		return fmt.Errorf("failed to parse GPX: %w", err)
 	}
@@ -413,6 +411,25 @@ func (s *SyncService) getTrailEngagementDataFromPB(app core.App, trailId string)
 	}
 
 	return ratingAvg, ratingCount, commentCount
+}
+
+// readGPXFromPocketBase reads a GPX file directly from PocketBase storage filesystem
+func readGPXFromPocketBase(app core.App, trail *core.Record, filename string) ([]byte, error) {
+	fileKey := trail.BaseFilesPath() + "/" + filename
+
+	fsys, err := app.NewFilesystem()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize filesystem: %w", err)
+	}
+	defer fsys.Close()
+
+	reader, err := fsys.GetReader(fileKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GPX file: %w", err)
+	}
+	defer reader.Close()
+
+	return io.ReadAll(reader)
 }
 
 // Compile-time check to ensure SyncService implements interfaces.SyncService
