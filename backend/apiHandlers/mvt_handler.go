@@ -75,9 +75,8 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		Z: z,
 	})
 	if err != nil {
-		// Tile not found in storage - return 404 (no lazy generation)
-		re.Response.WriteHeader(http.StatusNotFound)
-		re.Response.Write([]byte("Tile not found"))
+		// Tile not found in storage - return 204
+		re.Response.WriteHeader(http.StatusNoContent)
 		return nil
 	}
 
