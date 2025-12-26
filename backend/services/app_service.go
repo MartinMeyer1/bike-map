@@ -16,6 +16,9 @@ type AppService struct {
 	// Configuration
 	config *config.Config
 
+	// PocketBase app reference
+	app core.App
+
 	// Core Services
 	authService        *AuthService
 	collectionService  *CollectionService
@@ -33,16 +36,17 @@ type AppService struct {
 }
 
 // NewAppService creates a new application service with all dependencies properly wired
-func NewAppService(cfg *config.Config) (*AppService, error) {
-	app := &AppService{
+func NewAppService(cfg *config.Config, app core.App) (*AppService, error) {
+	a := &AppService{
 		config: cfg,
+		app:    app,
 	}
 
-	if err := app.initializeServices(); err != nil {
+	if err := a.initializeServices(); err != nil {
 		return nil, err
 	}
 
-	return app, nil
+	return a, nil
 }
 
 // initializeServices creates and wires all services
@@ -65,45 +69,17 @@ func (a *AppService) initializeServices() error {
 	// Initialize GPX service (no database, just parsing)
 	a.gpxService = NewGPXService()
 
-	// Initialize MVT service (MVTStorage - memory cache, no longer depends on PostGIS)
+	// Initialize MVT service (MVTStorage - memory cache)
 	a.mvtService = NewMVTService()
 
-	return nil
-}
-
-// initializeHandlers creates HTTP handlers
-func (a *AppService) initializeHandlers(app core.App) error {
-	// Initialize MVT handler with MVTStorage
-	if a.mvtService != nil {
-		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService)
-	}
-
-	// Initialize auth handler
-	a.authHandler = apiHandlers.NewAuthHandler(a.authService)
-
-	// Initialize meta handler
-	a.metaHandler = apiHandlers.NewMetaHandler(app)
-
-	return nil
-}
-
-// InitializeForPocketBase completes initialization once PocketBase app is available
-func (a *AppService) InitializeForPocketBase(app core.App) error {
-	// Initialize handlers now that app is available
-	if err := a.initializeHandlers(app); err != nil {
-		return err
-	}
-
-	// Initialize engagement service with PocketBase app
-	a.engagementService = NewEngagementService(app)
+	// Initialize engagement service
+	a.engagementService = NewEngagementService(a.app)
 
 	// Initialize sync service if PostGIS (MVTGenerator) is available
 	if a.postgisService != nil {
-		// Create storages slice with MVTService
 		storages := []interfaces.MVTStorage{a.mvtService}
-
 		a.syncService = NewSyncService(
-			a.postgisService, // MVTGenerator
+			a.postgisService,
 			a.gpxService,
 			a.engagementService,
 			storages,
@@ -116,36 +92,43 @@ func (a *AppService) InitializeForPocketBase(app core.App) error {
 		a.syncService,
 	)
 
+	// Initialize handlers
+	if a.mvtService != nil {
+		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService)
+	}
+	a.authHandler = apiHandlers.NewAuthHandler(a.authService)
+	a.metaHandler = apiHandlers.NewMetaHandler(a.app)
+
 	return nil
 }
 
 // SetupCollections initializes all required collections
-func (a *AppService) SetupCollections(app core.App) error {
-	if err := a.collectionService.EnsureTrailsCollection(app); err != nil {
+func (a *AppService) SetupCollections() error {
+	if err := a.collectionService.EnsureTrailsCollection(a.app); err != nil {
 		return err
 	}
 
-	if err := a.collectionService.EnsureTrailRatingsCollection(app); err != nil {
+	if err := a.collectionService.EnsureTrailRatingsCollection(a.app); err != nil {
 		return err
 	}
 
-	if err := a.collectionService.EnsureTrailCommentsCollection(app); err != nil {
+	if err := a.collectionService.EnsureTrailCommentsCollection(a.app); err != nil {
 		return err
 	}
 
-	if err := a.collectionService.EnsureRatingAverageCollection(app); err != nil {
+	if err := a.collectionService.EnsureRatingAverageCollection(a.app); err != nil {
 		return err
 	}
 
-	if err := a.collectionService.ConfigureUsersCollection(app); err != nil {
+	if err := a.collectionService.ConfigureUsersCollection(a.app); err != nil {
 		return err
 	}
 
-	if err := a.collectionService.ConfigureGoogleOAuth(app); err != nil {
+	if err := a.collectionService.ConfigureGoogleOAuth(a.app); err != nil {
 		return err
 	}
 
-	if err := a.collectionService.EnsureAdminAccount(app); err != nil {
+	if err := a.collectionService.EnsureAdminAccount(a.app); err != nil {
 		return err
 	}
 
@@ -153,14 +136,14 @@ func (a *AppService) SetupCollections(app core.App) error {
 }
 
 // SetupHooks configures all PocketBase event hooks
-func (a *AppService) SetupHooks(app core.App) {
+func (a *AppService) SetupHooks() {
 	if a.hookManagerService != nil {
-		a.hookManagerService.SetupAllHooks(app)
+		a.hookManagerService.SetupAllHooks(a.app)
 	}
 }
 
 // SetupRoutes configures all HTTP routes
-func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
+func (a *AppService) SetupRoutes(e *core.ServeEvent) {
 	if a.metaHandler != nil {
 		a.metaHandler.SetupRoutes(e)
 	}
@@ -170,7 +153,7 @@ func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
 	}
 
 	if a.authHandler != nil {
-		a.authHandler.SetupRoutes(e, app)
+		a.authHandler.SetupRoutes(e, a.app)
 	}
 
 	// Add custom CORS handling
@@ -183,19 +166,17 @@ func (a *AppService) SetupRoutes(e *core.ServeEvent, app core.App) {
 }
 
 // SyncAllTrailsAtStartup performs initial sync of all trails to generator and generates tiles
-func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
+func (a *AppService) SyncAllTrailsAtStartup() {
 	if a.syncService == nil {
 		return
 	}
 
 	log.Println("Starting initial sync of all trails...")
-	func() {
-		if err := a.syncService.SyncAllTrails(context.Background(), app); err != nil {
-			log.Printf("Failed to sync trails at startup: %v", err)
-		} else {
-			log.Println("Successfully synced all trails and generated tiles at startup")
-		}
-	}()
+	if err := a.syncService.SyncAllTrails(context.Background(), a.app); err != nil {
+		log.Printf("Failed to sync trails at startup: %v", err)
+	} else {
+		log.Println("Successfully synced all trails and generated tiles at startup")
+	}
 }
 
 // Close cleans up all service resources
