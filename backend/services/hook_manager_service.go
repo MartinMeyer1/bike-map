@@ -111,7 +111,7 @@ func (h *HookManagerService) setupTrailHooks(app core.App) {
 		// After trail creation
 		app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 			if e.Record.Collection().Name == "trails" {
-				go h.handleTrailCreated(app, e.Record)
+				h.handleTrailCreated(app, e.Record)
 			}
 			return e.Next()
 		})
@@ -119,7 +119,7 @@ func (h *HookManagerService) setupTrailHooks(app core.App) {
 		// After trail update
 		app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
 			if e.Record.Collection().Name == "trails" {
-				go h.handleTrailUpdated(app, e.Record)
+				h.handleTrailUpdated(app, e.Record)
 			}
 			return e.Next()
 		})
@@ -127,7 +127,7 @@ func (h *HookManagerService) setupTrailHooks(app core.App) {
 		// After trail deletion
 		app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 			if e.Record.Collection().Name == "trails" {
-				go h.handleTrailDeleted(e.Record)
+				h.handleTrailDeleted(e.Record)
 			}
 			return e.Next()
 		})
@@ -143,21 +143,21 @@ func (h *HookManagerService) setupEngagementHooks(app core.App) {
 	// Rating hooks
 	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_ratings" {
-			go h.handleRatingCreated(app, e.Record)
+			h.handleRatingCreated(app, e.Record)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_ratings" {
-			go h.handleRatingUpdated(app, e.Record)
+			h.handleRatingUpdated(app, e.Record)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_ratings" {
-			go h.handleRatingDeleted(app, e.Record)
+			h.handleRatingDeleted(app, e.Record)
 		}
 		return e.Next()
 	})
@@ -165,14 +165,14 @@ func (h *HookManagerService) setupEngagementHooks(app core.App) {
 	// Comment hooks
 	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_comments" {
-			go h.handleCommentCreated(e.Record)
+			h.handleCommentCreated(e.Record)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_comments" {
-			go h.handleCommentDeleted(e.Record)
+			h.handleCommentDeleted(e.Record)
 		}
 		return e.Next()
 	})

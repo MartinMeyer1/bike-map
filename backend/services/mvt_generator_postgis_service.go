@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"math"
+	"errors"
 
 	"bike-map-backend/config"
 	"bike-map-backend/entities"
@@ -162,79 +162,34 @@ func (p *MVTGeneratorPostgis) insertTrail(ctx context.Context, trail trailPostgi
 // DeleteTrail removes a trail from PostGIS
 func (p *MVTGeneratorPostgis) DeleteTrail(trailID string) error {
 	query := `DELETE FROM trails WHERE id = $1`
-	result, err := p.db.ExecContext(context.Background(), query, trailID)
+	_, err := p.db.ExecContext(context.Background(), query, trailID)
 	if err != nil {
 		return fmt.Errorf("failed to delete trail from PostGIS: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		log.Printf("Trail %s not found in PostGIS (already deleted?)", trailID)
-	} else {
-		log.Printf("Removed trail %s from PostGIS", trailID)
 	}
 
 	return nil
 }
 
-// getTrailBoundingBox retrieves the bounding box of a trail from PostGIS
-func (p *MVTGeneratorPostgis) getTrailBoundingBox(trailID string) (*entities.BoundingBox, error) {
-	query := `
-		SELECT
-			ST_XMin(bbox) as west,
-			ST_YMin(bbox) as south,
-			ST_XMax(bbox) as east,
-			ST_YMax(bbox) as north
-		FROM trails
-		WHERE id = $1 AND geom IS NOT NULL
-	`
-
-	var bbox entities.BoundingBox
-	err := p.db.QueryRowContext(context.Background(), query, trailID).Scan(&bbox.West, &bbox.South, &bbox.East, &bbox.North)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("trail %s not found or has no geometry", trailID)
-		}
-		return nil, fmt.Errorf("failed to get trail bounding box: %w", err)
-	}
-
-	return &bbox, nil
-}
-
 // GetTrailTiles returns all tile coordinates that intersect with a trail's bounding box
 func (p *MVTGeneratorPostgis) GetTrailTiles(trailID string) ([]entities.TileCoordinates, error) {
-	bbox, err := p.getTrailBoundingBox(trailID)
+	query := `SELECT z, x, y FROM trail_tiles WHERE trail_id = $1 ORDER BY z, x, y`
+
+	rows, err := p.db.Query(query, trailID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get tiles for trail: %w", err)
 	}
+	defer rows.Close()
 
 	var tiles []entities.TileCoordinates
-
-	// Calculate tiles for each zoom level
-	for zoom := p.minZoom; zoom <= p.maxZoom; zoom++ {
-		minX, minY, maxX, maxY := p.boundingBoxToTileRange(*bbox, zoom)
-
-		// Skip invalid ranges
-		if minX > maxX || minY > maxY {
-			continue
+	for rows.Next() {
+		var t entities.TileCoordinates
+		if err := rows.Scan(&t.Z, &t.X, &t.Y); err != nil {
+			return nil, fmt.Errorf("failed to scan tile: %w", err)
 		}
-
-		for x := minX; x <= maxX; x++ {
-			for y := minY; y <= maxY; y++ {
-				tiles = append(tiles, entities.TileCoordinates{
-					Z: zoom,
-					X: x,
-					Y: y,
-				})
-			}
-		}
+		tiles = append(tiles, t)
 	}
 
-	return tiles, nil
+	return tiles, rows.Err()
 }
 
 // UpdateEngagementStats updates only the engagement statistics for a trail in PostGIS
@@ -280,272 +235,18 @@ func (p *MVTGeneratorPostgis) ClearAllTrails(ctx context.Context) error {
 
 // GetTile generates MVT tile data for the given coordinates
 func (p *MVTGeneratorPostgis) GetTile(c entities.TileCoordinates) ([]byte, error) {
-	// Calculate tile bounds
-	bounds := p.calculateTileBounds(c.Z, c.X, c.Y)
-	tolerance := p.calculateSimplificationTolerance(c.Z)
+	query := `SELECT data FROM mvt_tiles WHERE z = $1 AND x = $2 AND y = $3`
 
-	var query string
-	var args []interface{}
-
-	if tolerance > 0 {
-		query = `
-			WITH mvt_geom AS (
-				SELECT
-					id,
-					name,
-					description,
-					level,
-					CASE
-						WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
-						ELSE NULL
-					END as tags,
-					owner_id,
-					created_at,
-					updated_at,
-					gpx_file,
-					-- Bounding box coordinates
-					ST_XMin(bbox) as bbox_west,
-					ST_YMin(bbox) as bbox_south,
-					ST_XMax(bbox) as bbox_east,
-					ST_YMax(bbox) as bbox_north,
-					-- Start/End points
-					ST_X(ST_StartPoint(geom)) as start_lng,
-					ST_Y(ST_StartPoint(geom)) as start_lat,
-					ST_X(ST_EndPoint(geom)) as end_lng,
-					ST_Y(ST_EndPoint(geom)) as end_lat,
-					-- Trail statistics
-					distance_m,
-					-- Elevation data (extract key metrics)
-					COALESCE((elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
-					COALESCE((elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
-					-- Min/Max elevation from profile data
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
-						ELSE NULL
-					END as min_elevation_meters,
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
-						ELSE NULL
-					END as max_elevation_meters,
-					-- Start and end elevation
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(elevation_data->'profile'->0->>'elevation')::REAL
-						ELSE NULL
-					END as elevation_start_meters,
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(elevation_data->'profile'->-1->>'elevation')::REAL
-						ELSE NULL
-					END as elevation_end_meters,
-					-- Engagement data
-					rating_average,
-					rating_count,
-					comment_count,
-					-- Ridden status
-					ridden,
-					-- Simplify geometry based on zoom level
-					ST_AsMVTGeom(
-						ST_Transform(
-							ST_Simplify(geom, $5),
-							3857
-						),
-						ST_MakeEnvelope($1, $2, $3, $4, 3857),
-						4096,
-						64,
-						true
-					) AS geom
-				FROM trails
-				WHERE geom IS NOT NULL
-					AND ST_Intersects(
-						geom,
-						ST_Transform(ST_MakeEnvelope($1, $2, $3, $4, 3857), 4326)
-					)
-			)
-			SELECT ST_AsMVT(mvt_geom.*, 'trails')
-			FROM mvt_geom
-			WHERE geom IS NOT NULL;`
-		args = []interface{}{bounds.XMin, bounds.YMin, bounds.XMax, bounds.YMax, tolerance}
-	} else {
-		query = `
-			WITH mvt_geom AS (
-				SELECT
-					id,
-					name,
-					description,
-					level,
-					CASE
-						WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
-						ELSE NULL
-					END as tags,
-					owner_id,
-					created_at,
-					updated_at,
-					gpx_file,
-					-- Bounding box coordinates
-					ST_XMin(bbox) as bbox_west,
-					ST_YMin(bbox) as bbox_south,
-					ST_XMax(bbox) as bbox_east,
-					ST_YMax(bbox) as bbox_north,
-					-- Start/End points
-					ST_X(ST_StartPoint(geom)) as start_lng,
-					ST_Y(ST_StartPoint(geom)) as start_lat,
-					ST_X(ST_EndPoint(geom)) as end_lng,
-					ST_Y(ST_EndPoint(geom)) as end_lat,
-					-- Trail statistics
-					distance_m,
-					-- Elevation data (extract key metrics)
-					COALESCE((elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
-					COALESCE((elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
-					-- Min/Max elevation from profile data
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
-						ELSE NULL
-					END as min_elevation_meters,
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
-						ELSE NULL
-					END as max_elevation_meters,
-					-- Start and end elevation
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(elevation_data->'profile'->0->>'elevation')::REAL
-						ELSE NULL
-					END as elevation_start_meters,
-					CASE
-						WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-							(elevation_data->'profile'->-1->>'elevation')::REAL
-						ELSE NULL
-					END as elevation_end_meters,
-					-- Engagement data
-					rating_average,
-					rating_count,
-					comment_count,
-					-- Ridden status
-					ridden,
-					-- No simplification
-					ST_AsMVTGeom(
-						ST_Transform(geom, 3857),
-						ST_MakeEnvelope($1, $2, $3, $4, 3857),
-						4096,
-						64,
-						true
-					) AS geom
-				FROM trails
-				WHERE geom IS NOT NULL
-					AND ST_Intersects(
-						geom,
-						ST_Transform(ST_MakeEnvelope($1, $2, $3, $4, 3857), 4326)
-					)
-			)
-			SELECT ST_AsMVT(mvt_geom.*, 'trails')
-			FROM mvt_geom
-			WHERE geom IS NOT NULL;`
-		args = []interface{}{bounds.XMin, bounds.YMin, bounds.XMax, bounds.YMax}
-	}
-
-	var mvtData []byte
-	err := p.db.QueryRowContext(context.Background(), query, args...).Scan(&mvtData)
+	var data []byte
+	err := p.db.QueryRow(query, c.Z, c.X, c.Y).Scan(&data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate MVT: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("Tile not found")
+		}
+		return nil, fmt.Errorf("failed to get tile: %w", err)
 	}
 
-	return mvtData, nil
-}
-
-// calculateTileBounds calculates the bounds of a tile in Web Mercator projection
-func (p *MVTGeneratorPostgis) calculateTileBounds(z, x, y int) entities.TileBounds {
-	// Web Mercator bounds: -20037508.34 to 20037508.34
-	const worldSize = 20037508.34278924
-
-	tileSize := worldSize * 2.0 / float64(int64(1)<<uint(z))
-
-	return entities.TileBounds{
-		XMin: -worldSize + float64(x)*tileSize,
-		YMin: worldSize - float64(y+1)*tileSize,
-		XMax: -worldSize + float64(x+1)*tileSize,
-		YMax: worldSize - float64(y)*tileSize,
-	}
-}
-
-// calculateSimplificationTolerance returns geometry simplification tolerance based on zoom level
-func (p *MVTGeneratorPostgis) calculateSimplificationTolerance(z int) float64 {
-	// More aggressive simplification at lower zoom levels
-	switch {
-	case z <= 8:
-		return 0.05 // Very simplified for country/regional view
-	case z <= 10:
-		return 0.01 // Simplified for regional view
-	case z <= 11:
-		return 0.001 // Moderate simplification for city view
-	case z <= 12:
-		return 0.0005 // Light simplification for neighborhood view
-	default:
-		return 0 // No simplification for detailed view
-	}
-}
-
-// latLngToTileCoords converts lat/lng coordinates to tile coordinates at given zoom level
-func (p *MVTGeneratorPostgis) latLngToTileCoords(lat, lng float64, zoom int) (int, int) {
-	// Clamp latitude to valid Web Mercator range
-	if lat > 85.0511 {
-		lat = 85.0511
-	}
-	if lat < -85.0511 {
-		lat = -85.0511
-	}
-
-	// Convert to radians
-	latRad := lat * math.Pi / 180.0
-
-	// Calculate tile coordinates using standard Web Mercator formulas
-	n := math.Pow(2.0, float64(zoom))
-	x := int((lng + 180.0) / 360.0 * n)
-	y := int((1.0 - math.Asinh(math.Tan(latRad))/math.Pi) / 2.0 * n)
-
-	// Clamp to valid tile ranges
-	if x < 0 {
-		x = 0
-	}
-	if x >= int(n) {
-		x = int(n) - 1
-	}
-	if y < 0 {
-		y = 0
-	}
-	if y >= int(n) {
-		y = int(n) - 1
-	}
-
-	return x, y
-}
-
-// boundingBoxToTileRange calculates tile coordinate ranges for a bounding box at given zoom level
-func (p *MVTGeneratorPostgis) boundingBoxToTileRange(bbox entities.BoundingBox, zoom int) (minX, minY, maxX, maxY int) {
-	// Validate bbox is not degenerate
-	if bbox.North <= bbox.South || bbox.East <= bbox.West {
-		// Return empty range that will be skipped in loops
-		return 0, 0, -1, -1
-	}
-
-	// Convert bounding box corners to tile coordinates
-	// Note: North = max lat, South = min lat, East = max lng, West = min lng
-	minX, maxY = p.latLngToTileCoords(bbox.South, bbox.West, zoom) // Bottom-left corner
-	maxX, minY = p.latLngToTileCoords(bbox.North, bbox.East, zoom) // Top-right corner
-
-	// Ensure proper ordering (min <= max) - should not be needed with valid bbox, but safety check
-	if minX > maxX {
-		minX, maxX = maxX, minX
-	}
-	if minY > maxY {
-		minY, maxY = maxY, minY
-	}
-
-	return minX, minY, maxX, maxY
+	return data, nil
 }
 
 // Compile-time check to ensure PostGISService implements interfaces.MVTGenerator

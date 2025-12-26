@@ -77,9 +77,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       await loadData(false); // Refresh data without loading state
       
       // Refresh MVT layer to update engagement data
-      setTimeout(() => {
-        refreshMVTLayer();
-      }, 500);
+      refreshMVTLayer();
     } catch (error) {
       console.error('Failed to update rating:', error);
     } finally {
@@ -98,9 +96,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       await loadData(false); // Refresh data without loading state
       
       // Refresh MVT layer to update engagement data
-      setTimeout(() => {
-        refreshMVTLayer();
-      }, 500);
+      refreshMVTLayer();
     } catch (error) {
       console.error('Failed to create comment:', error);
     } finally {
@@ -124,9 +120,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       await loadData(false); // Refresh data without loading state
       
       // Refresh MVT layer to update engagement data
-      setTimeout(() => {
         refreshMVTLayer();
-      }, 500);
     } catch (error) {
       console.error('Failed to update comment:', error);
     } finally {
@@ -142,9 +136,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
         await loadData(false); // Refresh data without loading state
         
         // Refresh MVT layer to update engagement data
-        setTimeout(() => {
-          refreshMVTLayer();
-        }, 500);
+        refreshMVTLayer();
       } catch (error) {
         console.error('Failed to delete comment:', error);
       } finally {
