@@ -1,6 +1,6 @@
 # BRouter Routing Server
 
-High-performance routing engine for BikeMap using Swiss OSM data.
+Routing engine using Swiss OSM data.
 
 ## Setup
 
