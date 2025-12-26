@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/http"
 	"strings"
 
 	"bike-map-backend/entities"
@@ -28,22 +27,26 @@ func NewGPXService() *GPXService {
 	return &GPXService{}
 }
 
-// GetTrailGPXFromPB downloads GPX file from PocketBase storage
-func (g *GPXService) GetTrailGPXFromPB(trail *core.Record, filename string) ([]byte, error) {
-	// Construct file URL
-	fileURL := fmt.Sprintf("%s/api/files/trails/%s/%s", "http://localhost:8090", trail.Id, filename)
+// GetTrailGPXFromPB reads GPX file directly from PocketBase storage filesystem
+func (g *GPXService) GetTrailGPXFromPB(app core.App, trail *core.Record, filename string) ([]byte, error) {
+	// Construct the full file key using record's base path
+	fileKey := trail.BaseFilesPath() + "/" + filename
 
-	resp, err := http.Get(fileURL)
+	// Initialize the filesystem
+	fsys, err := app.NewFilesystem()
 	if err != nil {
-		return nil, fmt.Errorf("failed to download GPX file: %w", err)
+		return nil, fmt.Errorf("failed to initialize filesystem: %w", err)
 	}
-	defer resp.Body.Close()
+	defer fsys.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to download GPX file: status %d", resp.StatusCode)
+	// Get file reader
+	reader, err := fsys.GetReader(fileKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GPX file: %w", err)
 	}
+	defer reader.Close()
 
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(reader)
 }
 
 // ParseGPXFile parses GPX data and returns structured data ready for PostGIS insertion

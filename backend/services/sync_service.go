@@ -243,8 +243,8 @@ func (s *SyncService) syncTrailFromPBToGenerator(ctx context.Context, app core.A
 		return fmt.Errorf("trail %s has no GPX file", trailID)
 	}
 
-	// 3. Download GPX file via GPXService
-	gpxData, err := s.gpxService.GetTrailGPXFromPB(trail, gpxFile)
+	// 3. Read GPX file via GPXService
+	gpxData, err := s.gpxService.GetTrailGPXFromPB(app, trail, gpxFile)
 	if err != nil {
 		return fmt.Errorf("failed to download GPX: %w", err)
 	}

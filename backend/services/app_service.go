@@ -189,7 +189,7 @@ func (a *AppService) SyncAllTrailsAtStartup(app core.App) {
 	}
 
 	log.Println("Starting initial sync of all trails...")
-	go func() {
+	func() {
 		if err := a.syncService.SyncAllTrails(context.Background(), app); err != nil {
 			log.Printf("Failed to sync trails at startup: %v", err)
 		} else {
