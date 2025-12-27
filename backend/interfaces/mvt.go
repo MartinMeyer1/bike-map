@@ -28,13 +28,10 @@ type MVTProvider interface {
 type MVTCache interface {
 	MVTProvider
 	StoreTile(c entities.TileCoordinates, data []byte) error
-	ClearTile(c entities.TileCoordinates) error
 	ClearAllTiles() error
 
 	// Tile status methods
 	GetTileWithStatus(c entities.TileCoordinates) ([]byte, TileStatus, error)
-	StoreEmptyTile(c entities.TileCoordinates) error
-	InvalidateTile(c entities.TileCoordinates) error
 	InvalidateTiles(tiles []entities.TileCoordinates) error
 }
 

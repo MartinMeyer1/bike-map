@@ -87,13 +87,13 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		re.Response.WriteHeader(http.StatusOK)
 		re.Response.Write(data)
 		return nil
-
-	case interfaces.TileEmpty:
+	
+	case interfaces.TileEmpty, interfaces.TileNotFound:
 		// Tile was generated but has no trails
 		re.Response.WriteHeader(http.StatusNoContent)
 		return nil
 
-	case interfaces.TileInvalidated, interfaces.TileNotFound:
+	case interfaces.TileInvalidated:
 		// Tile needs generation - request priority generation
 		newData, err := h.tileRequester.RequestTile(coords)
 		if err != nil {
