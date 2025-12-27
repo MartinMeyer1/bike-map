@@ -147,14 +147,11 @@ CREATE OR REPLACE FUNCTION generate_mvt_tile(p_z INTEGER, p_x INTEGER, p_y INTEG
 RETURNS BYTEA AS $$
 DECLARE
     v_tile_env GEOMETRY;
-    v_tile_env_4326 GEOMETRY;
     v_tolerance FLOAT;
     v_mvt BYTEA;
 BEGIN
     -- Get tile envelope in Web Mercator
     v_tile_env := ST_TileEnvelope(p_z, p_x, p_y);
-    -- Convert to WGS84 for intersection test
-    v_tile_env_4326 := ST_Transform(v_tile_env, 4326);
     -- Get simplification tolerance
     v_tolerance := get_simplification_tolerance(p_z);
 
@@ -163,61 +160,61 @@ BEGIN
         INTO v_mvt
         FROM (
             SELECT
-                id,
-                name,
-                description,
-                level,
+                t.id,
+                t.name,
+                t.description,
+                t.level,
                 CASE
-                    WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
+                    WHEN t.tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(t.tags)), ',')
                     ELSE NULL
                 END as tags,
-                owner_id,
-                created_at,
-                updated_at,
-                gpx_file,
-                ST_XMin(bbox) as bbox_west,
-                ST_YMin(bbox) as bbox_south,
-                ST_XMax(bbox) as bbox_east,
-                ST_YMax(bbox) as bbox_north,
-                ST_X(ST_StartPoint(geom)) as start_lng,
-                ST_Y(ST_StartPoint(geom)) as start_lat,
-                ST_X(ST_EndPoint(geom)) as end_lng,
-                ST_Y(ST_EndPoint(geom)) as end_lat,
-                distance_m,
-                COALESCE((elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
-                COALESCE((elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
+                t.owner_id,
+                t.created_at,
+                t.updated_at,
+                t.gpx_file,
+                ST_XMin(t.bbox) as bbox_west,
+                ST_YMin(t.bbox) as bbox_south,
+                ST_XMax(t.bbox) as bbox_east,
+                ST_YMax(t.bbox) as bbox_north,
+                ST_X(ST_StartPoint(t.geom)) as start_lng,
+                ST_Y(ST_StartPoint(t.geom)) as start_lat,
+                ST_X(ST_EndPoint(t.geom)) as end_lng,
+                ST_Y(ST_EndPoint(t.geom)) as end_lat,
+                t.distance_m,
+                COALESCE((t.elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
+                COALESCE((t.elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
                     ELSE NULL
                 END as min_elevation_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
                     ELSE NULL
                 END as max_elevation_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (elevation_data->'profile'->0->>'elevation')::REAL
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (t.elevation_data->'profile'->0->>'elevation')::REAL
                     ELSE NULL
                 END as elevation_start_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (elevation_data->'profile'->-1->>'elevation')::REAL
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (t.elevation_data->'profile'->-1->>'elevation')::REAL
                     ELSE NULL
                 END as elevation_end_meters,
-                rating_average,
-                rating_count,
-                comment_count,
-                ridden,
+                t.rating_average,
+                t.rating_count,
+                t.comment_count,
+                t.ridden,
                 ST_AsMVTGeom(
-                    ST_Transform(ST_Simplify(geom, v_tolerance), 3857),
+                    ST_Transform(ST_Simplify(t.geom, v_tolerance), 3857),
                     v_tile_env,
                     4096, 0, true
                 ) AS geom
-            FROM trails
-            WHERE geom IS NOT NULL
-              AND ST_Intersects(geom, v_tile_env_4326)
+            FROM trails t
+            JOIN trail_tiles tt ON t.id = tt.trail_id
+            WHERE tt.z = p_z AND tt.x = p_x AND tt.y = p_y
         ) AS mvt_geom
         WHERE geom IS NOT NULL;
     ELSE
@@ -225,61 +222,61 @@ BEGIN
         INTO v_mvt
         FROM (
             SELECT
-                id,
-                name,
-                description,
-                level,
+                t.id,
+                t.name,
+                t.description,
+                t.level,
                 CASE
-                    WHEN tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(tags)), ',')
+                    WHEN t.tags IS NOT NULL THEN array_to_string(ARRAY(SELECT jsonb_array_elements_text(t.tags)), ',')
                     ELSE NULL
                 END as tags,
-                owner_id,
-                created_at,
-                updated_at,
-                gpx_file,
-                ST_XMin(bbox) as bbox_west,
-                ST_YMin(bbox) as bbox_south,
-                ST_XMax(bbox) as bbox_east,
-                ST_YMax(bbox) as bbox_north,
-                ST_X(ST_StartPoint(geom)) as start_lng,
-                ST_Y(ST_StartPoint(geom)) as start_lat,
-                ST_X(ST_EndPoint(geom)) as end_lng,
-                ST_Y(ST_EndPoint(geom)) as end_lat,
-                distance_m,
-                COALESCE((elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
-                COALESCE((elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
+                t.owner_id,
+                t.created_at,
+                t.updated_at,
+                t.gpx_file,
+                ST_XMin(t.bbox) as bbox_west,
+                ST_YMin(t.bbox) as bbox_south,
+                ST_XMax(t.bbox) as bbox_east,
+                ST_YMax(t.bbox) as bbox_north,
+                ST_X(ST_StartPoint(t.geom)) as start_lng,
+                ST_Y(ST_StartPoint(t.geom)) as start_lat,
+                ST_X(ST_EndPoint(t.geom)) as end_lng,
+                ST_Y(ST_EndPoint(t.geom)) as end_lat,
+                t.distance_m,
+                COALESCE((t.elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
+                COALESCE((t.elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
                     ELSE NULL
                 END as min_elevation_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(elevation_data->'profile') AS value)
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
                     ELSE NULL
                 END as max_elevation_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (elevation_data->'profile'->0->>'elevation')::REAL
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (t.elevation_data->'profile'->0->>'elevation')::REAL
                     ELSE NULL
                 END as elevation_start_meters,
                 CASE
-                    WHEN elevation_data->'profile' IS NOT NULL AND jsonb_array_length(elevation_data->'profile') > 0 THEN
-                        (elevation_data->'profile'->-1->>'elevation')::REAL
+                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
+                        (t.elevation_data->'profile'->-1->>'elevation')::REAL
                     ELSE NULL
                 END as elevation_end_meters,
-                rating_average,
-                rating_count,
-                comment_count,
-                ridden,
+                t.rating_average,
+                t.rating_count,
+                t.comment_count,
+                t.ridden,
                 ST_AsMVTGeom(
-                    ST_Transform(geom, 3857),
+                    ST_Transform(t.geom, 3857),
                     v_tile_env,
                     4096, 64, true
                 ) AS geom
-            FROM trails
-            WHERE geom IS NOT NULL
-              AND ST_Intersects(geom, v_tile_env_4326)
+            FROM trails t
+            JOIN trail_tiles tt ON t.id = tt.trail_id
+            WHERE tt.z = p_z AND tt.x = p_x AND tt.y = p_y
         ) AS mvt_geom
         WHERE geom IS NOT NULL;
     END IF;
@@ -287,6 +284,46 @@ BEGIN
     RETURN COALESCE(v_mvt, ''::BYTEA);
 END;
 $$ LANGUAGE plpgsql STABLE;
+
+-- ============================================================================
+-- FUNCTION: Get or generate tile on-demand with freshness check
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION get_tile(p_z INTEGER, p_x INTEGER, p_y INTEGER)
+RETURNS BYTEA AS $$
+DECLARE
+    v_data BYTEA;
+    v_generated_at TIMESTAMP WITH TIME ZONE;
+    v_is_stale BOOLEAN := FALSE;
+BEGIN
+    -- Try to get cached tile
+    SELECT data, generated_at INTO v_data, v_generated_at
+    FROM mvt_tiles WHERE z = p_z AND x = p_x AND y = p_y;
+
+    IF v_data IS NOT NULL THEN
+        -- Check if any trail on this tile was updated after tile generation
+        SELECT EXISTS (
+            SELECT 1 FROM trail_tiles tt
+            JOIN trails t ON t.id = tt.trail_id
+            WHERE tt.z = p_z AND tt.x = p_x AND tt.y = p_y
+              AND t.updated_at > v_generated_at
+        ) INTO v_is_stale;
+    END IF;
+
+    -- Generate if missing or stale
+    IF v_data IS NULL OR v_is_stale THEN
+        v_data := generate_mvt_tile(p_z, p_x, p_y);
+
+        INSERT INTO mvt_tiles (z, x, y, data, generated_at)
+        VALUES (p_z, p_x, p_y, v_data, NOW())
+        ON CONFLICT (z, x, y) DO UPDATE
+            SET data = EXCLUDED.data,
+                generated_at = EXCLUDED.generated_at;
+    END IF;
+
+    RETURN v_data;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ============================================================================
 -- TRIGGER FUNCTIONS
@@ -312,86 +349,31 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_min_zoom INTEGER;
     v_max_zoom INTEGER;
-    v_tile RECORD;
 BEGIN
     SELECT value INTO v_min_zoom FROM tile_config WHERE key = 'min_zoom';
     SELECT value INTO v_max_zoom FROM tile_config WHERE key = 'max_zoom';
 
-    -- Create temp table to collect all tiles that need regeneration
-    CREATE TEMP TABLE IF NOT EXISTS _tiles_to_regen (z INT, x INT, y INT) ON COMMIT DROP;
-    DELETE FROM _tiles_to_regen;
-
-    -- For UPDATE: save old tiles before deleting them
-    IF TG_OP = 'UPDATE' THEN
-        INSERT INTO _tiles_to_regen (z, x, y)
-        SELECT tt.z, tt.x, tt.y FROM trail_tiles tt WHERE tt.trail_id = OLD.id;
-    END IF;
-
     -- Update trail_tiles index
     DELETE FROM trail_tiles WHERE trail_id = NEW.id;
-    
+
     IF NEW.geom IS NOT NULL THEN
         INSERT INTO trail_tiles (trail_id, z, x, y)
         SELECT NEW.id, t.z, t.x, t.y
         FROM get_tiles_for_geometry(NEW.geom, v_min_zoom, v_max_zoom) t;
     END IF;
 
-    -- Add new tiles to regeneration list
-    INSERT INTO _tiles_to_regen (z, x, y)
-    SELECT tt.z, tt.x, tt.y FROM trail_tiles tt WHERE tt.trail_id = NEW.id;
-
-    -- Regenerate all affected tiles
-    FOR v_tile IN 
-        SELECT DISTINCT z, x, y FROM _tiles_to_regen
-    LOOP
-        INSERT INTO mvt_tiles (z, x, y, data, generated_at)
-        VALUES (v_tile.z, v_tile.x, v_tile.y, generate_mvt_tile(v_tile.z, v_tile.x, v_tile.y), NOW())
-        ON CONFLICT (z, x, y) DO UPDATE 
-            SET data = EXCLUDED.data,
-                generated_at = EXCLUDED.generated_at;
-    END LOOP;
-
-    -- Delete empty tiles (tiles with no trails)
-    DELETE FROM mvt_tiles mt
-    WHERE (mt.z, mt.x, mt.y) IN (SELECT z, x, y FROM _tiles_to_regen)
-      AND NOT EXISTS (
-          SELECT 1 FROM trail_tiles tt 
-          WHERE tt.z = mt.z AND tt.x = mt.x AND tt.y = mt.y
-      );
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Better approach: use a transition table or store before delete
 CREATE OR REPLACE FUNCTION trigger_before_trail_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Store tiles that need regeneration in a temp table
-    CREATE TEMP TABLE IF NOT EXISTS _tiles_to_regenerate (z INT, x INT, y INT) ON COMMIT DROP;
-    
-    INSERT INTO _tiles_to_regenerate (z, x, y)
-    SELECT z, x, y FROM trail_tiles WHERE trail_id = OLD.id;
-
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION trigger_after_trail_delete()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_tile RECORD;
-BEGIN
-    -- Regenerate all tiles that contained the deleted trail
-    FOR v_tile IN 
-        SELECT DISTINCT z, x, y FROM _tiles_to_regenerate
-    LOOP
-        INSERT INTO mvt_tiles (z, x, y, data, generated_at)
-        VALUES (v_tile.z, v_tile.x, v_tile.y, generate_mvt_tile(v_tile.z, v_tile.x, v_tile.y), NOW())
-        ON CONFLICT (z, x, y) DO UPDATE 
-            SET data = EXCLUDED.data,
-                generated_at = EXCLUDED.generated_at;
-    END LOOP;
+    -- Invalidate affected tiles before cascade deletes trail_tiles entries
+    DELETE FROM mvt_tiles mt
+    USING trail_tiles tt
+    WHERE tt.trail_id = OLD.id
+      AND mt.z = tt.z AND mt.x = tt.x AND mt.y = tt.y;
 
     RETURN OLD;
 END;
@@ -420,8 +402,3 @@ CREATE TRIGGER trigger_trail_before_delete
     BEFORE DELETE ON trails
     FOR EACH ROW
     EXECUTE FUNCTION trigger_before_trail_delete();
-
-CREATE TRIGGER trigger_trail_after_delete
-    AFTER DELETE ON trails
-    FOR EACH ROW
-    EXECUTE FUNCTION trigger_after_trail_delete();

@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 
@@ -233,16 +232,13 @@ func (p *MVTGeneratorPostgis) ClearAllTrails(ctx context.Context) error {
 	return nil
 }
 
-// GetTile generates MVT tile data for the given coordinates
+// GetTile retrieves or generates MVT tile data for the given coordinates
 func (p *MVTGeneratorPostgis) GetTile(c entities.TileCoordinates) ([]byte, error) {
-	query := `SELECT data FROM mvt_tiles WHERE z = $1 AND x = $2 AND y = $3`
+	query := `SELECT get_tile($1, $2, $3)`
 
 	var data []byte
 	err := p.db.QueryRow(query, c.Z, c.X, c.Y).Scan(&data)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("Tile not found")
-		}
 		return nil, fmt.Errorf("failed to get tile: %w", err)
 	}
 
