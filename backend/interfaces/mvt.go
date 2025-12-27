@@ -6,7 +6,15 @@ import (
 	"bike-map/entities"
 )
 
-// TODO add context where required
+// TileStatus represents the state of a cached tile
+type TileStatus int
+
+const (
+	TileNotFound    TileStatus = iota // Never generated
+	TileEmpty                         // Generated but no trails
+	TileValid                         // Has valid data
+	TileInvalidated                   // Needs regeneration
+)
 
 // MVTProvider - base interface for MVT operations (read-only)
 type MVTProvider interface {
@@ -16,11 +24,24 @@ type MVTProvider interface {
 	Close() error
 }
 
-// MVTStorage - extends MVTService with write operations
-type MVTStorage interface {
+// MVTCache - in-memory tile cache with status tracking
+type MVTCache interface {
 	MVTProvider
 	StoreTile(c entities.TileCoordinates, data []byte) error
 	ClearTile(c entities.TileCoordinates) error
+	ClearAllTiles() error
+
+	// Tile status methods
+	GetTileWithStatus(c entities.TileCoordinates) ([]byte, TileStatus, error)
+	StoreEmptyTile(c entities.TileCoordinates) error
+	InvalidateTile(c entities.TileCoordinates) error
+	InvalidateTiles(tiles []entities.TileCoordinates) error
+}
+
+// MVTBackup - backup storage for tiles (e.g., mbtiles)
+type MVTBackup interface {
+	MVTProvider
+	StoreTile(c entities.TileCoordinates, data []byte) error
 	ClearAllTiles() error
 }
 
@@ -36,4 +57,9 @@ type MVTGenerator interface {
 
 	// TODO remove and use UpdateTrail instead
 	UpdateEngagementStats(ctx context.Context, trailID string, stats entities.EngagementStatsData) error
+}
+
+// TileRequester - requests priority tile generation (used by handlers)
+type TileRequester interface {
+	RequestTile(coords entities.TileCoordinates) ([]byte, error)
 }

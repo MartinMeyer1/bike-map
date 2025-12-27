@@ -6,7 +6,6 @@ import (
 
 	"bike-map/apiHandlers"
 	"bike-map/config"
-	"bike-map/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -73,11 +72,10 @@ func (a *AppService) initializeServices() error {
 
 	// Initialize OrchestrationService if PostGIS (MVTGenerator) is available
 	if a.postgisService != nil {
-		storages := []interfaces.MVTStorage{a.mvtService}
 		a.orchestrationService = NewOrchestrationService(
 			a.postgisService,
 			a.engagementService,
-			storages,
+			a.mvtService,
 		)
 	}
 
@@ -88,8 +86,8 @@ func (a *AppService) initializeServices() error {
 	)
 
 	// Initialize handlers
-	if a.mvtService != nil {
-		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService)
+	if a.mvtService != nil && a.orchestrationService != nil {
+		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService, a.orchestrationService)
 	}
 	a.authHandler = apiHandlers.NewAuthHandler(a.authService)
 	a.metaHandler = apiHandlers.NewMetaHandler(a.app)
@@ -176,6 +174,11 @@ func (a *AppService) SyncAllTrailsAtStartup() {
 
 // Close cleans up all service resources
 func (a *AppService) Close() error {
+	// Stop the tile worker first
+	if a.orchestrationService != nil {
+		a.orchestrationService.Stop()
+	}
+
 	if a.postgisService != nil {
 		if err := a.postgisService.Close(); err != nil {
 			log.Printf("Error closing PostGIS service: %v", err)

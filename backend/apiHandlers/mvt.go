@@ -14,13 +14,15 @@ import (
 
 // MVTHandler handles MVT-related HTTP requests
 type MVTHandler struct {
-	mvtStorage interfaces.MVTStorage
+	cache         interfaces.MVTCache
+	tileRequester interfaces.TileRequester
 }
 
 // NewMVTHandler creates a new MVT handler
-func NewMVTHandler(mvtStorage interfaces.MVTStorage) *MVTHandler {
+func NewMVTHandler(cache interfaces.MVTCache, tileRequester interfaces.TileRequester) *MVTHandler {
 	return &MVTHandler{
-		mvtStorage: mvtStorage,
+		cache:         cache,
+		tileRequester: tileRequester,
 	}
 }
 
@@ -68,25 +70,60 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		return nil
 	}
 
-	// Get tile from storage
-	mvtData, err := h.mvtStorage.GetTile(entities.TileCoordinates{
-		X: x,
-		Y: y,
-		Z: z,
-	})
+	coords := entities.TileCoordinates{X: x, Y: y, Z: z}
+
+	// Get tile with status from storage
+	data, status, err := h.cache.GetTileWithStatus(coords)
 	if err != nil {
-		// Tile not found in storage - return 204
-		re.Response.WriteHeader(http.StatusNoContent)
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte(err.Error()))
 		return nil
 	}
 
-	// Set MVT headers
-	h.setMVTHeaders(re)
+	switch status {
+	case interfaces.TileValid:
+		// Tile is valid, return it
+		h.setMVTHeaders(re)
+		re.Response.WriteHeader(http.StatusOK)
+		re.Response.Write(data)
+		return nil
 
-	// Write MVT data
-	re.Response.WriteHeader(http.StatusOK)
-	re.Response.Write(mvtData)
+	case interfaces.TileEmpty:
+		// Tile was generated but has no trails
+		re.Response.WriteHeader(http.StatusNoContent)
+		return nil
 
+	case interfaces.TileInvalidated, interfaces.TileNotFound:
+		// Tile needs generation - request priority generation
+		newData, err := h.tileRequester.RequestTile(coords)
+		if err != nil {
+			// Timeout - return stale data if available (invalidated case)
+			if status == interfaces.TileInvalidated && len(data) > 0 {
+				h.setMVTHeaders(re)
+				re.Response.WriteHeader(http.StatusOK)
+				re.Response.Write(data)
+				return nil
+			}
+			// No data available
+			re.Response.WriteHeader(http.StatusNoContent)
+			return nil
+		}
+
+		// Check if the generated tile is empty
+		if len(newData) == 0 {
+			re.Response.WriteHeader(http.StatusNoContent)
+			return nil
+		}
+
+		// Return the freshly generated tile
+		h.setMVTHeaders(re)
+		re.Response.WriteHeader(http.StatusOK)
+		re.Response.Write(newData)
+		return nil
+	}
+
+	// Fallback
+	re.Response.WriteHeader(http.StatusNoContent)
 	return nil
 }
 
@@ -112,7 +149,7 @@ func (h *MVTHandler) parseCoordinates(parts []string) (z, x, y int, err error) {
 
 // validateTileCoordinates validates tile coordinates
 func (h *MVTHandler) validateTileCoordinates(z, x, y int) error {
-	if z < h.mvtStorage.GetMinZoom() || z > h.mvtStorage.GetMaxZoom() || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
+	if z < h.cache.GetMinZoom() || z > h.cache.GetMaxZoom() || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
 		return fmt.Errorf("invalid tile coordinates")
 	}
 	return nil

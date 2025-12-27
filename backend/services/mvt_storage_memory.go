@@ -9,9 +9,10 @@ import (
 	"bike-map/interfaces"
 )
 
-// cacheEntry represents a cached tile with response data
+// cacheEntry represents a cached tile with response data and status
 type cacheEntry struct {
-	Response []byte // MVT tile data
+	data   []byte              // MVT tile data
+	status interfaces.TileStatus
 }
 
 // MVTMemoryStorage implements MVTStorage as a memory cache
@@ -55,16 +56,82 @@ func (m *MVTMemoryStorage) GetTile(c entities.TileCoordinates) ([]byte, error) {
 		return nil, fmt.Errorf("tile %s not found in cache", tileKey)
 	}
 
-	return entry.Response, nil
+	return entry.data, nil
 }
 
-// StoreTile stores a tile in the cache
+// GetTileWithStatus retrieves a tile and its status from the cache
+func (m *MVTMemoryStorage) GetTileWithStatus(c entities.TileCoordinates) ([]byte, interfaces.TileStatus, error) {
+	if c.Z < m.minZoom || c.Z > m.maxZoom {
+		return nil, interfaces.TileNotFound, fmt.Errorf("zoom level %d out of range [%d, %d]", c.Z, m.minZoom, m.maxZoom)
+	}
+
+	tileKey := fmt.Sprintf("%d-%d-%d", c.Z, c.X, c.Y)
+
+	m.cacheMutex.RLock()
+	entry, exists := m.cache[tileKey]
+	m.cacheMutex.RUnlock()
+
+	if !exists {
+		return nil, interfaces.TileNotFound, nil
+	}
+
+	return entry.data, entry.status, nil
+}
+
+// StoreTile stores a tile in the cache with appropriate status
 func (m *MVTMemoryStorage) StoreTile(c entities.TileCoordinates, data []byte) error {
+	tileKey := fmt.Sprintf("%d-%d-%d", c.Z, c.X, c.Y)
+
+	status := interfaces.TileValid
+	if len(data) == 0 {
+		status = interfaces.TileEmpty
+	}
+
+	m.cacheMutex.Lock()
+	m.cache[tileKey] = &cacheEntry{
+		data:   data,
+		status: status,
+	}
+	m.cacheMutex.Unlock()
+
+	return nil
+}
+
+// StoreEmptyTile stores a tile marked as empty (no trails in this tile)
+func (m *MVTMemoryStorage) StoreEmptyTile(c entities.TileCoordinates) error {
 	tileKey := fmt.Sprintf("%d-%d-%d", c.Z, c.X, c.Y)
 
 	m.cacheMutex.Lock()
 	m.cache[tileKey] = &cacheEntry{
-		Response: data,
+		data:   nil,
+		status: interfaces.TileEmpty,
+	}
+	m.cacheMutex.Unlock()
+
+	return nil
+}
+
+// InvalidateTile marks a tile as needing regeneration
+func (m *MVTMemoryStorage) InvalidateTile(c entities.TileCoordinates) error {
+	tileKey := fmt.Sprintf("%d-%d-%d", c.Z, c.X, c.Y)
+
+	m.cacheMutex.Lock()
+	if entry, exists := m.cache[tileKey]; exists {
+		entry.status = interfaces.TileInvalidated
+	}
+	m.cacheMutex.Unlock()
+
+	return nil
+}
+
+// InvalidateTiles marks multiple tiles as needing regeneration
+func (m *MVTMemoryStorage) InvalidateTiles(tiles []entities.TileCoordinates) error {
+	m.cacheMutex.Lock()
+	for _, c := range tiles {
+		tileKey := fmt.Sprintf("%d-%d-%d", c.Z, c.X, c.Y)
+		if entry, exists := m.cache[tileKey]; exists {
+			entry.status = interfaces.TileInvalidated
+		}
 	}
 	m.cacheMutex.Unlock()
 
@@ -99,5 +166,5 @@ func (m *MVTMemoryStorage) Close() error {
 	return nil
 }
 
-// Compile-time check to ensure MVTService implements MVTStorage interface
-var _ interfaces.MVTStorage = (*MVTMemoryStorage)(nil)
+// Compile-time check to ensure MVTMemoryStorage implements MVTCache interface
+var _ interfaces.MVTCache = (*MVTMemoryStorage)(nil)
