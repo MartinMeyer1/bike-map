@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
-	"bike-map-backend/apiHandlers"
-	"bike-map-backend/config"
-	"bike-map-backend/interfaces"
+	"bike-map/apiHandlers"
+	"bike-map/config"
+	"bike-map/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -20,13 +20,13 @@ type AppService struct {
 	app core.App
 
 	// Core Services
-	authService        *AuthService
-	collectionService  *CollectionService
-	engagementService  *EngagementService
-	syncService        *SyncService
-	hookManagerService *HookManagerService
-	postgisService     *MVTGeneratorPostgis // MVTGenerator
-	mvtService         *MVTMemoryStorage    // MVTStorage
+	authService          *AuthService
+	collectionService    *CollectionService
+	engagementService    *EngagementService
+	orchestrationService *OrchestrationService
+	hookManagerService   *HookManagerService
+	postgisService       *MVTGeneratorPostgis // MVTGenerator
+	mvtService           *MVTMemoryStorage    // MVTStorage
 
 	// Handlers
 	mvtHandler  *apiHandlers.MVTHandler
@@ -71,10 +71,10 @@ func (a *AppService) initializeServices() error {
 	// Initialize engagement service
 	a.engagementService = NewEngagementService(a.app)
 
-	// Initialize sync service if PostGIS (MVTGenerator) is available
+	// Initialize OrchestrationService if PostGIS (MVTGenerator) is available
 	if a.postgisService != nil {
 		storages := []interfaces.MVTStorage{a.mvtService}
-		a.syncService = NewSyncService(
+		a.orchestrationService = NewOrchestrationService(
 			a.postgisService,
 			a.engagementService,
 			storages,
@@ -84,7 +84,7 @@ func (a *AppService) initializeServices() error {
 	// Initialize hook manager service
 	a.hookManagerService = NewHookManagerService(
 		a.authService,
-		a.syncService,
+		a.orchestrationService,
 	)
 
 	// Initialize handlers
@@ -162,12 +162,12 @@ func (a *AppService) SetupRoutes(e *core.ServeEvent) {
 
 // SyncAllTrailsAtStartup performs initial sync of all trails to generator and generates tiles
 func (a *AppService) SyncAllTrailsAtStartup() {
-	if a.syncService == nil {
+	if a.orchestrationService == nil {
 		return
 	}
 
 	log.Println("Starting initial sync of all trails...")
-	if err := a.syncService.SyncAllTrails(context.Background(), a.app); err != nil {
+	if err := a.orchestrationService.SyncAllTrails(context.Background(), a.app); err != nil {
 		log.Printf("Failed to sync trails at startup: %v", err)
 	} else {
 		log.Println("Successfully synced all trails and generated tiles at startup")

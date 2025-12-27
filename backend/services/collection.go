@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"bike-map-backend/config"
+	"bike-map/config"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -278,10 +278,10 @@ func (c *CollectionService) EnsureTrailRatingsCollection(app core.App) error {
 
 	// Reference to trail
 	collection.Fields.Add(&core.RelationField{
-		Name:         "trail",
-		CollectionId: trailsCollection.Id,
-		MaxSelect:    1,
-		Required:     true,
+		Name:          "trail",
+		CollectionId:  trailsCollection.Id,
+		MaxSelect:     1,
+		Required:      true,
 		CascadeDelete: true,
 	})
 
@@ -355,10 +355,10 @@ func (c *CollectionService) EnsureTrailCommentsCollection(app core.App) error {
 
 	// Reference to trail
 	collection.Fields.Add(&core.RelationField{
-		Name:         "trail",
-		CollectionId: trailsCollection.Id,
-		MaxSelect:    1,
-		Required:     true,
+		Name:          "trail",
+		CollectionId:  trailsCollection.Id,
+		MaxSelect:     1,
+		Required:      true,
 		CascadeDelete: true,
 	})
 

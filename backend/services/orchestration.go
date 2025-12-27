@@ -7,27 +7,28 @@ import (
 	"io"
 	"log"
 
-	"bike-map-backend/entities"
-	"bike-map-backend/interfaces"
+	"bike-map/entities"
+	"bike-map/interfaces"
+	"bike-map/utils"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// SyncService handles synchronization between PocketBase, MVTGenerator, and MVTStorages
+// OrchestrationService handles synchronization between PocketBase, MVTGenerator, and MVTStorages
 // It acts as the controller coordinating MVTGenerator, MVTStorages, and EngagementService
-type SyncService struct {
+type OrchestrationService struct {
 	mvtGenerator      interfaces.MVTGenerator
 	storages          []interfaces.MVTStorage
 	engagementService interfaces.EngagementService
 }
 
-// NewSyncService creates a new sync service
-func NewSyncService(
+// NewOrchestrationService creates a new OrchestrationService
+func NewOrchestrationService(
 	mvtGenerator interfaces.MVTGenerator,
 	engagementService interfaces.EngagementService,
 	storages []interfaces.MVTStorage,
-) *SyncService {
-	return &SyncService{
+) *OrchestrationService {
+	return &OrchestrationService{
 		mvtGenerator:      mvtGenerator,
 		storages:          storages,
 		engagementService: engagementService,
@@ -35,7 +36,7 @@ func NewSyncService(
 }
 
 // HandleTrailCreated handles trail creation: sync to generator and generate tiles
-func (s *SyncService) HandleTrailCreated(ctx context.Context, app core.App, trailID string) error {
+func (s *OrchestrationService) HandleTrailCreated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling trail creation: %s", trailID)
 
 	if err := s.syncTrailFromPBToGenerator(ctx, app, trailID); err != nil {
@@ -55,7 +56,7 @@ func (s *SyncService) HandleTrailCreated(ctx context.Context, app core.App, trai
 }
 
 // HandleTrailUpdated handles trail update: get old tiles, update generator, get new tiles, generate all
-func (s *SyncService) HandleTrailUpdated(ctx context.Context, app core.App, trailID string) error {
+func (s *OrchestrationService) HandleTrailUpdated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling trail update: %s", trailID)
 
 	// Get tiles for old trail position
@@ -86,7 +87,7 @@ func (s *SyncService) HandleTrailUpdated(ctx context.Context, app core.App, trai
 }
 
 // HandleTrailDeleted handles trail deletion: get tiles, delete from generator, regenerate tiles
-func (s *SyncService) HandleTrailDeleted(ctx context.Context, trailID string) error {
+func (s *OrchestrationService) HandleTrailDeleted(ctx context.Context, trailID string) error {
 	log.Printf("Handling trail deletion: %s", trailID)
 
 	// Get tiles for the trail before deletion
@@ -109,7 +110,7 @@ func (s *SyncService) HandleTrailDeleted(ctx context.Context, trailID string) er
 }
 
 // HandleRatingCreated handles rating creation: update PocketBase average, sync to generator, regenerate tiles
-func (s *SyncService) HandleRatingCreated(ctx context.Context, app core.App, trailID string) error {
+func (s *OrchestrationService) HandleRatingCreated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling rating creation for trail: %s", trailID)
 
 	if s.engagementService != nil {
@@ -122,7 +123,7 @@ func (s *SyncService) HandleRatingCreated(ctx context.Context, app core.App, tra
 }
 
 // HandleRatingUpdated handles rating update: update PocketBase average, sync to generator, regenerate tiles
-func (s *SyncService) HandleRatingUpdated(ctx context.Context, app core.App, trailID string) error {
+func (s *OrchestrationService) HandleRatingUpdated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling rating update for trail: %s", trailID)
 
 	if s.engagementService != nil {
@@ -135,7 +136,7 @@ func (s *SyncService) HandleRatingUpdated(ctx context.Context, app core.App, tra
 }
 
 // HandleRatingDeleted handles rating deletion: update PocketBase average, sync to generator, regenerate tiles
-func (s *SyncService) HandleRatingDeleted(ctx context.Context, app core.App, trailID string) error {
+func (s *OrchestrationService) HandleRatingDeleted(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling rating deletion for trail: %s", trailID)
 
 	if s.engagementService != nil {
@@ -148,19 +149,19 @@ func (s *SyncService) HandleRatingDeleted(ctx context.Context, app core.App, tra
 }
 
 // HandleCommentCreated handles comment creation: sync engagement to generator, regenerate tiles
-func (s *SyncService) HandleCommentCreated(ctx context.Context, trailID string) error {
+func (s *OrchestrationService) HandleCommentCreated(ctx context.Context, trailID string) error {
 	log.Printf("Handling comment creation for trail: %s", trailID)
 	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
 // HandleCommentDeleted handles comment deletion: sync engagement to generator, regenerate tiles
-func (s *SyncService) HandleCommentDeleted(ctx context.Context, trailID string) error {
+func (s *OrchestrationService) HandleCommentDeleted(ctx context.Context, trailID string) error {
 	log.Printf("Handling comment deletion for trail: %s", trailID)
 	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
 }
 
 // updateEngagementAndRegenerateTiles updates engagement stats in generator and regenerates affected tiles
-func (s *SyncService) updateEngagementAndRegenerateTiles(ctx context.Context, trailID string) error {
+func (s *OrchestrationService) updateEngagementAndRegenerateTiles(ctx context.Context, trailID string) error {
 	if err := s.updateEngagementStatsInGenerator(ctx, trailID); err != nil {
 		return err
 	}
@@ -177,7 +178,7 @@ func (s *SyncService) updateEngagementAndRegenerateTiles(ctx context.Context, tr
 }
 
 // generateAndPushTiles generates tiles using the generator and pushes them to all storages
-func (s *SyncService) generateAndPushTiles(tiles []entities.TileCoordinates) {
+func (s *OrchestrationService) generateAndPushTiles(tiles []entities.TileCoordinates) {
 	if len(tiles) == 0 {
 		return
 	}
@@ -226,7 +227,7 @@ func mergeTiles(a, b []entities.TileCoordinates) []entities.TileCoordinates {
 }
 
 // syncTrailFromPBToGenerator synchronizes a trail with full GPX processing
-func (s *SyncService) syncTrailFromPBToGenerator(ctx context.Context, app core.App, trailID string) error {
+func (s *OrchestrationService) syncTrailFromPBToGenerator(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Syncing trail %s to generator", trailID)
 
 	// 1. Get trail record from PocketBase
@@ -248,7 +249,7 @@ func (s *SyncService) syncTrailFromPBToGenerator(ctx context.Context, app core.A
 	}
 
 	// 4. Parse GPX data
-	parsedGPX, err := parseGPXFile(gpxData)
+	parsedGPX, err := utils.ParseGPXFile(gpxData)
 	if err != nil {
 		return fmt.Errorf("failed to parse GPX: %w", err)
 	}
@@ -296,7 +297,7 @@ func (s *SyncService) syncTrailFromPBToGenerator(ctx context.Context, app core.A
 }
 
 // updateEngagementStatsInGenerator updates only the engagement statistics for a trail in the generator
-func (s *SyncService) updateEngagementStatsInGenerator(ctx context.Context, trailID string) error {
+func (s *OrchestrationService) updateEngagementStatsInGenerator(ctx context.Context, trailID string) error {
 	log.Printf("Updating engagement stats for trail %s in generator", trailID)
 
 	// Get engagement statistics from service
@@ -320,7 +321,7 @@ func (s *SyncService) updateEngagementStatsInGenerator(ctx context.Context, trai
 }
 
 // SyncAllTrails synchronizes all trails from PocketBase to generator and generates all tiles
-func (s *SyncService) SyncAllTrails(ctx context.Context, app core.App) error {
+func (s *OrchestrationService) SyncAllTrails(ctx context.Context, app core.App) error {
 	log.Println("Starting full trail synchronization")
 
 	// Clear all existing trails from generator first
@@ -385,7 +386,7 @@ func (s *SyncService) SyncAllTrails(ctx context.Context, app core.App) error {
 }
 
 // getTrailEngagementDataFromPB retrieves rating and comment engagement data for a trail from PocketBase
-func (s *SyncService) getTrailEngagementDataFromPB(app core.App, trailId string) (float64, int, int) {
+func (s *OrchestrationService) getTrailEngagementDataFromPB(app core.App, trailId string) (float64, int, int) {
 	var ratingAvg float64 = 0.0
 	var ratingCount int = 0
 	var commentCount int = 0
@@ -432,5 +433,5 @@ func readGPXFromPocketBase(app core.App, trail *core.Record, filename string) ([
 	return io.ReadAll(reader)
 }
 
-// Compile-time check to ensure SyncService implements interfaces.SyncService
-var _ interfaces.SyncTrailsService = (*SyncService)(nil)
+// Compile-time check to ensure OrchestrationService implements interfaces.SyncService
+var _ interfaces.SyncTrailsService = (*OrchestrationService)(nil)

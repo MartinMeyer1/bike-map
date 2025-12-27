@@ -3,7 +3,7 @@ package apiHandlers
 import (
 	"net/http"
 
-	"bike-map-backend/interfaces"
+	"bike-map/interfaces"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pocketbase/pocketbase/core"

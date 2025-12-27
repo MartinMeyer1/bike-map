@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"bike-map-backend/config"
-	"bike-map-backend/services"
+	"bike-map/config"
+	"bike-map/services"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"

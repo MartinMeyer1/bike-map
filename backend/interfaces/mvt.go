@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	"bike-map-backend/entities"
+	"bike-map/entities"
 )
 
 // MVTService - base interface for MVT operations (read-only)

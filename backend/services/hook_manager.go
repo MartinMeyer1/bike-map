@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"bike-map-backend/entities"
+	"bike-map/entities"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -15,18 +15,18 @@ import (
 
 // HookManagerService manages all PocketBase event hooks with proper decoupling
 type HookManagerService struct {
-	authService *AuthService
-	syncService *SyncService
+	authService          *AuthService
+	orchestrationService *OrchestrationService
 }
 
 // NewHookManagerService creates a new hook manager service
 func NewHookManagerService(
 	authService *AuthService,
-	syncService *SyncService,
+	orchestrationService *OrchestrationService,
 ) *HookManagerService {
 	return &HookManagerService{
-		authService: authService,
-		syncService: syncService,
+		authService:          authService,
+		orchestrationService: orchestrationService,
 	}
 }
 
@@ -107,7 +107,7 @@ func (h *HookManagerService) setupTrailHooks(app core.App) {
 	})
 
 	// Trail lifecycle hooks
-	if h.syncService != nil {
+	if h.orchestrationService != nil {
 		// After trail creation
 		app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 			if e.Record.Collection().Name == "trails" {
@@ -136,7 +136,7 @@ func (h *HookManagerService) setupTrailHooks(app core.App) {
 
 // setupEngagementHooks configures engagement-related hooks (ratings and comments)
 func (h *HookManagerService) setupEngagementHooks(app core.App) {
-	if h.syncService == nil {
+	if h.orchestrationService == nil {
 		return
 	}
 
@@ -259,27 +259,27 @@ func sanitizeFilename(name string) string {
 	return sanitized
 }
 
-// Trail event handlers - delegate to SyncService
+// Trail event handlers - delegate to OrchestrationService
 
 func (h *HookManagerService) handleTrailCreated(app core.App, record *core.Record) {
-	if err := h.syncService.HandleTrailCreated(context.Background(), app, record.Id); err != nil {
+	if err := h.orchestrationService.HandleTrailCreated(context.Background(), app, record.Id); err != nil {
 		log.Printf("Failed to handle trail creation %s: %v", record.Id, err)
 	}
 }
 
 func (h *HookManagerService) handleTrailUpdated(app core.App, record *core.Record) {
-	if err := h.syncService.HandleTrailUpdated(context.Background(), app, record.Id); err != nil {
+	if err := h.orchestrationService.HandleTrailUpdated(context.Background(), app, record.Id); err != nil {
 		log.Printf("Failed to handle trail update %s: %v", record.Id, err)
 	}
 }
 
 func (h *HookManagerService) handleTrailDeleted(record *core.Record) {
-	if err := h.syncService.HandleTrailDeleted(context.Background(), record.Id); err != nil {
+	if err := h.orchestrationService.HandleTrailDeleted(context.Background(), record.Id); err != nil {
 		log.Printf("Failed to handle trail deletion %s: %v", record.Id, err)
 	}
 }
 
-// Rating event handlers - delegate to SyncService
+// Rating event handlers - delegate to OrchestrationService
 
 func (h *HookManagerService) handleRatingCreated(app core.App, record *core.Record) {
 	trailID := record.GetString("trail")
@@ -287,7 +287,7 @@ func (h *HookManagerService) handleRatingCreated(app core.App, record *core.Reco
 		log.Printf("Warning: Rating created without trail ID")
 		return
 	}
-	if err := h.syncService.HandleRatingCreated(context.Background(), app, trailID); err != nil {
+	if err := h.orchestrationService.HandleRatingCreated(context.Background(), app, trailID); err != nil {
 		log.Printf("Failed to handle rating creation for trail %s: %v", trailID, err)
 	}
 }
@@ -298,7 +298,7 @@ func (h *HookManagerService) handleRatingUpdated(app core.App, record *core.Reco
 		log.Printf("Warning: Rating updated without trail ID")
 		return
 	}
-	if err := h.syncService.HandleRatingUpdated(context.Background(), app, trailID); err != nil {
+	if err := h.orchestrationService.HandleRatingUpdated(context.Background(), app, trailID); err != nil {
 		log.Printf("Failed to handle rating update for trail %s: %v", trailID, err)
 	}
 }
@@ -309,12 +309,12 @@ func (h *HookManagerService) handleRatingDeleted(app core.App, record *core.Reco
 		log.Printf("Warning: Rating deleted without trail ID")
 		return
 	}
-	if err := h.syncService.HandleRatingDeleted(context.Background(), app, trailID); err != nil {
+	if err := h.orchestrationService.HandleRatingDeleted(context.Background(), app, trailID); err != nil {
 		log.Printf("Failed to handle rating deletion for trail %s: %v", trailID, err)
 	}
 }
 
-// Comment event handlers - delegate to SyncService
+// Comment event handlers - delegate to OrchestrationService
 
 func (h *HookManagerService) handleCommentCreated(record *core.Record) {
 	trailID := record.GetString("trail")
@@ -322,7 +322,7 @@ func (h *HookManagerService) handleCommentCreated(record *core.Record) {
 		log.Printf("Warning: Comment created without trail ID")
 		return
 	}
-	if err := h.syncService.HandleCommentCreated(context.Background(), trailID); err != nil {
+	if err := h.orchestrationService.HandleCommentCreated(context.Background(), trailID); err != nil {
 		log.Printf("Failed to handle comment creation for trail %s: %v", trailID, err)
 	}
 }
@@ -333,7 +333,7 @@ func (h *HookManagerService) handleCommentDeleted(record *core.Record) {
 		log.Printf("Warning: Comment deleted without trail ID")
 		return
 	}
-	if err := h.syncService.HandleCommentDeleted(context.Background(), trailID); err != nil {
+	if err := h.orchestrationService.HandleCommentDeleted(context.Background(), trailID); err != nil {
 		log.Printf("Failed to handle comment deletion for trail %s: %v", trailID, err)
 	}
 }

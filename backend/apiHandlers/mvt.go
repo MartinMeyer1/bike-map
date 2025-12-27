@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"bike-map-backend/entities"
-	"bike-map-backend/interfaces"
+	"bike-map/entities"
+	"bike-map/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )

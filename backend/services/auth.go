@@ -3,8 +3,8 @@ package services
 import (
 	"fmt"
 
-	"bike-map-backend/config"
-	"bike-map-backend/entities"
+	"bike-map/config"
+	"bike-map/entities"
 
 	"github.com/pocketbase/pocketbase/core"
 )

@@ -3,13 +3,13 @@ package services
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
-	"errors"
 
-	"bike-map-backend/config"
-	"bike-map-backend/entities"
-	"bike-map-backend/interfaces"
+	"bike-map/config"
+	"bike-map/entities"
+	"bike-map/interfaces"
 
 	_ "github.com/lib/pq"
 )

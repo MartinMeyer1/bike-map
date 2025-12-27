@@ -5,8 +5,8 @@ import (
 	"log"
 	"sync"
 
-	"bike-map-backend/entities"
-	"bike-map-backend/interfaces"
+	"bike-map/entities"
+	"bike-map/interfaces"
 )
 
 // cacheEntry represents a cached tile with response data

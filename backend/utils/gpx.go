@@ -1,4 +1,4 @@
-package services
+package utils
 
 import (
 	"encoding/xml"
@@ -6,7 +6,7 @@ import (
 	"math"
 	"strings"
 
-	"bike-map-backend/entities"
+	"bike-map/entities"
 )
 
 // parsedGPXData contains the result of parsing a GPX file
@@ -16,7 +16,7 @@ type parsedGPXData struct {
 }
 
 // parseGPXFile parses GPX data and returns structured data ready for PostGIS insertion
-func parseGPXFile(data []byte) (*parsedGPXData, error) {
+func ParseGPXFile(data []byte) (*parsedGPXData, error) {
 	gpx, err := parseGPX(data)
 	if err != nil {
 		return nil, err

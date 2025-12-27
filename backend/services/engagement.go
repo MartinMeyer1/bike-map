@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"bike-map-backend/entities"
-	"bike-map-backend/interfaces"
+	"bike-map/entities"
+	"bike-map/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -86,10 +86,10 @@ func (s *EngagementService) UpdateRatingAverage(app core.App, trailId string) er
 	} else {
 		// Create new record
 		ratingAverage := &entities.RatingAverage{
-			ID: 		"",
-			TrailID: 	trailId,
-			Average: 	ratingAvg,
-			Count: 		ratingCount,
+			ID:      "",
+			TrailID: trailId,
+			Average: ratingAvg,
+			Count:   ratingCount,
 		}
 
 		if err := s.createRatingAverageToPB(ctx, ratingAverage); err != nil {

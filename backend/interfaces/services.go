@@ -3,12 +3,12 @@ package interfaces
 import (
 	"context"
 
-	"bike-map-backend/entities"
+	"bike-map/entities"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// SyncTrailsService interface for PostGIS synchronization operations
+// OrchestrationService interface for PostGIS synchronization operations
 type SyncTrailsService interface {
 	SyncAllTrails(ctx context.Context, app core.App) error
 
