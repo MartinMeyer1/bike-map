@@ -234,7 +234,7 @@ func (p *MVTGeneratorPostgis) ClearAllTrails(ctx context.Context) error {
 
 // GetTile retrieves or generates MVT tile data for the given coordinates
 func (p *MVTGeneratorPostgis) GetTile(c entities.TileCoordinates) ([]byte, error) {
-	query := `SELECT get_tile($1, $2, $3)`
+	query := `SELECT generate_mvt_tile($1, $2, $3)`
 
 	var data []byte
 	err := p.db.QueryRow(query, c.Z, c.X, c.Y).Scan(&data)

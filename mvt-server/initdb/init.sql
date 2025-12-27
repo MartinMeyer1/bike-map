@@ -39,20 +39,6 @@ CREATE TABLE IF NOT EXISTS trail_tiles (
 CREATE INDEX IF NOT EXISTS idx_trail_tiles_tile ON trail_tiles (z, x, y);
 
 -- ============================================================================
--- MVT TILES CACHE TABLE
--- Stores pre-generated MVT tiles
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS mvt_tiles (
-    z INTEGER NOT NULL,
-    x INTEGER NOT NULL,
-    y INTEGER NOT NULL,
-    data BYTEA NOT NULL,
-    generated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    PRIMARY KEY (z, x, y)
-);
-
--- ============================================================================
 -- CONFIGURATION
 -- ============================================================================
 
@@ -286,46 +272,6 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- ============================================================================
--- FUNCTION: Get or generate tile on-demand with freshness check
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION get_tile(p_z INTEGER, p_x INTEGER, p_y INTEGER)
-RETURNS BYTEA AS $$
-DECLARE
-    v_data BYTEA;
-    v_generated_at TIMESTAMP WITH TIME ZONE;
-    v_is_stale BOOLEAN := FALSE;
-BEGIN
-    -- Try to get cached tile
-    SELECT data, generated_at INTO v_data, v_generated_at
-    FROM mvt_tiles WHERE z = p_z AND x = p_x AND y = p_y;
-
-    IF v_data IS NOT NULL THEN
-        -- Check if any trail on this tile was updated after tile generation
-        SELECT EXISTS (
-            SELECT 1 FROM trail_tiles tt
-            JOIN trails t ON t.id = tt.trail_id
-            WHERE tt.z = p_z AND tt.x = p_x AND tt.y = p_y
-              AND t.updated_at > v_generated_at
-        ) INTO v_is_stale;
-    END IF;
-
-    -- Generate if missing or stale
-    IF v_data IS NULL OR v_is_stale THEN
-        v_data := generate_mvt_tile(p_z, p_x, p_y);
-
-        INSERT INTO mvt_tiles (z, x, y, data, generated_at)
-        VALUES (p_z, p_x, p_y, v_data, NOW())
-        ON CONFLICT (z, x, y) DO UPDATE
-            SET data = EXCLUDED.data,
-                generated_at = EXCLUDED.generated_at;
-    END IF;
-
-    RETURN v_data;
-END;
-$$ LANGUAGE plpgsql;
-
--- ============================================================================
 -- TRIGGER FUNCTIONS
 -- ============================================================================
 
@@ -353,14 +299,6 @@ BEGIN
     SELECT value INTO v_min_zoom FROM tile_config WHERE key = 'min_zoom';
     SELECT value INTO v_max_zoom FROM tile_config WHERE key = 'max_zoom';
 
-    -- For UPDATE: save old tiles before deleting
-    IF TG_OP = 'UPDATE' THEN
-        CREATE TEMP TABLE IF NOT EXISTS _old_tiles (z INT, x INT, y INT) ON COMMIT DROP;
-        DELETE FROM _old_tiles;
-        INSERT INTO _old_tiles (z, x, y)
-        SELECT tt.z, tt.x, tt.y FROM trail_tiles tt WHERE tt.trail_id = NEW.id;
-    END IF;
-
     -- Update trail_tiles index
     DELETE FROM trail_tiles WHERE trail_id = NEW.id;
 
@@ -370,34 +308,10 @@ BEGIN
         FROM get_tiles_for_geometry(NEW.geom, v_min_zoom, v_max_zoom) t;
     END IF;
 
-    -- For UPDATE: invalidate tiles that are no longer covered by the trail
-    IF TG_OP = 'UPDATE' THEN
-        DELETE FROM mvt_tiles mt
-        USING _old_tiles ot
-        WHERE mt.z = ot.z AND mt.x = ot.x AND mt.y = ot.y
-          AND NOT EXISTS (
-              SELECT 1 FROM trail_tiles tt
-              WHERE tt.trail_id = NEW.id
-                AND tt.z = ot.z AND tt.x = ot.x AND tt.y = ot.y
-          );
-    END IF;
-
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION trigger_before_trail_delete()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Invalidate affected tiles before cascade deletes trail_tiles entries
-    DELETE FROM mvt_tiles mt
-    USING trail_tiles tt
-    WHERE tt.trail_id = OLD.id
-      AND mt.z = tt.z AND mt.x = tt.x AND mt.y = tt.y;
-
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
 
 -- ============================================================================
 -- TRIGGERS
@@ -417,8 +331,3 @@ CREATE TRIGGER trigger_trail_after_change
     AFTER INSERT OR UPDATE ON trails
     FOR EACH ROW
     EXECUTE FUNCTION trigger_after_trail_change();
-
-CREATE TRIGGER trigger_trail_before_delete
-    BEFORE DELETE ON trails
-    FOR EACH ROW
-    EXECUTE FUNCTION trigger_before_trail_delete();
