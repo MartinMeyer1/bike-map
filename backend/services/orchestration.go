@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"bike-map/entities"
@@ -434,34 +435,63 @@ func (s *OrchestrationService) SyncAllTrails(ctx context.Context, app core.App) 
 		return fmt.Errorf("failed to get trails from PocketBase: %w", err)
 	}
 
-	log.Printf("Syncing %d trails from PocketBase to generator\n", len(trails))
+	totalTrails := len(trails)
+	log.Printf("Syncing %d trails from PocketBase to generator using 10 workers\n", totalTrails)
 
-	// Collect all unique tiles from all trails
+	// Collect all unique tiles from all trails (protected by mutex)
+	var tilesMu sync.Mutex
 	allTiles := make(map[string]entities.TileCoordinates)
 
-	for i, trail := range trails {
-		log.Printf("Importing trail %d/%d: %s\n", i+1, len(trails), trail.GetString("name"))
+	// Progress tracking
+	var completed int32
 
-		if err := s.syncTrailFromPBToGenerator(ctx, app, trail.Id); err != nil {
-			log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
-			continue
-		}
+	// Worker pool
+	const numWorkers = 20
+	trailChan := make(chan *core.Record, totalTrails)
+	var wg sync.WaitGroup
 
-		// Get tiles for this trail
-		tiles, err := s.mvtGenerator.GetTrailTiles(ctx, trail.Id)
-		if err != nil {
-			log.Printf("Failed to get tiles for trail %s: %v", trail.Id, err)
-			continue
-		}
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for trail := range trailChan {
+				if err := s.syncTrailFromPBToGenerator(ctx, app, trail.Id); err != nil {
+					log.Printf("Failed to import trail %s (%s): %v\n", trail.Id, trail.GetString("name"), err)
+					atomic.AddInt32(&completed, 1)
+					continue
+				}
 
-		// Add to unique tiles set
-		for _, tile := range tiles {
-			key := fmt.Sprintf("%d-%d-%d", tile.Z, tile.X, tile.Y)
-			allTiles[key] = tile
-		}
+				// Get tiles for this trail
+				tiles, err := s.mvtGenerator.GetTrailTiles(ctx, trail.Id)
+				if err != nil {
+					log.Printf("Failed to get tiles for trail %s: %v", trail.Id, err)
+					atomic.AddInt32(&completed, 1)
+					continue
+				}
 
-		log.Printf("Successfully imported trail: %s\n", trail.GetString("name"))
+				// Add to unique tiles set
+				tilesMu.Lock()
+				for _, tile := range tiles {
+					key := fmt.Sprintf("%d-%d-%d", tile.Z, tile.X, tile.Y)
+					allTiles[key] = tile
+				}
+				tilesMu.Unlock()
+
+				done := atomic.AddInt32(&completed, 1)
+				log.Printf("Imported trail %d/%d: %s\n", done, totalTrails, trail.GetString("name"))
+			}
+		}()
 	}
+
+	// Send trails to workers
+	for _, trail := range trails {
+		trailChan <- trail
+	}
+	close(trailChan)
+
+	// Wait for all workers to complete
+	wg.Wait()
 
 	// Convert map to slice
 	var uniqueTiles []entities.TileCoordinates
