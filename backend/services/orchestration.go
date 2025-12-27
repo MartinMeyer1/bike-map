@@ -320,29 +320,6 @@ func (s *OrchestrationService) invalidateAndQueueTiles(tiles []entities.TileCoor
 	}
 }
 
-// generateAndPushTiles generates tiles using the generator and pushes them to cache
-func (s *OrchestrationService) generateAndPushTiles(tiles []entities.TileCoordinates) {
-	if len(tiles) == 0 {
-		return
-	}
-
-	log.Printf("Generating and pushing %d tiles to cache", len(tiles))
-
-	for _, tile := range tiles {
-		data, err := s.mvtGenerator.GetTile(tile)
-		if err != nil {
-			log.Printf("Failed to generate tile %d/%d/%d: %v", tile.Z, tile.X, tile.Y, err)
-			continue
-		}
-
-		if err := s.cache.StoreTile(tile, data); err != nil {
-			log.Printf("Failed to store tile %d/%d/%d: %v", tile.Z, tile.X, tile.Y, err)
-		}
-	}
-
-	log.Printf("Generated and pushed %d tiles", len(tiles))
-}
-
 // mergeTiles merges two tile slices, removing duplicates
 func mergeTiles(a, b []entities.TileCoordinates) []entities.TileCoordinates {
 	seen := make(map[string]bool)
@@ -516,11 +493,11 @@ func (s *OrchestrationService) SyncAllTrails(ctx context.Context, app core.App) 
 		uniqueTiles = append(uniqueTiles, tile)
 	}
 
-	// Generate and push all tiles
-	log.Printf("Generating %d unique tiles", len(uniqueTiles))
-	s.generateAndPushTiles(uniqueTiles)
+	// Queue all tiles for background generation
+	log.Printf("Queueing %d unique tiles for background generation", len(uniqueTiles))
+	s.invalidateAndQueueTiles(uniqueTiles)
 
-	log.Println("Completed full trail synchronization")
+	log.Println("Completed trail synchronization, tiles queued for background generation")
 	return nil
 }
 
