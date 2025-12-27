@@ -18,10 +18,11 @@ type cacheEntry struct {
 
 // MVTMemoryStorage implements MVTStorage as a memory cache
 type MVTMemoryStorage struct {
-	cache      map[string]*cacheEntry // Memory cache: "z-x-y" -> CacheEntry
-	cacheMutex sync.RWMutex           // Thread-safe access to cache
-	minZoom    int
-	maxZoom    int
+	cache         map[string]*cacheEntry // Memory cache: "z-x-y" -> CacheEntry
+	cacheMutex    sync.RWMutex           // Thread-safe access to cache
+	minZoom       int
+	maxZoom       int
+	tileRequester interfaces.TileRequester
 }
 
 // NewMVTService creates a new MVT storage instance (memory cache)
@@ -33,6 +34,11 @@ func NewMVTService() *MVTMemoryStorage {
 	}
 }
 
+// SetTileRequester sets the tile requester for on-demand generation (breaks circular dependency)
+func (m *MVTMemoryStorage) SetTileRequester(tr interfaces.TileRequester) {
+	m.tileRequester = tr
+}
+
 func (m *MVTMemoryStorage) GetMinZoom() int {
 	return m.minZoom
 }
@@ -41,23 +47,42 @@ func (m *MVTMemoryStorage) GetMaxZoom() int {
 	return m.maxZoom
 }
 
-// GetTile retrieves a tile from the cache
+// GetTile retrieves a tile, requesting generation if needed
 func (m *MVTMemoryStorage) GetTile(_ context.Context, c entities.TileCoordinates) ([]byte, error) {
 	if c.Z < m.minZoom || c.Z > m.maxZoom {
 		return nil, fmt.Errorf("zoom level %d out of range [%d, %d]", c.Z, m.minZoom, m.maxZoom)
 	}
 
-	tileKey := fmt.Sprintf("%d-%d-%d", c.Z, c.X, c.Y)
+	data, status, _ := m.GetTileWithStatus(c)
 
-	m.cacheMutex.RLock()
-	entry, exists := m.cache[tileKey]
-	m.cacheMutex.RUnlock()
+	switch status {
+	case interfaces.TileValid:
+		return data, nil
 
-	if !exists {
-		return nil, fmt.Errorf("tile %s not found in cache", tileKey)
+	case interfaces.TileEmpty, interfaces.TileNotFound:
+		return nil, nil
+
+	case interfaces.TileInvalidated:
+		// Request priority generation
+		if m.tileRequester != nil {
+			newData, err := m.tileRequester.RequestTile(c)
+			if err != nil {
+				// Timeout - return stale data if available
+				if len(data) > 0 {
+					return data, nil
+				}
+				return nil, nil
+			}
+			return newData, nil
+		}
+		// No requester, return stale data
+		if len(data) > 0 {
+			return data, nil
+		}
+		return nil, nil
 	}
 
-	return entry.data, nil
+	return nil, nil
 }
 
 // GetTileWithStatus retrieves a tile and its status from the cache

@@ -29,10 +29,8 @@ type MVTCache interface {
 	MVTProvider
 	StoreTile(c entities.TileCoordinates, data []byte) error
 	ClearAllTiles() error
-
-	// Tile status methods
-	GetTileWithStatus(c entities.TileCoordinates) ([]byte, TileStatus, error)
 	InvalidateTiles(tiles []entities.TileCoordinates) error
+	GetTileWithStatus(c entities.TileCoordinates) ([]byte, TileStatus, error)
 }
 
 // MVTBackup - backup storage for tiles (e.g., mbtiles)

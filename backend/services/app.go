@@ -77,6 +77,8 @@ func (a *AppService) initializeServices() error {
 			a.engagementService,
 			a.mvtService,
 		)
+		// Wire TileRequester into MVTService (breaks circular dependency)
+		a.mvtService.SetTileRequester(a.orchestrationService)
 	}
 
 	// Initialize hook manager service
@@ -87,7 +89,7 @@ func (a *AppService) initializeServices() error {
 
 	// Initialize handlers
 	if a.mvtService != nil && a.orchestrationService != nil {
-		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService, a.orchestrationService)
+		a.mvtHandler = apiHandlers.NewMVTHandler(a.mvtService)
 	}
 	a.authHandler = apiHandlers.NewAuthHandler(a.authService)
 	a.metaHandler = apiHandlers.NewMetaHandler(a.app)

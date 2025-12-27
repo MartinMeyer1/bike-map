@@ -1,6 +1,7 @@
 package apiHandlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -14,15 +15,13 @@ import (
 
 // MVTHandler handles MVT-related HTTP requests
 type MVTHandler struct {
-	cache         interfaces.MVTCache
-	tileRequester interfaces.TileRequester
+	cache interfaces.MVTCache
 }
 
 // NewMVTHandler creates a new MVT handler
-func NewMVTHandler(cache interfaces.MVTCache, tileRequester interfaces.TileRequester) *MVTHandler {
+func NewMVTHandler(cache interfaces.MVTCache) *MVTHandler {
 	return &MVTHandler{
-		cache:         cache,
-		tileRequester: tileRequester,
+		cache: cache,
 	}
 }
 
@@ -37,17 +36,13 @@ func (h *MVTHandler) SetupRoutes(e *core.ServeEvent) {
 
 // handleMVTRequestWithPath handles MVT requests using wildcard path parsing
 func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
-	// Set CORS headers first
 	h.setCORSHeaders(re)
 
-	// Extract path from wildcard parameter
+	// Parse path: /api/tiles/{z}/{x}/{y}.mvt
 	pathParam := re.Request.PathValue("path")
-
-	// Remove file extensions (.mvt, .pbf)
 	pathParam = strings.TrimSuffix(pathParam, ".mvt")
 	pathParam = strings.TrimSuffix(pathParam, ".pbf")
 
-	// Split path into z/x/y components
 	parts := strings.Split(pathParam, "/")
 	if len(parts) != 3 {
 		re.Response.WriteHeader(http.StatusBadRequest)
@@ -55,7 +50,6 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		return nil
 	}
 
-	// Parse coordinates
 	z, x, y, err := h.parseCoordinates(parts)
 	if err != nil {
 		re.Response.WriteHeader(http.StatusBadRequest)
@@ -63,7 +57,6 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		return nil
 	}
 
-	// Validate tile coordinates
 	if err := h.validateTileCoordinates(z, x, y); err != nil {
 		re.Response.WriteHeader(http.StatusBadRequest)
 		re.Response.Write([]byte(err.Error()))
@@ -72,58 +65,22 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 
 	coords := entities.TileCoordinates{X: x, Y: y, Z: z}
 
-	// Get tile with status from storage
-	data, status, err := h.cache.GetTileWithStatus(coords)
+	// Get tile from cache (handles generation logic internally)
+	data, err := h.cache.GetTile(context.Background(), coords)
 	if err != nil {
 		re.Response.WriteHeader(http.StatusBadRequest)
 		re.Response.Write([]byte(err.Error()))
 		return nil
 	}
 
-	switch status {
-	case interfaces.TileValid:
-		// Tile is valid, return it
-		h.setMVTHeaders(re)
-		re.Response.WriteHeader(http.StatusOK)
-		re.Response.Write(data)
-		return nil
-	
-	case interfaces.TileEmpty, interfaces.TileNotFound:
-		// Tile was generated but has no trails
+	if len(data) == 0 {
 		re.Response.WriteHeader(http.StatusNoContent)
-		return nil
-
-	case interfaces.TileInvalidated:
-		// Tile needs generation - request priority generation
-		newData, err := h.tileRequester.RequestTile(coords)
-		if err != nil {
-			// Timeout - return stale data if available (invalidated case)
-			if status == interfaces.TileInvalidated && len(data) > 0 {
-				h.setMVTHeaders(re)
-				re.Response.WriteHeader(http.StatusOK)
-				re.Response.Write(data)
-				return nil
-			}
-			// No data available
-			re.Response.WriteHeader(http.StatusNoContent)
-			return nil
-		}
-
-		// Check if the generated tile is empty
-		if len(newData) == 0 {
-			re.Response.WriteHeader(http.StatusNoContent)
-			return nil
-		}
-
-		// Return the freshly generated tile
-		h.setMVTHeaders(re)
-		re.Response.WriteHeader(http.StatusOK)
-		re.Response.Write(newData)
 		return nil
 	}
 
-	// Fallback
-	re.Response.WriteHeader(http.StatusNoContent)
+	h.setMVTHeaders(re)
+	re.Response.WriteHeader(http.StatusOK)
+	re.Response.Write(data)
 	return nil
 }
 
