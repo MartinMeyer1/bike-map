@@ -353,6 +353,14 @@ BEGIN
     SELECT value INTO v_min_zoom FROM tile_config WHERE key = 'min_zoom';
     SELECT value INTO v_max_zoom FROM tile_config WHERE key = 'max_zoom';
 
+    -- For UPDATE: save old tiles before deleting
+    IF TG_OP = 'UPDATE' THEN
+        CREATE TEMP TABLE IF NOT EXISTS _old_tiles (z INT, x INT, y INT) ON COMMIT DROP;
+        DELETE FROM _old_tiles;
+        INSERT INTO _old_tiles (z, x, y)
+        SELECT tt.z, tt.x, tt.y FROM trail_tiles tt WHERE tt.trail_id = NEW.id;
+    END IF;
+
     -- Update trail_tiles index
     DELETE FROM trail_tiles WHERE trail_id = NEW.id;
 
@@ -360,6 +368,18 @@ BEGIN
         INSERT INTO trail_tiles (trail_id, z, x, y)
         SELECT NEW.id, t.z, t.x, t.y
         FROM get_tiles_for_geometry(NEW.geom, v_min_zoom, v_max_zoom) t;
+    END IF;
+
+    -- For UPDATE: invalidate tiles that are no longer covered by the trail
+    IF TG_OP = 'UPDATE' THEN
+        DELETE FROM mvt_tiles mt
+        USING _old_tiles ot
+        WHERE mt.z = ot.z AND mt.x = ot.x AND mt.y = ot.y
+          AND NOT EXISTS (
+              SELECT 1 FROM trail_tiles tt
+              WHERE tt.trail_id = NEW.id
+                AND tt.z = ot.z AND tt.x = ot.x AND tt.y = ot.y
+          );
     END IF;
 
     RETURN NEW;
