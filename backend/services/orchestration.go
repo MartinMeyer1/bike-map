@@ -48,9 +48,9 @@ func NewOrchestrationService(
 	o := &OrchestrationService{
 		mvtGenerator:      mvtGenerator,
 		cache:             cache,
-		engagementService: engagementService,
-		priorityQueue:     make(chan TileRequest),
-		backgroundQueue:   make(chan entities.TileCoordinates),
+		engagementService: engagementService,		
+		priorityQueue:     make(chan TileRequest, 100000),
+		backgroundQueue:   make(chan entities.TileCoordinates, 1000000),
 		stopChan:          make(chan struct{}),
 	}
 
