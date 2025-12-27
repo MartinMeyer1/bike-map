@@ -19,13 +19,13 @@ import (
 type OrchestrationService struct {
 	mvtGenerator      interfaces.MVTGenerator
 	storages          []interfaces.MVTStorage
-	engagementService interfaces.EngagementService
+	engagementService interfaces.Engagement
 }
 
 // NewOrchestrationService creates a new OrchestrationService
 func NewOrchestrationService(
 	mvtGenerator interfaces.MVTGenerator,
-	engagementService interfaces.EngagementService,
+	engagementService interfaces.Engagement,
 	storages []interfaces.MVTStorage,
 ) *OrchestrationService {
 	return &OrchestrationService{
@@ -434,4 +434,4 @@ func readGPXFromPocketBase(app core.App, trail *core.Record, filename string) ([
 }
 
 // Compile-time check to ensure OrchestrationService implements interfaces.SyncService
-var _ interfaces.SyncTrailsService = (*OrchestrationService)(nil)
+var _ interfaces.SyncTrails = (*OrchestrationService)(nil)

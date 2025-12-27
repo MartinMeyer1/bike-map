@@ -296,4 +296,4 @@ func (s *EngagementService) recordToRatingAverage(record *core.Record) *entities
 }
 
 // Compile-time check to ensure EngagementService implements interfaces.EngagementService
-var _ interfaces.EngagementService = (*EngagementService)(nil)
+var _ interfaces.Engagement = (*EngagementService)(nil)

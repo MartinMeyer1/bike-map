@@ -6,8 +6,10 @@ import (
 	"bike-map/entities"
 )
 
-// MVTService - base interface for MVT operations (read-only)
-type MVTService interface {
+// TODO add context where required
+
+// MVTProvider - base interface for MVT operations (read-only)
+type MVTProvider interface {
 	GetTile(c entities.TileCoordinates) ([]byte, error)
 	GetMinZoom() int
 	GetMaxZoom() int
@@ -16,7 +18,7 @@ type MVTService interface {
 
 // MVTStorage - extends MVTService with write operations
 type MVTStorage interface {
-	MVTService
+	MVTProvider
 	StoreTile(c entities.TileCoordinates, data []byte) error
 	ClearTile(c entities.TileCoordinates) error
 	ClearAllTiles() error
@@ -24,7 +26,7 @@ type MVTStorage interface {
 
 // MVTGenerator - generates MVT tiles and manages trail data
 type MVTGenerator interface {
-	MVTService
+	MVTProvider
 	CreateTrail(ctx context.Context, trail entities.Trail) error
 	UpdateTrail(ctx context.Context, trail entities.Trail) error
 	DeleteTrail(trailID string) error
