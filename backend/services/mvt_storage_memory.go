@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -41,7 +42,7 @@ func (m *MVTMemoryStorage) GetMaxZoom() int {
 }
 
 // GetTile retrieves a tile from the cache
-func (m *MVTMemoryStorage) GetTile(c entities.TileCoordinates) ([]byte, error) {
+func (m *MVTMemoryStorage) GetTile(_ context.Context, c entities.TileCoordinates) ([]byte, error) {
 	if c.Z < m.minZoom || c.Z > m.maxZoom {
 		return nil, fmt.Errorf("zoom level %d out of range [%d, %d]", c.Z, m.minZoom, m.maxZoom)
 	}

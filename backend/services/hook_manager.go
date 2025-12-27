@@ -165,14 +165,14 @@ func (h *HookManagerService) setupEngagementHooks(app core.App) {
 	// Comment hooks
 	app.OnRecordAfterCreateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_comments" {
-			h.handleCommentCreated(e.Record)
+			h.handleCommentCreated(app, e.Record)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterDeleteSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name == "trail_comments" {
-			h.handleCommentDeleted(e.Record)
+			h.handleCommentDeleted(app, e.Record)
 		}
 		return e.Next()
 	})
@@ -316,24 +316,24 @@ func (h *HookManagerService) handleRatingDeleted(app core.App, record *core.Reco
 
 // Comment event handlers - delegate to OrchestrationService
 
-func (h *HookManagerService) handleCommentCreated(record *core.Record) {
+func (h *HookManagerService) handleCommentCreated(app core.App, record *core.Record) {
 	trailID := record.GetString("trail")
 	if trailID == "" {
 		log.Printf("Warning: Comment created without trail ID")
 		return
 	}
-	if err := h.orchestrationService.HandleCommentCreated(context.Background(), trailID); err != nil {
+	if err := h.orchestrationService.HandleCommentCreated(context.Background(), app, trailID); err != nil {
 		log.Printf("Failed to handle comment creation for trail %s: %v", trailID, err)
 	}
 }
 
-func (h *HookManagerService) handleCommentDeleted(record *core.Record) {
+func (h *HookManagerService) handleCommentDeleted(app core.App, record *core.Record) {
 	trailID := record.GetString("trail")
 	if trailID == "" {
 		log.Printf("Warning: Comment deleted without trail ID")
 		return
 	}
-	if err := h.orchestrationService.HandleCommentDeleted(context.Background(), trailID); err != nil {
+	if err := h.orchestrationService.HandleCommentDeleted(context.Background(), app, trailID); err != nil {
 		log.Printf("Failed to handle comment deletion for trail %s: %v", trailID, err)
 	}
 }

@@ -18,7 +18,7 @@ const (
 
 // MVTProvider - base interface for MVT operations (read-only)
 type MVTProvider interface {
-	GetTile(c entities.TileCoordinates) ([]byte, error)
+	GetTile(ctx context.Context, c entities.TileCoordinates) ([]byte, error)
 	GetMinZoom() int
 	GetMaxZoom() int
 	Close() error
@@ -50,13 +50,10 @@ type MVTGenerator interface {
 	MVTProvider
 	CreateTrail(ctx context.Context, trail entities.Trail) error
 	UpdateTrail(ctx context.Context, trail entities.Trail) error
-	DeleteTrail(trailID string) error
+	DeleteTrail(ctx context.Context, trailID string) error
 	ClearAllTrails(ctx context.Context) error
 
-	GetTrailTiles(trailID string) ([]entities.TileCoordinates, error)
-
-	// TODO remove and use UpdateTrail instead
-	UpdateEngagementStats(ctx context.Context, trailID string, stats entities.EngagementStatsData) error
+	GetTrailTiles(ctx context.Context, trailID string) ([]entities.TileCoordinates, error)
 }
 
 // TileRequester - requests priority tile generation (used by handlers)

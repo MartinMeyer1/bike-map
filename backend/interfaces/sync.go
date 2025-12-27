@@ -18,6 +18,6 @@ type SyncTrails interface {
 	HandleRatingUpdated(ctx context.Context, app core.App, trailID string) error
 	HandleRatingDeleted(ctx context.Context, app core.App, trailID string) error
 
-	HandleCommentCreated(ctx context.Context, trailID string) error
-	HandleCommentDeleted(ctx context.Context, trailID string) error
+	HandleCommentCreated(ctx context.Context, app core.App, trailID string) error
+	HandleCommentDeleted(ctx context.Context, app core.App, trailID string) error
 }

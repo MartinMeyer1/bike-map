@@ -159,9 +159,9 @@ func (p *MVTGeneratorPostgis) insertTrail(ctx context.Context, trail trailPostgi
 }
 
 // DeleteTrail removes a trail from PostGIS
-func (p *MVTGeneratorPostgis) DeleteTrail(trailID string) error {
+func (p *MVTGeneratorPostgis) DeleteTrail(ctx context.Context, trailID string) error {
 	query := `DELETE FROM trails WHERE id = $1`
-	_, err := p.db.ExecContext(context.Background(), query, trailID)
+	_, err := p.db.ExecContext(ctx, query, trailID)
 	if err != nil {
 		return fmt.Errorf("failed to delete trail from PostGIS: %w", err)
 	}
@@ -170,10 +170,10 @@ func (p *MVTGeneratorPostgis) DeleteTrail(trailID string) error {
 }
 
 // GetTrailTiles returns all tile coordinates that intersect with a trail's bounding box
-func (p *MVTGeneratorPostgis) GetTrailTiles(trailID string) ([]entities.TileCoordinates, error) {
+func (p *MVTGeneratorPostgis) GetTrailTiles(ctx context.Context, trailID string) ([]entities.TileCoordinates, error) {
 	query := `SELECT z, x, y FROM trail_tiles WHERE trail_id = $1 ORDER BY z, x, y`
 
-	rows, err := p.db.Query(query, trailID)
+	rows, err := p.db.QueryContext(ctx, query, trailID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tiles for trail: %w", err)
 	}
@@ -189,30 +189,6 @@ func (p *MVTGeneratorPostgis) GetTrailTiles(trailID string) ([]entities.TileCoor
 	}
 
 	return tiles, rows.Err()
-}
-
-// UpdateEngagementStats updates only the engagement statistics for a trail in PostGIS
-func (p *MVTGeneratorPostgis) UpdateEngagementStats(ctx context.Context, trailID string, stats entities.EngagementStatsData) error {
-	query := `
-		UPDATE trails SET
-			rating_average = $2,
-			rating_count = $3,
-			comment_count = $4,
-			updated_at = NOW()
-		WHERE id = $1`
-
-	_, err := p.db.ExecContext(ctx, query,
-		trailID,
-		stats.RatingAvg,
-		stats.RatingCount,
-		stats.CommentCount,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update engagement stats in PostGIS: %w", err)
-	}
-
-	return nil
 }
 
 // ClearAllTrails removes all trails from PostGIS
@@ -233,11 +209,11 @@ func (p *MVTGeneratorPostgis) ClearAllTrails(ctx context.Context) error {
 }
 
 // GetTile retrieves or generates MVT tile data for the given coordinates
-func (p *MVTGeneratorPostgis) GetTile(c entities.TileCoordinates) ([]byte, error) {
+func (p *MVTGeneratorPostgis) GetTile(ctx context.Context, c entities.TileCoordinates) ([]byte, error) {
 	query := `SELECT generate_mvt_tile($1, $2, $3)`
 
 	var data []byte
-	err := p.db.QueryRow(query, c.Z, c.X, c.Y).Scan(&data)
+	err := p.db.QueryRowContext(ctx, query, c.Z, c.X, c.Y).Scan(&data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tile: %w", err)
 	}

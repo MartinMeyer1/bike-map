@@ -91,7 +91,7 @@ func (o *OrchestrationService) tileWorker() {
 
 // processPriorityRequest handles a priority tile generation request
 func (o *OrchestrationService) processPriorityRequest(req TileRequest) {
-	data, err := o.mvtGenerator.GetTile(req.Coords)
+	data, err := o.mvtGenerator.GetTile(context.Background(), req.Coords)
 	if err != nil {
 		log.Printf("Failed to generate priority tile %d/%d/%d: %v", req.Coords.Z, req.Coords.X, req.Coords.Y, err)
 		data = nil
@@ -114,7 +114,7 @@ func (o *OrchestrationService) processBackgroundTile(coords entities.TileCoordin
 		return
 	}
 
-	data, err := o.mvtGenerator.GetTile(coords)
+	data, err := o.mvtGenerator.GetTile(context.Background(), coords)
 	if err != nil {
 		log.Printf("Failed to generate background tile %d/%d/%d: %v", coords.Z, coords.X, coords.Y, err)
 		return
@@ -164,7 +164,7 @@ func (s *OrchestrationService) HandleTrailCreated(ctx context.Context, app core.
 	}
 
 	// Get tiles for the new trail
-	tiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	tiles, err := s.mvtGenerator.GetTrailTiles(ctx, trailID)
 	if err != nil {
 		log.Printf("Failed to get trail tiles: %v", err)
 		return nil
@@ -182,7 +182,7 @@ func (s *OrchestrationService) HandleTrailUpdated(ctx context.Context, app core.
 	log.Printf("Handling trail update: %s", trailID)
 
 	// Get tiles for old trail position
-	oldTiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	oldTiles, err := s.mvtGenerator.GetTrailTiles(ctx, trailID)
 	if err != nil {
 		log.Printf("Could not get old tiles for trail %s: %v", trailID, err)
 		oldTiles = nil
@@ -194,7 +194,7 @@ func (s *OrchestrationService) HandleTrailUpdated(ctx context.Context, app core.
 	}
 
 	// Get tiles for new trail position
-	newTiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	newTiles, err := s.mvtGenerator.GetTrailTiles(ctx, trailID)
 	if err != nil {
 		log.Printf("Could not get new tiles for trail %s: %v", trailID, err)
 		newTiles = nil
@@ -213,14 +213,14 @@ func (s *OrchestrationService) HandleTrailDeleted(ctx context.Context, trailID s
 	log.Printf("Handling trail deletion: %s", trailID)
 
 	// Get tiles for the trail before deletion
-	tiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	tiles, err := s.mvtGenerator.GetTrailTiles(ctx, trailID)
 	if err != nil {
 		log.Printf("Could not get tiles for trail %s before deletion: %v", trailID, err)
 		tiles = nil
 	}
 
 	// Delete from generator
-	if err := s.mvtGenerator.DeleteTrail(trailID); err != nil {
+	if err := s.mvtGenerator.DeleteTrail(ctx, trailID); err != nil {
 		return fmt.Errorf("failed to delete trail from generator: %w", err)
 	}
 
@@ -241,7 +241,7 @@ func (s *OrchestrationService) HandleRatingCreated(ctx context.Context, app core
 		}
 	}
 
-	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
+	return s.updateTrailAndRegenerateTiles(ctx, app, trailID)
 }
 
 // HandleRatingUpdated handles rating update: update PocketBase average, sync to generator, regenerate tiles
@@ -254,7 +254,7 @@ func (s *OrchestrationService) HandleRatingUpdated(ctx context.Context, app core
 		}
 	}
 
-	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
+	return s.updateTrailAndRegenerateTiles(ctx, app, trailID)
 }
 
 // HandleRatingDeleted handles rating deletion: update PocketBase average, sync to generator, regenerate tiles
@@ -267,29 +267,29 @@ func (s *OrchestrationService) HandleRatingDeleted(ctx context.Context, app core
 		}
 	}
 
-	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
+	return s.updateTrailAndRegenerateTiles(ctx, app, trailID)
 }
 
-// HandleCommentCreated handles comment creation: sync engagement to generator, regenerate tiles
-func (s *OrchestrationService) HandleCommentCreated(ctx context.Context, trailID string) error {
+// HandleCommentCreated handles comment creation: sync to generator, regenerate tiles
+func (s *OrchestrationService) HandleCommentCreated(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling comment creation for trail: %s", trailID)
-	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
+	return s.updateTrailAndRegenerateTiles(ctx, app, trailID)
 }
 
-// HandleCommentDeleted handles comment deletion: sync engagement to generator, regenerate tiles
-func (s *OrchestrationService) HandleCommentDeleted(ctx context.Context, trailID string) error {
+// HandleCommentDeleted handles comment deletion: sync to generator, regenerate tiles
+func (s *OrchestrationService) HandleCommentDeleted(ctx context.Context, app core.App, trailID string) error {
 	log.Printf("Handling comment deletion for trail: %s", trailID)
-	return s.updateEngagementAndRegenerateTiles(ctx, trailID)
+	return s.updateTrailAndRegenerateTiles(ctx, app, trailID)
 }
 
-// updateEngagementAndRegenerateTiles updates engagement stats in generator and queues tile regeneration
-func (s *OrchestrationService) updateEngagementAndRegenerateTiles(ctx context.Context, trailID string) error {
-	if err := s.updateEngagementStatsInGenerator(ctx, trailID); err != nil {
+// updateTrailAndRegenerateTiles syncs trail to generator and queues tile regeneration
+func (s *OrchestrationService) updateTrailAndRegenerateTiles(ctx context.Context, app core.App, trailID string) error {
+	if err := s.syncTrailFromPBToGenerator(ctx, app, trailID); err != nil {
 		return err
 	}
 
 	// Get tiles for the trail and queue for regeneration
-	tiles, err := s.mvtGenerator.GetTrailTiles(trailID)
+	tiles, err := s.mvtGenerator.GetTrailTiles(ctx, trailID)
 	if err != nil {
 		log.Printf("Could not get tiles for trail %s: %v", trailID, err)
 		return nil
@@ -414,30 +414,6 @@ func (s *OrchestrationService) syncTrailFromPBToGenerator(ctx context.Context, a
 	return nil
 }
 
-// updateEngagementStatsInGenerator updates only the engagement statistics for a trail in the generator
-func (s *OrchestrationService) updateEngagementStatsInGenerator(ctx context.Context, trailID string) error {
-	log.Printf("Updating engagement stats for trail %s in generator", trailID)
-
-	// Get engagement statistics from service
-	stats, err := s.engagementService.GetEngagementStats(ctx, trailID)
-	if err != nil {
-		return fmt.Errorf("failed to get engagement stats: %w", err)
-	}
-
-	engagementData := entities.EngagementStatsData{
-		RatingAvg:    stats.RatingAvg,
-		RatingCount:  stats.RatingCount,
-		CommentCount: stats.CommentCount,
-	}
-
-	if err := s.mvtGenerator.UpdateEngagementStats(ctx, trailID, engagementData); err != nil {
-		return fmt.Errorf("failed to update engagement stats in generator: %w", err)
-	}
-
-	log.Printf("Updated engagement stats for trail %s in generator", trailID)
-	return nil
-}
-
 // SyncAllTrails synchronizes all trails from PocketBase to generator and generates all tiles
 func (s *OrchestrationService) SyncAllTrails(ctx context.Context, app core.App) error {
 	log.Println("Starting full trail synchronization")
@@ -472,7 +448,7 @@ func (s *OrchestrationService) SyncAllTrails(ctx context.Context, app core.App) 
 		}
 
 		// Get tiles for this trail
-		tiles, err := s.mvtGenerator.GetTrailTiles(trail.Id)
+		tiles, err := s.mvtGenerator.GetTrailTiles(ctx, trail.Id)
 		if err != nil {
 			log.Printf("Failed to get tiles for trail %s: %v", trail.Id, err)
 			continue
