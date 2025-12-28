@@ -24,6 +24,12 @@ type TileRequest struct {
 	Response chan []byte
 }
 
+// SnapshotConfig holds snapshot behavior configuration
+type SnapshotConfig struct {
+	stableSeconds int
+	snapshotDir   string
+}
+
 // OrchestrationService handles synchronization between PocketBase, MVTGenerator, and MVTCache
 // It acts as the controller coordinating MVTGenerator, MVTCache, and EngagementService
 type OrchestrationService struct {
@@ -37,6 +43,11 @@ type OrchestrationService struct {
 	backgroundQueue chan entities.TileCoordinates
 	stopChan        chan struct{}
 	wg              sync.WaitGroup
+
+	// Queue monitoring for snapshots
+	snapshotConfig       SnapshotConfig
+	lastEmptyTime        atomic.Value  // stores time.Time
+	queueMonitorStopChan chan struct{}
 }
 
 // NewOrchestrationService creates a new OrchestrationService
@@ -45,19 +56,30 @@ func NewOrchestrationService(
 	engagementService interfaces.Engagement,
 	cache interfaces.MVTCache,
 	backup interfaces.MVTBackup,
+	cfg SnapshotConfig,
 ) *OrchestrationService {
 	o := &OrchestrationService{
-		mvtGenerator:      mvtGenerator,
-		cache:             cache,
-		backup:            backup,
-		engagementService: engagementService,
-		priorityQueue:     make(chan TileRequest, 100000),
-		backgroundQueue:   make(chan entities.TileCoordinates, 1000000),
-		stopChan:          make(chan struct{}),
+		mvtGenerator:         mvtGenerator,
+		cache:                cache,
+		backup:               backup,
+		engagementService:    engagementService,
+		priorityQueue:        make(chan TileRequest, 100000),
+		backgroundQueue:      make(chan entities.TileCoordinates, 1000000),
+		stopChan:             make(chan struct{}),
+		snapshotConfig:       cfg,
+		queueMonitorStopChan: make(chan struct{}),
 	}
+
+	o.lastEmptyTime.Store(time.Time{})
 
 	o.wg.Add(1)
 	go o.tileWorker()
+
+	// Always start queue monitor if backup available
+	if backup != nil {
+		o.wg.Add(1)
+		go o.queueMonitor()
+	}
 
 	return o
 }
@@ -159,11 +181,71 @@ func (o *OrchestrationService) RequestTile(coords entities.TileCoordinates) ([]b
 	}
 }
 
+// queueMonitor periodically checks queue status and triggers snapshots
+func (o *OrchestrationService) queueMonitor() {
+	defer o.wg.Done()
+	log.Printf("Queue monitor started")
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastSnapshotTime time.Time
+
+	for {
+		select {
+		case <-ticker.C:
+			o.checkAndSnapshot(&lastSnapshotTime)
+		case <-o.queueMonitorStopChan:
+			log.Println("Queue monitor stopping")
+			return
+		}
+	}
+}
+
+// checkAndSnapshot checks if queues are empty and triggers snapshot if stable
+func (o *OrchestrationService) checkAndSnapshot(lastSnapshotTime *time.Time) {
+	priorityLen := len(o.priorityQueue)
+	backgroundLen := len(o.backgroundQueue)
+
+	now := time.Now()
+	bothEmpty := (priorityLen == 0 && backgroundLen == 0)
+
+	if bothEmpty {
+		lastEmpty := o.lastEmptyTime.Load().(time.Time)
+
+		if lastEmpty.IsZero() {
+			// First time empty
+			o.lastEmptyTime.Store(now)
+		} else {
+			// Check stability duration
+			emptyDuration := now.Sub(lastEmpty)
+			requiredDuration := time.Duration(o.snapshotConfig.stableSeconds) * time.Second
+
+			if emptyDuration >= requiredDuration {
+				// Stable and empty - trigger snapshot
+				if lastSnapshotTime.IsZero() || now.Sub(*lastSnapshotTime) > requiredDuration {
+					if err := o.backup.Snapshot(); err != nil {
+						log.Printf("ERROR: Snapshot failed: %v", err)
+					}
+					*lastSnapshotTime = now
+				}
+			}
+		}
+	} else {
+		// Queues active - reset timer
+		lastEmpty := o.lastEmptyTime.Load().(time.Time)
+		if !lastEmpty.IsZero() {
+			o.lastEmptyTime.Store(time.Time{})
+		}
+	}
+}
+
 // Stop gracefully shuts down the tile worker
 func (o *OrchestrationService) Stop() {
 	close(o.stopChan)
+	close(o.queueMonitorStopChan)
 	o.wg.Wait()
-	log.Println("Tile worker stopped")
+	log.Println("Orchestration service stopped")
 }
 
 // HandleTrailCreated handles trail creation: sync to generator and queue tile generation

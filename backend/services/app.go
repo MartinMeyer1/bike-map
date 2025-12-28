@@ -80,11 +80,18 @@ func (a *AppService) initializeServices() error {
 
 	// Initialize OrchestrationService if PostGIS (MVTGenerator) is available
 	if a.postgisService != nil {
+		// Build snapshot config
+		snapshotCfg := SnapshotConfig{
+			stableSeconds: a.config.MBTiles.SnapshotStableSeconds,
+			snapshotDir:   a.config.MBTiles.Path,
+		}
+
 		a.orchestrationService = NewOrchestrationService(
 			a.postgisService,
 			a.engagementService,
 			a.mvtService,
 			a.mbtilesBackup,
+			snapshotCfg,
 		)
 		// Wire TileRequester into MVTService (breaks circular dependency)
 		a.mvtService.SetTileRequester(a.orchestrationService)
@@ -185,7 +192,7 @@ func (a *AppService) SyncAllTrailsAtStartup() {
 
 // Close cleans up all service resources
 func (a *AppService) Close() error {
-	// Stop the tile worker first
+	// Stop the tile worker
 	if a.orchestrationService != nil {
 		a.orchestrationService.Stop()
 	}

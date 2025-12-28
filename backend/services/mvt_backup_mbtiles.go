@@ -7,7 +7,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"bike-map/entities"
 	"bike-map/interfaces"
@@ -15,39 +19,39 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// MVTBackupMBTiles implements MVTBackup using MBTiles (SQLite) format
+// MVTBackupMBTiles implements MVTBackup using in-memory SQLite with snapshot capability
 type MVTBackupMBTiles struct {
-	db      *sql.DB
-	minZoom int
-	maxZoom int
-	mu      sync.RWMutex
+	db          *sql.DB
+	minZoom     int
+	maxZoom     int
+	mu          sync.RWMutex
+	snapshotDir string
+	dirty       atomic.Bool
 }
 
-// NewMVTBackupMBTiles creates a new MBTiles backup storage
-func NewMVTBackupMBTiles(path string) (*MVTBackupMBTiles, error) {
-	// Create directory if it doesn't exist
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
-	}
-
-	// Open or create SQLite database
-	db, err := sql.Open("sqlite", path)
+// NewMVTBackupMBTiles creates a new in-memory MBTiles backup with snapshot capability
+func NewMVTBackupMBTiles(snapshotDir string) (*MVTBackupMBTiles, error) {
+	// Open IN-MEMORY SQLite database (zero disk I/O during tile generation)
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		return nil, fmt.Errorf("failed to open MBTiles database: %w", err)
+		return nil, fmt.Errorf("failed to open in-memory database: %w", err)
 	}
 
 	// Test connection
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to connect to MBTiles database: %w", err)
+		return nil, fmt.Errorf("failed to connect to in-memory database: %w", err)
 	}
 
 	m := &MVTBackupMBTiles{
-		db:      db,
-		minZoom: 6,
-		maxZoom: 18,
+		db:          db,
+		minZoom:     6,
+		maxZoom:     18,
+		snapshotDir: snapshotDir,
 	}
+
+	// Initialize as dirty (will snapshot on first completion)
+	m.dirty.Store(true)
 
 	// Initialize schema
 	if err := m.initSchema(); err != nil {
@@ -55,7 +59,7 @@ func NewMVTBackupMBTiles(path string) (*MVTBackupMBTiles, error) {
 		return nil, fmt.Errorf("failed to initialize MBTiles schema: %w", err)
 	}
 
-	log.Printf("MBTiles backup initialized at %s", path)
+	log.Printf("In-memory MBTiles backup initialized (snapshots to: %s)", snapshotDir)
 	return m, nil
 }
 
@@ -164,6 +168,9 @@ func (m *MVTBackupMBTiles) StoreTile(c entities.TileCoordinates, data []byte) er
 		return fmt.Errorf("failed to store tile: %w", err)
 	}
 
+	// Mark as dirty (tiles have changed)
+	m.dirty.Store(true)
+
 	return nil
 }
 
@@ -197,6 +204,113 @@ func (m *MVTBackupMBTiles) GetMaxZoom() int {
 func (m *MVTBackupMBTiles) Close() error {
 	log.Println("Closing MBTiles backup")
 	return m.db.Close()
+}
+
+// Snapshot creates a disk snapshot of the in-memory database using VACUUM INTO
+func (m *MVTBackupMBTiles) Snapshot() error {
+	// Check if snapshot needed
+	if !m.dirty.Load() {
+		return nil
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Use snapshot directory from config
+	targetDir := m.snapshotDir
+
+	// Create directory if needed
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("failed to create snapshot directory: %w", err)
+	}
+
+	// Generate timestamped filename
+	timestamp := time.Now().Unix()
+	filename := fmt.Sprintf("bikemap-%d.mbtiles", timestamp)
+	targetPath := targetDir + "/" + filename
+
+	// Get tile count for logging
+	var count int
+	err := m.db.QueryRow("SELECT COUNT(*) FROM tiles").Scan(&count)
+	if err != nil {
+		log.Printf("Warning: Could not count tiles before snapshot: %v", err)
+	}
+
+	// VACUUM INTO creates compact snapshot
+	_, err = m.db.Exec(fmt.Sprintf("VACUUM INTO '%s'", targetPath))
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot: %w", err)
+	}
+
+	// Clear dirty flag
+	m.dirty.Store(false)
+
+	// Get snapshot file size
+	fileInfo, _ := os.Stat(targetPath)
+	var sizeStr string
+	if fileInfo != nil {
+		sizeMB := float64(fileInfo.Size()) / (1024 * 1024)
+		sizeStr = fmt.Sprintf(" (%.2f MB)", sizeMB)
+	}
+
+	log.Printf("Snapshot created: %s - %d tiles%s", filename, count, sizeStr)
+
+	// Cleanup old snapshots (older than 15 minutes)
+	if err := m.cleanupOldSnapshots(targetDir, 15*time.Minute); err != nil {
+		log.Printf("Warning: Failed to cleanup old snapshots: %v", err)
+	}
+
+	return nil
+}
+
+// cleanupOldSnapshots removes snapshot files older than maxAge
+func (m *MVTBackupMBTiles) cleanupOldSnapshots(dir string, maxAge time.Duration) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	cutoff := now.Add(-maxAge)
+	var deletedCount int
+
+	for _, entry := range entries {
+		// Only process .mbtiles files
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".mbtiles") {
+			continue
+		}
+
+		// Parse timestamp from filename (tiles-1703780425.mbtiles)
+		if !strings.HasPrefix(entry.Name(), "tiles-") {
+			continue
+		}
+
+		timestampStr := strings.TrimPrefix(entry.Name(), "tiles-")
+		timestampStr = strings.TrimSuffix(timestampStr, ".mbtiles")
+
+		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+		if err != nil {
+			log.Printf("Warning: Could not parse timestamp from %s: %v", entry.Name(), err)
+			continue
+		}
+
+		fileTime := time.Unix(timestamp, 0)
+		if fileTime.Before(cutoff) {
+			filePath := filepath.Join(dir, entry.Name())
+			if err := os.Remove(filePath); err != nil {
+				log.Printf("Warning: Failed to delete old snapshot %s: %v", entry.Name(), err)
+			} else {
+				deletedCount++
+				log.Printf("Deleted old snapshot: %s (age: %v)", entry.Name(), now.Sub(fileTime).Round(time.Second))
+			}
+		}
+	}
+
+	if deletedCount > 0 {
+		log.Printf("Cleaned up %d old snapshot(s)", deletedCount)
+	}
+
+	return nil
 }
 
 // Compile-time check to ensure MVTBackupMBTiles implements MVTBackup interface

@@ -17,7 +17,8 @@ type Config struct {
 
 // MBTilesConfig holds MBTiles backup storage configuration
 type MBTilesConfig struct {
-	Path string
+	Path                  string // Directory for snapshots (not full file path)
+	SnapshotStableSeconds int
 }
 
 // ServerConfig holds server-related configuration
@@ -75,7 +76,8 @@ func Load() *Config {
 			Password: getEnv("ADMIN_PASSWORD", ""),
 		},
 		MBTiles: MBTilesConfig{
-			Path: getEnv("MBTILES_PATH", "./data/tiles.mbtiles"),
+			Path:                  getEnv("MBTILES_PATH", "./data"),
+			SnapshotStableSeconds: getEnvInt("MBTILES_SNAPSHOT_STABLE_SECONDS", 30),
 		},
 	}
 }

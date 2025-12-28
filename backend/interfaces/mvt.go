@@ -38,6 +38,7 @@ type MVTBackup interface {
 	MVTProvider
 	StoreTile(c entities.TileCoordinates, data []byte) error
 	ClearAllTiles() error
+	Snapshot() error
 }
 
 // MVTGenerator - generates MVT tiles and manages trail data
