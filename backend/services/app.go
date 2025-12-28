@@ -25,7 +25,8 @@ type AppService struct {
 	orchestrationService *OrchestrationService
 	hookManagerService   *HookManagerService
 	postgisService       *MVTGeneratorPostgis // MVTGenerator
-	mvtService           *MVTMemoryStorage    // MVTStorage
+	mvtService           *MVTMemoryStorage    // MVTCache
+	mbtilesBackup        *MVTBackupMBTiles    // MVTBackup
 
 	// Handlers
 	mvtHandler  *apiHandlers.MVTHandler
@@ -64,8 +65,15 @@ func (a *AppService) initializeServices() error {
 		return nil // Continue without PostGIS - PocketBase will still work
 	}
 
-	// Initialize MVT service (MVTStorage - memory cache)
+	// Initialize MVT service (MVTCache - memory cache)
 	a.mvtService = NewMVTService()
+
+	// Initialize MBTiles backup
+	a.mbtilesBackup, err = NewMVTBackupMBTiles(a.config.MBTiles.Path)
+	if err != nil {
+		log.Printf("Failed to initialize MBTiles backup: %v", err)
+		log.Printf("Tile backup will not be available")
+	}
 
 	// Initialize engagement service
 	a.engagementService = NewEngagementService(a.app)
@@ -76,6 +84,7 @@ func (a *AppService) initializeServices() error {
 			a.postgisService,
 			a.engagementService,
 			a.mvtService,
+			a.mbtilesBackup,
 		)
 		// Wire TileRequester into MVTService (breaks circular dependency)
 		a.mvtService.SetTileRequester(a.orchestrationService)
@@ -184,6 +193,12 @@ func (a *AppService) Close() error {
 	if a.postgisService != nil {
 		if err := a.postgisService.Close(); err != nil {
 			log.Printf("Error closing PostGIS service: %v", err)
+		}
+	}
+
+	if a.mbtilesBackup != nil {
+		if err := a.mbtilesBackup.Close(); err != nil {
+			log.Printf("Error closing MBTiles backup: %v", err)
 		}
 	}
 

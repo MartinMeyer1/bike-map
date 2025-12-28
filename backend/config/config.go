@@ -12,6 +12,12 @@ type Config struct {
 	Database DatabaseConfig
 	OAuth    OAuthConfig
 	Admin    AdminConfig
+	MBTiles  MBTilesConfig
+}
+
+// MBTilesConfig holds MBTiles backup storage configuration
+type MBTilesConfig struct {
+	Path string
 }
 
 // ServerConfig holds server-related configuration
@@ -67,6 +73,9 @@ func Load() *Config {
 		Admin: AdminConfig{
 			Email:    getEnv("ADMIN_EMAIL", ""),
 			Password: getEnv("ADMIN_PASSWORD", ""),
+		},
+		MBTiles: MBTilesConfig{
+			Path: getEnv("MBTILES_PATH", "./data/tiles.mbtiles"),
 		},
 	}
 }
