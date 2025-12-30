@@ -1,6 +1,7 @@
 package apiHandlers
 
 import (
+	"bike-map/entities"
 	"fmt"
 	"io"
 	"log"
@@ -160,11 +161,11 @@ func (h *MBTilesHandler) getLatestSnapshot() (*SnapshotInfo, error) {
 		}
 
 		// Parse timestamp from filename (bikemap-1703780425.mbtiles)
-		if !strings.HasPrefix(entry.Name(), "bikemap-") {
+		if !strings.HasPrefix(entry.Name(), entities.MBtilesFilePrefix) {
 			continue
 		}
 
-		timestampStr := strings.TrimPrefix(entry.Name(), "bikemap-")
+		timestampStr := strings.TrimPrefix(entry.Name(), entities.MBtilesFilePrefix)
 		timestampStr = strings.TrimSuffix(timestampStr, ".mbtiles")
 
 		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
@@ -204,6 +205,6 @@ func (h *MBTilesHandler) getLatestSnapshot() (*SnapshotInfo, error) {
 // isValidFilename validates that filename matches expected pattern
 func (h *MBTilesHandler) isValidFilename(filename string) bool {
 	// Must match pattern: bikemap-<digits>.mbtiles
-	matched, _ := regexp.MatchString(`^bikemap-\d+\.mbtiles$`, filename)
+	matched, _ := regexp.MatchString(`^` + entities.MBtilesFilePrefix + `\d+\.mbtiles$`, filename)
 	return matched
 }

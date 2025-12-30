@@ -226,7 +226,7 @@ func (m *MVTBackupMBTiles) Snapshot() error {
 
 	// Generate timestamped filename
 	timestamp := time.Now().Unix()
-	filename := fmt.Sprintf("bikemap-%d.mbtiles", timestamp)
+	filename := fmt.Sprintf("%s%d.mbtiles", entities.MBtilesFilePrefix, timestamp)
 	targetPath := targetDir + "/" + filename
 
 	// Get tile count for logging
@@ -265,7 +265,7 @@ func (m *MVTBackupMBTiles) Snapshot() error {
 
 // cleanupOldSnapshots removes snapshot files older than maxAge
 func (m *MVTBackupMBTiles) cleanupOldSnapshots(dir string, maxAge time.Duration) error {
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir + "/")
 	if err != nil {
 		return err
 	}
@@ -280,12 +280,12 @@ func (m *MVTBackupMBTiles) cleanupOldSnapshots(dir string, maxAge time.Duration)
 			continue
 		}
 
-		// Parse timestamp from filename (tiles-1703780425.mbtiles)
-		if !strings.HasPrefix(entry.Name(), "tiles-") {
+		// Parse timestamp from filename (bikemap-1703780425.mbtiles)
+		if !strings.HasPrefix(entry.Name(), entities.MBtilesFilePrefix) {
 			continue
 		}
 
-		timestampStr := strings.TrimPrefix(entry.Name(), "tiles-")
+		timestampStr := strings.TrimPrefix(entry.Name(), entities.MBtilesFilePrefix)
 		timestampStr = strings.TrimSuffix(timestampStr, ".mbtiles")
 
 		timestamp, err := strconv.ParseInt(timestampStr, 10, 64)

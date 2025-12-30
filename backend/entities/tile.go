@@ -4,3 +4,5 @@ package entities
 type TileCoordinates struct{
 	X, Y, Z int
 }
+
+const MBtilesFilePrefix = "bikemap-"
