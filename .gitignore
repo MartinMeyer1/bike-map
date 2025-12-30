@@ -69,3 +69,4 @@ jspm_packages/
 
 *.rd5
 routing-server/brouter/
+backend/data/*

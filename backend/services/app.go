@@ -29,9 +29,10 @@ type AppService struct {
 	mbtilesBackup        *MVTBackupMBTiles    // MVTBackup
 
 	// Handlers
-	mvtHandler  *apiHandlers.MVTHandler
-	authHandler *apiHandlers.AuthHandler
-	metaHandler *apiHandlers.MetaHandler
+	mvtHandler     *apiHandlers.MVTHandler
+	authHandler    *apiHandlers.AuthHandler
+	metaHandler    *apiHandlers.MetaHandler
+	mbtilesHandler *apiHandlers.MBTilesHandler
 }
 
 // NewAppService creates a new application service with all dependencies properly wired
@@ -74,6 +75,9 @@ func (a *AppService) initializeServices() error {
 		log.Printf("Failed to initialize MBTiles backup: %v", err)
 		log.Printf("Tile backup will not be available")
 	}
+
+	// Initialize MBTiles download handler
+	a.mbtilesHandler = apiHandlers.NewMBTilesHandler(a.config.MBTiles.Path)
 
 	// Initialize engagement service
 	a.engagementService = NewEngagementService(a.app)
@@ -165,6 +169,10 @@ func (a *AppService) SetupRoutes(e *core.ServeEvent) {
 
 	if a.authHandler != nil {
 		a.authHandler.SetupRoutes(e, a.app)
+	}
+
+	if a.mbtilesHandler != nil {
+		a.mbtilesHandler.SetupRoutes(e)
 	}
 
 	// Add custom CORS handling
