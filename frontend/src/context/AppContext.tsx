@@ -382,16 +382,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleTrailCreated = useCallback((_newTrail: Trail) => {
     // Refresh MVT layer to show new trail
-    setTimeout(() => {
       dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
-    }, 1000);
+    
   }, []);
 
   const handleTrailUpdated = useCallback((_updatedTrail: Trail) => {
     // Refresh MVT layer to show updated trail
-    setTimeout(() => {
       dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
-    }, 1000);
+    
   }, []);
 
   const handleTrailDeleted = useCallback(
@@ -401,9 +399,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       // Refresh MVT layer to remove deleted trail
-      setTimeout(() => {
         dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
-      }, 1000);
     },
     [state.selectedTrail],
   );

@@ -1,26 +1,27 @@
 package apiHandlers
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"bike-map-backend/interfaces"
+	"bike-map/entities"
+	"bike-map/interfaces"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
 // MVTHandler handles MVT-related HTTP requests
 type MVTHandler struct {
-	mvtService interfaces.MVTService
+	cache interfaces.MVTCache
 }
 
 // NewMVTHandler creates a new MVT handler
-func NewMVTHandler(mvtService interfaces.MVTService) *MVTHandler {
+func NewMVTHandler(cache interfaces.MVTCache) *MVTHandler {
 	return &MVTHandler{
-		mvtService: mvtService,
+		cache: cache,
 	}
 }
 
@@ -35,17 +36,13 @@ func (h *MVTHandler) SetupRoutes(e *core.ServeEvent) {
 
 // handleMVTRequestWithPath handles MVT requests using wildcard path parsing
 func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
-	// Set CORS headers first
 	h.setCORSHeaders(re)
 
-	// Extract path from wildcard parameter
+	// Parse path: /api/tiles/{z}/{x}/{y}.mvt
 	pathParam := re.Request.PathValue("path")
-
-	// Remove file extensions (.mvt, .pbf)
 	pathParam = strings.TrimSuffix(pathParam, ".mvt")
 	pathParam = strings.TrimSuffix(pathParam, ".pbf")
 
-	// Split path into z/x/y components
 	parts := strings.Split(pathParam, "/")
 	if len(parts) != 3 {
 		re.Response.WriteHeader(http.StatusBadRequest)
@@ -53,7 +50,6 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		return nil
 	}
 
-	// Parse coordinates
 	z, x, y, err := h.parseCoordinates(parts)
 	if err != nil {
 		re.Response.WriteHeader(http.StatusBadRequest)
@@ -61,35 +57,30 @@ func (h *MVTHandler) handleMVTRequestWithPath(re *core.RequestEvent) error {
 		return nil
 	}
 
-	// Validate tile coordinates
 	if err := h.validateTileCoordinates(z, x, y); err != nil {
 		re.Response.WriteHeader(http.StatusBadRequest)
 		re.Response.Write([]byte(err.Error()))
 		return nil
 	}
 
-	// Generate MVT
-	mvtData, err := h.mvtService.GenerateTrailsMVT(z, x, y)
+	coords := entities.TileCoordinates{X: x, Y: y, Z: z}
+
+	// Get tile from cache (handles generation logic internally)
+	data, err := h.cache.GetTile(context.Background(), coords)
 	if err != nil {
-		log.Printf("Failed to generate MVT for tile %d/%d/%d: %v", z, x, y, err)
-		re.Response.WriteHeader(http.StatusInternalServerError)
-		re.Response.Write([]byte(fmt.Sprintf("Failed to generate tile: %v", err)))
+		re.Response.WriteHeader(http.StatusBadRequest)
+		re.Response.Write([]byte(err.Error()))
 		return nil
 	}
 
-	// Set MVT headers
-	h.setMVTHeaders(re, z, x, y)
-
-	// Check if client has cached version
-	if h.checkClientCache(re, z, x, y) {
-		re.Response.WriteHeader(http.StatusNotModified)
+	if len(data) == 0 {
+		re.Response.WriteHeader(http.StatusNoContent)
 		return nil
 	}
 
-	// Write MVT data
+	h.setMVTHeaders(re)
 	re.Response.WriteHeader(http.StatusOK)
-	re.Response.Write(mvtData)
-
+	re.Response.Write(data)
 	return nil
 }
 
@@ -115,7 +106,7 @@ func (h *MVTHandler) parseCoordinates(parts []string) (z, x, y int, err error) {
 
 // validateTileCoordinates validates tile coordinates
 func (h *MVTHandler) validateTileCoordinates(z, x, y int) error {
-	if z < h.mvtService.GetMinZoom() || z > h.mvtService.GetMaxZoom() || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
+	if z < h.cache.GetMinZoom() || z > h.cache.GetMaxZoom() || x < 0 || y < 0 || x >= (1<<uint(z)) || y >= (1<<uint(z)) {
 		return fmt.Errorf("invalid tile coordinates")
 	}
 	return nil
@@ -128,23 +119,11 @@ func (h *MVTHandler) setCORSHeaders(re *core.RequestEvent) {
 	re.Response.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 }
 
-// setMVTHeaders sets MVT-specific headers including cache control and ETag
-func (h *MVTHandler) setMVTHeaders(re *core.RequestEvent, z, x, y int) {
+// setMVTHeaders sets MVT-specific headers including cache control
+func (h *MVTHandler) setMVTHeaders(re *core.RequestEvent) {
 	// Set standard MVT headers
 	re.Response.Header().Set("Content-Type", "application/vnd.mapbox-vector-tile")
 
 	// Set proper caching headers for tiles
 	re.Response.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
-
-	// Generate ETag with tile-specific cache version
-	tileVersion := h.mvtService.GetTileCacheVersion(z, x, y)
-	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, tileVersion, z, x, y)
-	re.Response.Header().Set("ETag", etag)
-}
-
-// checkClientCache checks if the client has a valid cached version
-func (h *MVTHandler) checkClientCache(re *core.RequestEvent, z, x, y int) bool {
-	tileVersion := h.mvtService.GetTileCacheVersion(z, x, y)
-	etag := fmt.Sprintf(`"mvt-v%s-%d-%d-%d"`, tileVersion, z, x, y)
-	return re.Request.Header.Get("If-None-Match") == etag
 }

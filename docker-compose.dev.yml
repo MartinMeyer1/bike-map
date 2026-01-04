@@ -1,6 +1,6 @@
 # Development Environment Configuration
 # Use this for local development with PostGIS integration
-version: '3.8'
+version: "3.8"
 
 services:
   postgis:
@@ -20,55 +20,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
-    environment:
-      # Authentication (use test credentials for development)
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-your_dev_google_client_id}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-your_dev_google_client_secret}
-      - ADMIN_EMAIL=admin@localhost
-      - ADMIN_PASSWORD=admin123
-      # Server Configuration
-      - BASE_URL=http://localhost:8090
-      # Database Configuration
-      - POSTGRES_HOST=postgis
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=gis
-      - POSTGRES_USER=gisuser
-      - POSTGRES_PASSWORD=gispass
-    volumes:
-      - "./pb_data:/pb_data"
-      - "./backend:/app"  # Mount source code for development
-    ports:
-      - "8090:8090"
-    depends_on:
-      postgis:
-        condition: service_healthy
-    restart: unless-stopped
-    # Enable development mode with live reload
-    command: ["go", "run", "main.go", "serve", "--dev"]
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_BASE_URL=http://localhost:8090/api
-        - VITE_BROUTER_BASE_URL=http://localhost:17777
-    ports:
-      - "3000:80"
-    restart: unless-stopped
-
-  brouter:
-    image: ghcr.io/abrensch/brouter:v1.7.8
-    volumes:
-      - "./routing-server/segments:/segments4"
-    ports:
-      - "17777:17777"
-    restart: unless-stopped
 
 volumes:
   postgis_dev_data:

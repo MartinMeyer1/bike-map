@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"bike-map-backend/config"
+	"bike-map/config"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -26,37 +26,9 @@ func NewCollectionService(cfg *config.Config, authService *AuthService) *Collect
 // EnsureTrailsCollection creates the trails collection if it doesn't exist
 func (c *CollectionService) EnsureTrailsCollection(app core.App) error {
 	// Check if trails collection already exists
-	trails, err := app.FindCollectionByNameOrId("trails")
+	_, err := app.FindCollectionByNameOrId("trails")
 	if err == nil {
 		// Collection already exists
-		if _, exists := trails.Fields.AsMap()["ridden"]; !exists {
-			// Add the ridden field to existing collection
-			trails.Fields.Add(&core.BoolField{
-				Name:     "ridden",
-				Required: false,
-			})
-			if err := app.Save(trails); err != nil {
-				return fmt.Errorf("failed to add ridden field to trails collection: %w", err)
-			}
-			log.Println("✅ Added ridden field to existing trails collection")
-
-			// Set all existing records to ridden=true
-			records, err := app.FindAllRecords("trails")
-			if err != nil {
-				return fmt.Errorf("failed to query trails for migration: %w", err)
-			}
-
-			updatedCount := 0
-			for _, record := range records {
-				record.Set("ridden", true)
-				if err := app.Save(record); err != nil {
-					log.Printf("⚠️  Failed to update trail %s: %v", record.Id, err)
-					continue
-				}
-				updatedCount++
-			}
-			log.Printf("✅ Migration complete: set ridden=true for %d existing trails", updatedCount)
-		}
 		return nil
 	}
 
@@ -64,7 +36,7 @@ func (c *CollectionService) EnsureTrailsCollection(app core.App) error {
 	collection := core.NewBaseCollection("trails")
 	publicRule := ""
 	createRule := `@request.auth.id != "" && (@request.auth.role = "Editor" || @request.auth.role = "Admin")`
-	updateRule := `@request.auth.id = owner || @request.auth.role = "Admin"`
+	updateRule := `@request.auth.id = owner || @request.auth.role = "Admin" || (@request.auth.id != "" && ridden = false)`
 	deleteRule := `@request.auth.id = owner || @request.auth.role = "Admin"`
 
 	collection.ListRule = &publicRule // Allow public read access
@@ -306,10 +278,10 @@ func (c *CollectionService) EnsureTrailRatingsCollection(app core.App) error {
 
 	// Reference to trail
 	collection.Fields.Add(&core.RelationField{
-		Name:         "trail",
-		CollectionId: trailsCollection.Id,
-		MaxSelect:    1,
-		Required:     true,
+		Name:          "trail",
+		CollectionId:  trailsCollection.Id,
+		MaxSelect:     1,
+		Required:      true,
 		CascadeDelete: true,
 	})
 
@@ -383,10 +355,10 @@ func (c *CollectionService) EnsureTrailCommentsCollection(app core.App) error {
 
 	// Reference to trail
 	collection.Fields.Add(&core.RelationField{
-		Name:         "trail",
-		CollectionId: trailsCollection.Id,
-		MaxSelect:    1,
-		Required:     true,
+		Name:          "trail",
+		CollectionId:  trailsCollection.Id,
+		MaxSelect:     1,
+		Required:      true,
 		CascadeDelete: true,
 	})
 

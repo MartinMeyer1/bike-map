@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"bike-map-backend/config"
-	"bike-map-backend/services"
+	"bike-map/config"
+	"bike-map/services"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -21,38 +21,33 @@ func main() {
 	app := pocketbase.New()
 
 	// Initialize application service with all dependencies
-	appService, err := services.NewAppService(cfg)
+	appService, err := services.NewAppService(cfg, app)
 	if err != nil {
 		log.Fatalf("Failed to initialize application service: %v", err)
 	}
 	defer appService.Close()
 
-	// Setup server routes and collections
+	// Setup PocketBase hooks
+	appService.SetupHooks()
+
+	// OnServe runs after database is ready
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		// Initialize PocketBase-dependent components
-		if err := appService.InitializeForPocketBase(app); err != nil {
-			return err
-		}
-
-		// Setup PocketBase hooks (after initialization)
-		appService.SetupHooks(app)
-
-		// Setup collections and initial data
-		if err := appService.SetupCollections(app); err != nil {
+		// Setup collections (requires DB)
+		if err := appService.SetupCollections(); err != nil {
 			return err
 		}
 
 		// Setup HTTP routes
-		appService.SetupRoutes(e, app)
+		appService.SetupRoutes(e)
 
 		// Perform initial trail sync
-		appService.SyncAllTrailsAtStartup(app)
+		appService.SyncAllTrailsAtStartup()
 
 		return e.Next()
 	})
 
 	// Start the application
-	log.Printf("🚀 Starting BikeMap backend server")
+	log.Printf("Starting BikeMap backend server")
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}

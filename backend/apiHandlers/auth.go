@@ -3,7 +3,7 @@ package apiHandlers
 import (
 	"net/http"
 
-	"bike-map-backend/interfaces"
+	"bike-map/interfaces"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pocketbase/pocketbase/core"
@@ -11,11 +11,11 @@ import (
 
 // AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
-	authService interfaces.AuthService
+	authService interfaces.Auth
 }
 
 // NewAuthHandler creates a new authentication handler
-func NewAuthHandler(authService interfaces.AuthService) *AuthHandler {
+func NewAuthHandler(authService interfaces.Auth) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 	}

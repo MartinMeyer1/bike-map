@@ -1,0 +1,23 @@
+package interfaces
+
+import (
+	"context"
+
+	"github.com/pocketbase/pocketbase/core"
+)
+
+// SyncTrails interface for PostGIS synchronization operations
+type SyncTrails interface {
+	SyncAllTrails(ctx context.Context, app core.App) error
+
+	HandleTrailCreated(ctx context.Context, app core.App, trailID string) error
+	HandleTrailUpdated(ctx context.Context, app core.App, trailID string) error
+	HandleTrailDeleted(ctx context.Context, trailID string) error
+
+	HandleRatingCreated(ctx context.Context, app core.App, trailID string) error
+	HandleRatingUpdated(ctx context.Context, app core.App, trailID string) error
+	HandleRatingDeleted(ctx context.Context, app core.App, trailID string) error
+
+	HandleCommentCreated(ctx context.Context, app core.App, trailID string) error
+	HandleCommentDeleted(ctx context.Context, app core.App, trailID string) error
+}
