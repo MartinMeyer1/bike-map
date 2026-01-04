@@ -538,7 +538,7 @@ func (s *OrchestrationService) SyncAllTrails(ctx context.Context, app core.App) 
 	var completed int32
 
 	// Worker pool
-	const numWorkers = 20
+	const numWorkers = 5
 	trailChan := make(chan *core.Record, totalTrails)
 	var wg sync.WaitGroup
 

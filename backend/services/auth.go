@@ -1,8 +1,6 @@
 package services
 
 import (
-	"fmt"
-
 	"bike-map/config"
 	"bike-map/entities"
 
@@ -31,32 +29,6 @@ func (a *AuthService) CanCreateTrails(user *core.Record) bool {
 func (a *AuthService) CanManageUsers(user *core.Record) bool {
 	role := entities.UserRole(user.GetString("role"))
 	return role.CanManageUsers()
-}
-
-// CanUpdateTrail checks if the user can update a specific trail
-func (a *AuthService) CanUpdateTrail(user *core.Record, trail *core.Record) bool {
-	userRole := entities.UserRole(user.GetString("role"))
-
-	// Admins can update any trail
-	if userRole == entities.RoleAdmin {
-		return true
-	}
-
-	// Users can update their own trails
-	return user.Id == trail.GetString("owner")
-}
-
-// CanDeleteTrail checks if the user can delete a specific trail
-func (a *AuthService) CanDeleteTrail(user *core.Record, trail *core.Record) bool {
-	return a.CanUpdateTrail(user, trail) // Same logic as update
-}
-
-// ValidateUserRole ensures the role is valid
-func (a *AuthService) ValidateUserRole(role string) error {
-	if !entities.UserRole(role).IsValid() {
-		return fmt.Errorf("invalid user role: %s", role)
-	}
-	return nil
 }
 
 // GetDefaultRole returns the default role for new users

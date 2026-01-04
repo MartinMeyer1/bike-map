@@ -165,6 +165,7 @@ export class PocketBaseService {
   static canEditTrail(trail: Trail | MVTTrail, user: User | null): boolean {
     if (!user) return false;
     if (user.role === "Admin") return true;
+    if (trail.ridden === false) return true;
     if (trail.owner === user.id) return true;
     return false;
   }
