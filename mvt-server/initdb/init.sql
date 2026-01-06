@@ -117,10 +117,9 @@ BEGIN
     -- These values are in degrees (EPSG:4326)
     RETURN CASE
         WHEN p_zoom >= 13 THEN 0
-        WHEN p_zoom >= 12 THEN 0.0005
-        WHEN p_zoom >= 11 THEN 0.001
-        WHEN p_zoom >= 9 THEN 0.01
-        ELSE 0.05
+        WHEN p_zoom >= 11 THEN 0.00001
+        WHEN p_zoom >= 9 THEN 0.0001
+        ELSE 0.0005
     END;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
