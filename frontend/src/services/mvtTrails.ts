@@ -20,8 +20,6 @@ export function convertMVTPropertiesToTrail(
     level: props.level,
     tags: props.tags ? props.tags.split(",").map((tag) => tag.trim()) : [],
     owner: props.owner_id,
-    created: props.created_at,
-    updated: props.updated_at,
 
     bounds: {
       north: props.bbox_north,
@@ -33,23 +31,9 @@ export function convertMVTPropertiesToTrail(
     elevation: {
       gain: props.elevation_gain_meters,
       loss: props.elevation_loss_meters,
-      min: props.min_elevation_meters,
-      max: props.max_elevation_meters,
-      start: props.elevation_start_meters,
-      end: props.elevation_end_meters,
     },
 
     distance: props.distance_m,
-
-    startPoint: {
-      lat: props.start_lat,
-      lng: props.start_lng,
-    },
-
-    endPoint: {
-      lat: props.end_lat,
-      lng: props.end_lng,
-    },
 
     // Engagement data
     rating_average: props.rating_average,
@@ -211,44 +195,11 @@ export class MVTTrailService {
       return;
     }
 
-    // Create start marker (rock hand)
-    const startMarker = (L as any)
-      .marker([trail.startPoint.lat, trail.startPoint.lng], {
-        title: `${trail.name} - Start`,
-        icon: (L as any).icon({
-          iconUrl: "/rock.png",
-          iconSize: markerConfig.iconSize,
-          iconAnchor: markerConfig.iconAnchor,
-          popupAnchor: [0, -markerConfig.iconAnchor[1]],
-        }),
-        opacity: markerConfig.opacity,
-      })
-      .addTo(this.map);
-
-    // Create end marker (beer)
-    const endMarker = (L as any)
-      .marker([trail.endPoint.lat, trail.endPoint.lng], {
-        title: `${trail.name} - End`,
-        icon: (L as any).icon({
-          iconUrl: "/beer.png",
-          iconSize: markerConfig.iconSize,
-          iconAnchor: markerConfig.iconAnchor,
-          popupAnchor: [0, -markerConfig.iconAnchor[1]],
-        }),
-        opacity: markerConfig.opacity,
-      })
-      .addTo(this.map);
 
     // Add click handlers to markers for trail selection
     const handleMarkerClick = () => {
       this.events.onTrailClick?.(trail);
     };
-
-    startMarker.on("click", handleMarkerClick);
-    endMarker.on("click", handleMarkerClick);
-
-    // Store markers
-    this.trailMarkers.set(trail.id, { start: startMarker, end: endMarker });
   }
 
   addToMap(): void {

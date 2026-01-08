@@ -70,15 +70,8 @@ export interface MVTTrailProperties {
   level: "S0" | "S1" | "S2" | "S3" | "S4" | "S5";
   tags?: string;
   owner_id: string;
-  created_at: string;
-  updated_at: string;
-  gpx_file: string;
 
   // Geometric data
-  start_lat: number;
-  start_lng: number;
-  end_lat: number;
-  end_lng: number;
   bbox_north: number;
   bbox_south: number;
   bbox_east: number;
@@ -88,10 +81,6 @@ export interface MVTTrailProperties {
   distance_m: number;
   elevation_gain_meters: number;
   elevation_loss_meters: number;
-  min_elevation_meters: number;
-  max_elevation_meters: number;
-  elevation_start_meters: number;
-  elevation_end_meters: number;
 
   // Engagement data from backend
   rating_average: number;
@@ -110,22 +99,14 @@ export interface MVTTrail {
   level: "S0" | "S1" | "S2" | "S3" | "S4" | "S5";
   tags: string[];
   owner: string;
-  created: string;
-  updated: string;
 
   // Pre-calculated from backend
   bounds: TrailBounds;
   elevation: {
     gain: number;
     loss: number;
-    min: number;
-    max: number;
-    start: number;
-    end: number;
   };
   distance: number;
-  startPoint: { lat: number; lng: number };
-  endPoint: { lat: number; lng: number };
 
   // Engagement data
   rating_average: number;
