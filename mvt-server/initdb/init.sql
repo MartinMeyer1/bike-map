@@ -134,7 +134,8 @@ RETURNS BYTEA AS $$
 DECLARE
     v_tile_env GEOMETRY;
     v_tolerance FLOAT;
-    v_mvt BYTEA;
+    v_trails_mvt BYTEA;
+    v_points_mvt BYTEA;
 BEGIN
     -- Get tile envelope in Web Mercator
     v_tile_env := ST_TileEnvelope(p_z, p_x, p_y);
@@ -143,7 +144,7 @@ BEGIN
 
     IF v_tolerance > 0 THEN
         SELECT ST_AsMVT(mvt_geom.*, 'trails')
-        INTO v_mvt
+        INTO v_trails_mvt
         FROM (
             SELECT
                 t.id,
@@ -155,40 +156,13 @@ BEGIN
                     ELSE NULL
                 END as tags,
                 t.owner_id,
-                t.created_at,
-                t.updated_at,
-                t.gpx_file,
                 ST_XMin(t.bbox) as bbox_west,
                 ST_YMin(t.bbox) as bbox_south,
                 ST_XMax(t.bbox) as bbox_east,
                 ST_YMax(t.bbox) as bbox_north,
-                ST_X(ST_StartPoint(t.geom)) as start_lng,
-                ST_Y(ST_StartPoint(t.geom)) as start_lat,
-                ST_X(ST_EndPoint(t.geom)) as end_lng,
-                ST_Y(ST_EndPoint(t.geom)) as end_lat,
                 t.distance_m,
                 COALESCE((t.elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
                 COALESCE((t.elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
-                    ELSE NULL
-                END as min_elevation_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
-                    ELSE NULL
-                END as max_elevation_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (t.elevation_data->'profile'->0->>'elevation')::REAL
-                    ELSE NULL
-                END as elevation_start_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (t.elevation_data->'profile'->-1->>'elevation')::REAL
-                    ELSE NULL
-                END as elevation_end_meters,
                 t.rating_average,
                 t.rating_count,
                 t.comment_count,
@@ -205,7 +179,7 @@ BEGIN
         WHERE geom IS NOT NULL;
     ELSE
         SELECT ST_AsMVT(mvt_geom.*, 'trails')
-        INTO v_mvt
+        INTO v_trails_mvt
         FROM (
             SELECT
                 t.id,
@@ -217,40 +191,13 @@ BEGIN
                     ELSE NULL
                 END as tags,
                 t.owner_id,
-                t.created_at,
-                t.updated_at,
-                t.gpx_file,
                 ST_XMin(t.bbox) as bbox_west,
                 ST_YMin(t.bbox) as bbox_south,
                 ST_XMax(t.bbox) as bbox_east,
                 ST_YMax(t.bbox) as bbox_north,
-                ST_X(ST_StartPoint(t.geom)) as start_lng,
-                ST_Y(ST_StartPoint(t.geom)) as start_lat,
-                ST_X(ST_EndPoint(t.geom)) as end_lng,
-                ST_Y(ST_EndPoint(t.geom)) as end_lat,
                 t.distance_m,
                 COALESCE((t.elevation_data->>'gain')::REAL, 0) as elevation_gain_meters,
                 COALESCE((t.elevation_data->>'loss')::REAL, 0) as elevation_loss_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (SELECT MIN((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
-                    ELSE NULL
-                END as min_elevation_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (SELECT MAX((value->>'elevation')::REAL) FROM jsonb_array_elements(t.elevation_data->'profile') AS value)
-                    ELSE NULL
-                END as max_elevation_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (t.elevation_data->'profile'->0->>'elevation')::REAL
-                    ELSE NULL
-                END as elevation_start_meters,
-                CASE
-                    WHEN t.elevation_data->'profile' IS NOT NULL AND jsonb_array_length(t.elevation_data->'profile') > 0 THEN
-                        (t.elevation_data->'profile'->-1->>'elevation')::REAL
-                    ELSE NULL
-                END as elevation_end_meters,
                 t.rating_average,
                 t.rating_count,
                 t.comment_count,
@@ -267,7 +214,34 @@ BEGIN
         WHERE geom IS NOT NULL;
     END IF;
 
-    RETURN COALESCE(v_mvt, ''::BYTEA);
+    -- Generate points layer for trail start and end points
+    SELECT ST_AsMVT(mvt_geom.*, 'trailpoints')
+    INTO v_points_mvt
+    FROM (
+        SELECT
+            t.id || '-' || pt.type as id,
+            t.id as trail_id,
+            t.name as trail_name,
+            pt.type as point_type,
+            ST_AsMVTGeom(
+                ST_Transform(
+                    CASE
+                        WHEN pt.type = 'start' THEN ST_StartPoint(t.geom)
+                        ELSE ST_EndPoint(t.geom)
+                    END,
+                    3857
+                ),
+                v_tile_env,
+                4096, 0, false
+            ) AS geom
+        FROM trails t
+        CROSS JOIN (VALUES ('start'), ('end')) AS pt(type)
+        JOIN trail_tiles tt ON t.id = tt.trail_id
+        WHERE tt.z = p_z AND tt.x = p_x AND tt.y = p_y
+    ) AS mvt_geom
+    WHERE geom IS NOT NULL;
+
+    RETURN COALESCE(v_trails_mvt, ''::BYTEA) || COALESCE(v_points_mvt, ''::BYTEA);
 END;
 $$ LANGUAGE plpgsql STABLE;
 
