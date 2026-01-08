@@ -19,6 +19,8 @@ type Config struct {
 type MBTilesConfig struct {
 	Path                  string // Directory for snapshots (not full file path)
 	SnapshotStableSeconds int
+	MinZoom               int
+	MaxZoom               int
 }
 
 // ServerConfig holds server-related configuration
@@ -78,6 +80,8 @@ func Load() *Config {
 		MBTiles: MBTilesConfig{
 			Path:                  getEnv("MBTILES_PATH", "./data"),
 			SnapshotStableSeconds: getEnvInt("MBTILES_SNAPSHOT_STABLE_SECONDS", 30),
+			MinZoom:               getEnvInt("MBTILES_MIN_ZOOM", 6),
+			MaxZoom:               getEnvInt("MBTILES_MAX_ZOOM", 13),
 		},
 	}
 }

@@ -67,10 +67,10 @@ func (a *AppService) initializeServices() error {
 	}
 
 	// Initialize MVT service (MVTCache - memory cache)
-	a.mvtService = NewMVTService()
+	a.mvtService = NewMVTService(a.config.MBTiles.MinZoom, a.config.MBTiles.MaxZoom)
 
 	// Initialize MBTiles backup
-	a.mbtilesBackup, err = NewMVTBackupMBTiles(a.config.MBTiles.Path)
+	a.mbtilesBackup, err = NewMVTBackupMBTiles(a.config.MBTiles.Path, a.config.MBTiles.MinZoom, a.config.MBTiles.MaxZoom)
 	if err != nil {
 		log.Printf("Failed to initialize MBTiles backup: %v", err)
 		log.Printf("Tile backup will not be available")

@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS tile_config (
 
 INSERT INTO tile_config (key, value) VALUES 
     ('min_zoom', 6),
-    ('max_zoom', 18)
+    ('max_zoom', 13)
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================================
@@ -119,7 +119,8 @@ BEGIN
         WHEN p_zoom >= 13 THEN 0
         WHEN p_zoom >= 11 THEN 0.00001
         WHEN p_zoom >= 9 THEN 0.0001
-        ELSE 0.0005
+        WHEN p_zoom >= 7 THEN 0.001 
+        ELSE 0.05
     END;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;

@@ -26,11 +26,11 @@ type MVTMemoryStorage struct {
 }
 
 // NewMVTService creates a new MVT storage instance (memory cache)
-func NewMVTService() *MVTMemoryStorage {
+func NewMVTService(minZoom, maxZoom int) *MVTMemoryStorage {
 	return &MVTMemoryStorage{
 		cache:   make(map[string]*cacheEntry),
-		minZoom: 6,
-		maxZoom: 18,
+		minZoom: minZoom,
+		maxZoom: maxZoom,
 	}
 }
 

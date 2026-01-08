@@ -30,7 +30,7 @@ type MVTBackupMBTiles struct {
 }
 
 // NewMVTBackupMBTiles creates a new in-memory MBTiles backup with snapshot capability
-func NewMVTBackupMBTiles(snapshotDir string) (*MVTBackupMBTiles, error) {
+func NewMVTBackupMBTiles(snapshotDir string, minZoom, maxZoom int) (*MVTBackupMBTiles, error) {
 	// Open IN-MEMORY SQLite database (zero disk I/O during tile generation)
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -45,8 +45,8 @@ func NewMVTBackupMBTiles(snapshotDir string) (*MVTBackupMBTiles, error) {
 
 	m := &MVTBackupMBTiles{
 		db:          db,
-		minZoom:     6,
-		maxZoom:     18,
+		minZoom:     minZoom,
+		maxZoom:     maxZoom,
 		snapshotDir: snapshotDir,
 	}
 

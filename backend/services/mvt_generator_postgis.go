@@ -59,12 +59,22 @@ func NewPostGISService(cfg *config.Config) (*MVTGeneratorPostgis, error) {
 		return nil, fmt.Errorf("failed to ping PostGIS: %w", err)
 	}
 
-	return &MVTGeneratorPostgis{
+	p := &MVTGeneratorPostgis{
 		db:      db,
 		config:  cfg,
-		minZoom: 6,
-		maxZoom: 18,
-	}, nil
+		minZoom: cfg.MBTiles.MinZoom,
+		maxZoom: cfg.MBTiles.MaxZoom,
+	}
+
+	// Update tile_config table with configured zoom values
+	if err := p.updateTileConfig(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to update tile config: %w", err)
+	}
+
+	log.Printf("PostGIS initialized with zoom range: %d-%d", cfg.MBTiles.MinZoom, cfg.MBTiles.MaxZoom)
+
+	return p, nil
 }
 
 // GetMinZoom returns the minimum zoom level for MVT tiles
@@ -80,6 +90,29 @@ func (p *MVTGeneratorPostgis) GetMaxZoom() int {
 // Close closes the database connection
 func (p *MVTGeneratorPostgis) Close() error {
 	return p.db.Close()
+}
+
+// updateTileConfig updates the tile_config table with the configured zoom levels
+func (p *MVTGeneratorPostgis) updateTileConfig() error {
+	// Update min_zoom
+	_, err := p.db.Exec(`
+		INSERT INTO tile_config (key, value) VALUES ('min_zoom', $1)
+		ON CONFLICT (key) DO UPDATE SET value = $1
+	`, p.minZoom)
+	if err != nil {
+		return fmt.Errorf("failed to update min_zoom: %w", err)
+	}
+
+	// Update max_zoom
+	_, err = p.db.Exec(`
+		INSERT INTO tile_config (key, value) VALUES ('max_zoom', $1)
+		ON CONFLICT (key) DO UPDATE SET value = $1
+	`, p.maxZoom)
+	if err != nil {
+		return fmt.Errorf("failed to update max_zoom: %w", err)
+	}
+
+	return nil
 }
 
 // trailToPostgis converts a public Trail entity to internal trailPostgis format
