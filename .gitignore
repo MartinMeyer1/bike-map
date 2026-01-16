@@ -70,3 +70,8 @@ jspm_packages/
 *.rd5
 routing-server/brouter/
 backend/data/*
+_bmad/*
+_bmad-output/*
+screenshots-current/*
+screenshots-ideas/*
+docs/*
