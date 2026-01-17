@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'route_names.dart';
 
 /// 404 error screen for unknown routes
 ///
@@ -31,8 +33,8 @@ class NotFoundScreen extends StatelessWidget {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
-                // Navigate to home using go_router context extension
-                Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+                // Navigate to home using go_router
+                context.goNamed(RouteNames.home);
               },
               child: const Text('Go Home'),
             ),

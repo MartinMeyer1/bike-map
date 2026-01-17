@@ -127,6 +127,29 @@ void main() {
       expect(find.text('404'), findsOneWidget);
     });
 
+    testWidgets('should navigate home when Go Home button is tapped on 404 screen', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routerConfig: appRouter,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Navigate to invalid route to show 404
+      appRouter.go('/invalid-route-that-does-not-exist');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotFoundScreen), findsOneWidget);
+
+      // Tap the "Go Home" button
+      await tester.tap(find.text('Go Home'));
+      await tester.pumpAndSettle();
+
+      // Should navigate back to home (MapScreen)
+      expect(find.byType(MapScreen), findsOneWidget);
+      expect(find.byType(NotFoundScreen), findsNothing);
+    });
+
     testWidgets('should navigate back to home from other screens', (tester) async {
       await tester.pumpWidget(
         MaterialApp.router(
@@ -144,6 +167,24 @@ void main() {
       appRouter.goNamed(RouteNames.home);
       await tester.pumpAndSettle();
       expect(find.byType(MapScreen), findsOneWidget);
+    });
+
+    testWidgets('should handle invalid route name gracefully', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routerConfig: appRouter,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Should start at home
+      expect(find.byType(MapScreen), findsOneWidget);
+
+      // Try to navigate with invalid route name - go_router throws AssertionError
+      expect(
+        () => appRouter.goNamed('non-existent-route-name'),
+        throwsA(isA<AssertionError>()),
+      );
     });
   });
 
