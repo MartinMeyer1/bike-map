@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bike_map_flutter/app.dart';
+import 'package:bike_map_flutter/features/map/screens/map_screen.dart';
 
 void main() {
   testWidgets('App renders smoke test', (WidgetTester tester) async {
@@ -18,8 +19,10 @@ void main() {
         child: App(),
       ),
     );
+    await tester.pumpAndSettle();
 
-    // Verify that our app shows the placeholder text.
-    expect(find.text('BikeMap - Structure Ready'), findsOneWidget);
+    // Verify that our app shows the Map screen (initial route)
+    expect(find.byType(MapScreen), findsOneWidget);
+    expect(find.text('Map'), findsOneWidget);
   });
 }
