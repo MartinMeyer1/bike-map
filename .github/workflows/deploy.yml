@@ -33,8 +33,11 @@ jobs:
             # Download latest init.sql
             curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/mvt-server/initdb/init.sql -o mvt-server/initdb/init.sql
 
-            # Download latest routing file
+            # Download latest routing files
             curl -sSL http://brouter.de/brouter/segments4/E5_N45.rd5 -o routing-server/segments/E5_N45.rd5
+            curl -sSL http://brouter.de/brouter/segments4/E5_N40.rd5 -o routing-server/segments/E5_N40.rd5
+            curl -sSL http://brouter.de/brouter/segments4/E10_N45.rd5 -o routing-server/segments/E10_N45.rd5
+            curl -sSL http://brouter.de/brouter/segments4/E10_N40.rd5 -o routing-server/segments/E10_N40.rd5
             
             # Pull latest Docker images
             docker compose pull
