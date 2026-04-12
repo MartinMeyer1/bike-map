@@ -171,6 +171,7 @@ export class MVTTrailService {
       interactive: true,
       maxZoom: 18,
       attribution: "",
+      pane: "overlayPane",
     });
 
     // Handle trail clicks
