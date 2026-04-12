@@ -6,6 +6,7 @@ import TrailEditPanel from './components/TrailEditPanel';
 import { MobileTrailPopup } from './components/MobileTrailPopup';
 import { MobileHeader } from './components/MobileHeader';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
+import { BaseMapSelector, BaseMapType } from './components/BaseMapSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toast } from './components/ui';
 import { AppProvider } from './context/AppContext';
@@ -22,6 +23,10 @@ const AppContent: React.FC = () => {
   const [showLocationTracking, setShowLocationTracking] = useState(false);
   const [hasRequestedOrientation, setHasRequestedOrientation] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [activeBaseMap, setActiveBaseMap] = useState<BaseMapType>(() => {
+    const saved = localStorage.getItem('bikemap-basemap');
+    return saved === 'osm' ? 'osm' : 'swisstopo';
+  });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
 
   // Toast state
@@ -181,6 +186,14 @@ const AppContent: React.FC = () => {
     setShowToast(true);
   }, []);
 
+  const handleToggleBaseMap = useCallback(() => {
+    setActiveBaseMap(prev => {
+      const next = prev === 'swisstopo' ? 'osm' : 'swisstopo';
+      localStorage.setItem('bikemap-basemap', next);
+      return next;
+    });
+  }, []);
+
   const handleLocationRequest = useCallback(async () => {
     setIsLocationLoading(true);
     
@@ -306,6 +319,7 @@ const AppContent: React.FC = () => {
         showUserLocation={!!userLocation}
         userHeading={userHeading}
         locationMarkerRef={locationMarkerRef}
+        activeBaseMap={activeBaseMap}
       />
 
       {/* Trail sidebar - hidden during drawing mode and on mobile */}
@@ -343,17 +357,23 @@ const AppContent: React.FC = () => {
         onClose={() => setShowToast(false)}
       />
 
-      {/* Location controls - available on all devices */}
+      {/* Location controls and base map selector - available on all devices */}
       {!isDrawingActive && (
-        <LocationControls
-          onLocationRequest={handleLocationRequest}
-          onToggleTracking={handleToggleLocationTracking}
-          onZoomToLocation={handleZoomToLocation}
-          isTracking={showLocationTracking}
-          hasLocation={!!userLocation}
-          isLoading={isLocationLoading}
-          locationError={locationError?.message}
-        />
+        <>
+          <LocationControls
+            onLocationRequest={handleLocationRequest}
+            onToggleTracking={handleToggleLocationTracking}
+            onZoomToLocation={handleZoomToLocation}
+            isTracking={showLocationTracking}
+            hasLocation={!!userLocation}
+            isLoading={isLocationLoading}
+            locationError={locationError?.message}
+          />
+          <BaseMapSelector
+            activeBaseMap={activeBaseMap}
+            onToggle={handleToggleBaseMap}
+          />
+        </>
       )}
 
       {/* Upload panel */}

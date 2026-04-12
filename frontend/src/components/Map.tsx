@@ -19,6 +19,8 @@ delete ((L as any).Icon.Default.prototype as any)._getIconUrl;
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+import { BaseMapType } from './BaseMapSelector';
+
 interface MapProps {
   selectedTrail: MVTTrail | null;
   onBoundsChange: (bounds: MapBounds) => void;
@@ -31,6 +33,7 @@ interface MapProps {
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
   initialGpxContent?: string;
+  activeBaseMap?: BaseMapType;
   // Location features
   userLocation?: UserPosition | null;
   showUserLocation?: boolean;
@@ -201,6 +204,19 @@ function MVTTrailLayer({
   return null;
 }
 
+const tileConfigs = {
+  swisstopo: {
+    url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
+    attribution: '&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>',
+    maxZoom: 18,
+  },
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 18,
+  },
+} as const;
+
 export default function Map({
   selectedTrail,
   onBoundsChange,
@@ -213,6 +229,7 @@ export default function Map({
   onRouteComplete,
   onDrawingCancel,
   initialGpxContent,
+  activeBaseMap = 'swisstopo',
   userLocation,
   showUserLocation = false,
   userHeading,
@@ -246,12 +263,13 @@ export default function Map({
       } as any} // Center on Valais, Switzerland
       style={{ height: '100vh', width: '100%' }}
     >
-      {/* Swisstopo base layer */}
+      {/* Base map tile layer */}
       <TileLayer
+        key={activeBaseMap}
         {...{
-          url: "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg",
-          attribution: '&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>',
-          maxZoom: 18
+          url: tileConfigs[activeBaseMap].url,
+          attribution: tileConfigs[activeBaseMap].attribution,
+          maxZoom: tileConfigs[activeBaseMap].maxZoom
         } as any}
       />
 
