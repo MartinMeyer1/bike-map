@@ -25,20 +25,14 @@ jobs:
             cd /opt/bikemap || { echo "Deployment directory not found"; exit 1; }
             
             # Create directories if they don't exist
-            mkdir -p mvt-server/initdb routing-server/segments
-            
+            mkdir -p mvt-server/initdb
+
             # Download latest docker-compose.yml
             curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml -o docker-compose.yml
-            
+
             # Download latest init.sql
             curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/main/mvt-server/initdb/init.sql -o mvt-server/initdb/init.sql
 
-            # Download latest routing files
-            curl -sSL http://brouter.de/brouter/segments4/E5_N45.rd5 -o routing-server/segments/E5_N45.rd5
-            curl -sSL http://brouter.de/brouter/segments4/E5_N40.rd5 -o routing-server/segments/E5_N40.rd5
-            curl -sSL http://brouter.de/brouter/segments4/E10_N45.rd5 -o routing-server/segments/E10_N45.rd5
-            curl -sSL http://brouter.de/brouter/segments4/E10_N40.rd5 -o routing-server/segments/E10_N40.rd5
-            
             # Pull latest Docker images
             docker compose pull
 
