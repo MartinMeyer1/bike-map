@@ -33,9 +33,10 @@
   font-size: 14px;
 }
 
+/* Matches the modal action buttons this size was introduced for. */
 .large {
   padding: 12px 20px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* Variants */
