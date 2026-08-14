@@ -30,7 +30,16 @@ export default [
         'warn',
         { allowConstantExport: true },
       ],
-      '@typescript-eslint/no-unused-vars': 'warn',
+      // A leading underscore marks a binding as deliberately unused, matching
+      // how tsconfig's noUnusedParameters already treats it.
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
       // TS types (e.g. ambient DOM types like ShareData) aren't runtime globals;

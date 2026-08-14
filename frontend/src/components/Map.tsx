@@ -11,9 +11,10 @@ import { UserPosition } from '../hooks/useGeolocation';
 // Set up browser compatibility once
 setupLeafletCompatibility();
 
-// Fix for default markers in react-leaflet
-delete ((L as any).Icon.Default.prototype as any)._getIconUrl;
-(L as any).Icon.Default.mergeOptions({
+// Fix for default markers in react-leaflet. The bundler-mangled icon paths
+// are cached on the prototype, so drop them before pointing Leaflet at a CDN.
+delete (L.Icon.Default.prototype as { _getIconUrl?: string })._getIconUrl;
+L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -113,7 +114,7 @@ function MapEvents({
       const bounds = selectedTrail.bounds;
       
       // Create Leaflet bounds object
-      const leafletBounds = (L as any).latLngBounds(
+      const leafletBounds = L.latLngBounds(
         [bounds.south, bounds.west],
         [bounds.north, bounds.east]
       );
@@ -255,22 +256,18 @@ export default function Map({
   
   return (
     <MapContainer
-      {...{ 
-        center: [46.2, 7.65], 
-        zoom: 10, 
-        zoomControl: false,
-        tapTolerance: 44 // Increase touch tolerance on mobile
-      } as any} // Center on Valais, Switzerland
+      center={[46.2, 7.65]} // Center on Valais, Switzerland
+      zoom={10}
+      zoomControl={false}
+      tapTolerance={44} // Increase touch tolerance on mobile
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Base map tile layer */}
       <TileLayer
         key={activeBaseMap}
-        {...{
-          url: tileConfigs[activeBaseMap].url,
-          attribution: tileConfigs[activeBaseMap].attribution,
-          maxZoom: tileConfigs[activeBaseMap].maxZoom
-        } as any}
+        url={tileConfigs[activeBaseMap].url}
+        attribution={tileConfigs[activeBaseMap].attribution}
+        maxZoom={tileConfigs[activeBaseMap].maxZoom}
       />
 
 

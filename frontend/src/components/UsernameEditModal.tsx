@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { getErrorMessage } from '../utils/errorHandling';
 
 interface UsernameEditModalProps {
   isVisible: boolean;
@@ -42,8 +43,8 @@ export default function UsernameEditModal({
       
       onUserUpdated(updatedUser);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to update username');
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

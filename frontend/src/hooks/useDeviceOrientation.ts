@@ -14,6 +14,17 @@ export interface OrientationPermissionState {
   prompt: boolean;
 }
 
+/**
+ * iOS 13+ gates the orientation sensor behind a user-gesture permission call.
+ * It is a vendor addition to the constructor, so it is absent from lib.dom.
+ */
+type DeviceOrientationEventWithPermission = typeof DeviceOrientationEvent & {
+  requestPermission?: () => Promise<'granted' | 'denied' | 'default'>;
+};
+
+/** Likewise absent from WindowEventMap, though Android fires it. */
+const ABSOLUTE_ORIENTATION_EVENT = 'deviceorientationabsolute';
+
 interface UseDeviceOrientationResult {
   orientation: DeviceOrientationData | null;
   error: string | null;
@@ -32,8 +43,8 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
   });
 
   // Check for modern orientation support
-  const isSupported = typeof DeviceOrientationEvent !== 'undefined' && 
-    (typeof (DeviceOrientationEvent as any).requestPermission === 'function' || 
+  const isSupported = typeof DeviceOrientationEvent !== 'undefined' &&
+    (typeof (DeviceOrientationEvent as DeviceOrientationEventWithPermission).requestPermission === 'function' ||
      'ondeviceorientationabsolute' in window);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
@@ -43,10 +54,13 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
     }
 
     try {
-      // For iOS 13+ devices, we need to request permission
-      if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-        const permissionState = await (DeviceOrientationEvent as any).requestPermission();
-        
+      // For iOS 13+ devices, we need to request permission. Call it on the
+      // constructor itself - detaching the method loses its receiver.
+      const orientationEvent =
+        DeviceOrientationEvent as DeviceOrientationEventWithPermission;
+      if (typeof orientationEvent.requestPermission === 'function') {
+        const permissionState = await orientationEvent.requestPermission();
+
         if (permissionState === 'granted') {
           setPermission({ granted: true, denied: false, prompt: false });
           setError(null);
@@ -128,7 +142,7 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
     const hasAbsoluteEvent = 'ondeviceorientationabsolute' in window;
     
     if (hasAbsoluteEvent) {
-      (window as any).addEventListener('deviceorientationabsolute', handleOrientationAbsolute, true);
+      window.addEventListener(ABSOLUTE_ORIENTATION_EVENT, handleOrientationAbsolute as EventListener, true);
     } else {
       // Fallback to regular deviceorientation
       window.addEventListener('deviceorientation', handleOrientation, true);
@@ -136,7 +150,7 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
 
     return () => {
       if (hasAbsoluteEvent) {
-        (window as any).removeEventListener('deviceorientationabsolute', handleOrientationAbsolute, true);
+        window.removeEventListener(ABSOLUTE_ORIENTATION_EVENT, handleOrientationAbsolute as EventListener, true);
       } else {
         window.removeEventListener('deviceorientation', handleOrientation, true);
       }

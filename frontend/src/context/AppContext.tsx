@@ -1,39 +1,8 @@
-import React, {
-  createContext,
-  useReducer,
-  useCallback,
-  useEffect,
-} from "react";
+import React, { useReducer, useCallback, useEffect } from "react";
 import { User, MapBounds, Trail, MVTTrail } from "../types";
 import { PocketBaseService } from "../services/pocketbase";
 import { handleApiError, getErrorMessage } from "../utils/errorHandling";
-
-interface AppState {
-  // Auth state
-  user: User | null;
-  isAuthLoading: boolean;
-
-  // Trail state
-  visibleTrails: MVTTrail[]; // From MVT layer - only currently visible tiles
-  selectedTrail: MVTTrail | null;
-  mapBounds: MapBounds | null;
-  fitBoundsTarget: MapBounds | null; // Bounds to fit map to (one-time action)
-
-  // UI state
-  isUploadPanelVisible: boolean;
-  isEditPanelVisible: boolean;
-  trailToEdit: MVTTrail | null;
-
-  // Drawing state
-  isDrawingActive: boolean;
-  drawingMode: "upload" | "edit" | null;
-  drawnGpxContent: { upload?: string; edit?: string };
-
-  // General state
-  error: string;
-  mapMoveEndTrigger: number;
-  mvtRefreshTrigger: number;
-}
+import { AppContext, AppContextValue, AppState } from "./AppContextDefinition";
 
 type AppAction =
   // Auth actions
@@ -176,43 +145,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return state;
   }
 }
-
-interface AppContextValue extends AppState {
-  // Auth methods
-  login: () => Promise<User | null>;
-  logout: () => void;
-  updateUser: (user: User) => void;
-
-  // Trail methods
-  updateVisibleTrails: (bounds: MapBounds) => void;
-  updateVisibleTrailsFromMVT: (trails: MVTTrail[]) => void;
-  selectTrail: (trail: MVTTrail | null) => void;
-  handleTrailCreated: (newTrail: Trail) => void;
-  handleTrailUpdated: (updatedTrail: Trail) => void;
-  handleTrailDeleted: (trailId: string) => void;
-
-  // UI methods
-  showUploadPanel: () => void;
-  hideUploadPanel: () => void;
-  showEditPanel: (trail: MVTTrail) => void;
-  hideEditPanel: () => void;
-
-  // Drawing methods
-  startDrawing: (mode: "upload" | "edit") => void;
-  completeDrawing: (gpxContent: string) => void;
-  cancelDrawing: () => void;
-  clearDrawnContent: (mode: "upload" | "edit") => void;
-  getGpxContent: (mode: "upload" | "edit") => string | undefined;
-  getPreviousGpxContent: (mode: "upload" | "edit") => string | undefined;
-
-  // General methods
-  setError: (error: string) => void;
-  clearError: () => void;
-  incrementMapMoveTrigger: () => void;
-  refreshMVTLayer: () => void;
-}
-
-export const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

@@ -22,8 +22,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const [isCalculatingRoute, startRouteTransition] = useTransition();
   const isUndoingRef = useRef(false);
   const lastUserWaypointCountRef = useRef(0);
-  const routeLayerRef = useRef<any | null>(null);
-  const waypointLayerRef = useRef<any | null>(null);
+  const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const waypointLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Route points are entirely derived from the accumulated BRouter segments
   // (or, absent those, the raw waypoints) - no need to store them separately.
@@ -145,8 +145,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const rLayer = new (L as any).LayerGroup();
-    const wLayer = new (L as any).LayerGroup();
+    const rLayer = new L.LayerGroup();
+    const wLayer = new L.LayerGroup();
     
     map.addLayer(rLayer);
     map.addLayer(wLayer);
@@ -167,7 +167,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const handleMapClick = (e: any) => {
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
       if (isUndoingRef.current) {
         return;
       }
@@ -207,7 +207,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       
       
       // BRouter API call with GPX format
-      const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'http://localhost:17777';
+      const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'https://brouter.de';
       const brouterUrl = `${BROUTER_BASE_URL}/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
 
       const token = await PocketBaseService.getAuthToken(); // RGet the pocketbase token
@@ -334,7 +334,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
     // Draw waypoints
     waypoints.forEach((point, index) => {
-      const marker = (L as any).circleMarker([point.lat, point.lng], {
+      const marker = L.circleMarker([point.lat, point.lng], {
         radius: 8,
         fillColor: index === 0 ? '#28a745' : index === waypoints.length - 1 ? '#dc3545' : '#007bff',
         color: '#fff',
@@ -351,8 +351,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     if (routePoints.length >= 2) {
       const isComputedRoute = routePoints.length > waypoints.length;
       
-      const polyline = (L as any).polyline(
-        routePoints.map(p => [p.lat, p.lng]),
+      const polyline = L.polyline(
+        routePoints.map((p): L.LatLngTuple => [p.lat, p.lng]),
         {
           color: isComputedRoute ? '#dc3545' : '#dc3545',
           weight: isComputedRoute ? 6 : 6,

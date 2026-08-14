@@ -1,4 +1,4 @@
-import PocketBase from "pocketbase";
+import PocketBase, { RecordModel } from "pocketbase";
 import {
   Trail,
   User,
@@ -170,7 +170,7 @@ export class PocketBaseService {
     return false;
   }
 
-  private static formatTrail(record: any): Trail {
+  private static formatTrail(record: RecordModel): Trail {
     return {
       id: record.id,
       name: record.name,

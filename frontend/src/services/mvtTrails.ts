@@ -61,19 +61,26 @@ export function convertMVTPropertiesToTrail(
   };
 }
 
+type TrailLayer = L.vectorGrid.VectorGridLayer;
+
+interface MarkerConfig {
+  iconSize: [number, number];
+  iconAnchor: [number, number];
+  opacity: number;
+}
+
 export class MVTTrailService {
-  private map: any; // L.Map
-  private mvtLayer: any | null = null; // L.Layer
+  private map: L.Map;
+  private mvtLayer: TrailLayer | null = null;
   private selectedTrailId: string | null = null; // Track currently selected trail
   private loadedTrails = new Map<string, MVTTrail>();
-  private trailMarkers = new Map<string, { start: any; end: any }>(); // L.Marker
+  private trailMarkers = new Map<string, { start: L.Marker; end: L.Marker }>();
   private events: MVTTrailEvents = {};
   private baseUrl: string;
   private cacheVersion: string = ""; // Persistent cache version for all requests
   private updateMarkersTimeout: number | null = null; // Debounce timeout
 
-  constructor(map: any, baseUrl?: string) {
-    // L.Map
+  constructor(map: L.Map, baseUrl?: string) {
     this.map = map;
     this.baseUrl =
       baseUrl || import.meta.env.VITE_API_BASE_URL || "http://localhost:8090";
@@ -96,12 +103,18 @@ export class MVTTrailService {
     this.cacheVersion = `v${Date.now()}`;
   }
 
+  // Build a trail-endpoint icon at the size the current zoom calls for
+  private createMarkerIcon(iconUrl: string, config: MarkerConfig): L.Icon {
+    return L.icon({
+      iconUrl,
+      iconSize: config.iconSize,
+      iconAnchor: config.iconAnchor,
+      popupAnchor: [0, -config.iconAnchor[1]],
+    });
+  }
+
   // Calculate marker size and visibility based on zoom level
-  private getMarkerSizeForZoom(zoom: number): {
-    iconSize: [number, number];
-    iconAnchor: [number, number];
-    opacity: number;
-  } | null {
+  private getMarkerSizeForZoom(zoom: number): MarkerConfig | null {
     if (zoom <= 10) {
       // Small markers
       const size = 15;
@@ -137,7 +150,7 @@ export class MVTTrailService {
     }
   }
 
-  createMVTLayer(): any {
+  createMVTLayer(): TrailLayer {
     // Add cache version to all tile requests
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt?cache=${this.cacheVersion}`;
 
@@ -165,25 +178,25 @@ export class MVTTrailService {
         },
       },
       // Add getFeatureId to enable setFeatureStyle functionality
-      getFeatureId: function (feature: any) {
-        return feature.properties.id;
-      },
+      getFeatureId: (feature) => feature.properties.id,
       interactive: true,
       maxZoom: 18,
       attribution: "",
       pane: "overlayPane",
     });
 
-    // Handle trail clicks
-    (layer as any).on("click", (e: any) => {
-      if (e.layer && e.layer.properties) {
-        const trail = convertMVTPropertiesToTrail(e.layer.properties);
+    // Handle trail clicks. The hit sub-layer (and so the feature's properties)
+    // is vector-grid specific, so widen the plain Leaflet event to reach it.
+    layer.on("click", (e) => {
+      const { layer: feature } = e as L.vectorGrid.VectorGridEvent<MVTTrailProperties>;
+      if (feature?.properties) {
+        const trail = convertMVTPropertiesToTrail(feature.properties);
         this.events.onTrailClick?.(trail);
       }
     });
 
     // Handle tile loading events
-    (layer as any).on("tileload", () => {
+    layer.on("tileload", () => {
       this.events.onTileLoad?.();
 
       // After tiles load, clean up trails that are no longer visible
@@ -213,32 +226,24 @@ export class MVTTrailService {
     }
 
     // Create start marker (rock hand)
-    const startMarker = (L as any)
-      .marker([trail.startPoint.lat, trail.startPoint.lng], {
+    const startMarker = L.marker(
+      [trail.startPoint.lat, trail.startPoint.lng],
+      {
         title: `${trail.name} - Start`,
-        icon: (L as any).icon({
-          iconUrl: "/rock.png",
-          iconSize: markerConfig.iconSize,
-          iconAnchor: markerConfig.iconAnchor,
-          popupAnchor: [0, -markerConfig.iconAnchor[1]],
-        }),
+        icon: this.createMarkerIcon("/rock.png", markerConfig),
         opacity: markerConfig.opacity,
-      })
-      .addTo(this.map);
+      },
+    ).addTo(this.map);
 
     // Create end marker (beer)
-    const endMarker = (L as any)
-      .marker([trail.endPoint.lat, trail.endPoint.lng], {
+    const endMarker = L.marker(
+      [trail.endPoint.lat, trail.endPoint.lng],
+      {
         title: `${trail.name} - End`,
-        icon: (L as any).icon({
-          iconUrl: "/beer.png",
-          iconSize: markerConfig.iconSize,
-          iconAnchor: markerConfig.iconAnchor,
-          popupAnchor: [0, -markerConfig.iconAnchor[1]],
-        }),
+        icon: this.createMarkerIcon("/beer.png", markerConfig),
         opacity: markerConfig.opacity,
-      })
-      .addTo(this.map);
+      },
+    ).addTo(this.map);
 
     // Add click handlers to markers for trail selection
     const handleMarkerClick = () => {
@@ -450,19 +455,8 @@ export class MVTTrailService {
         }
       } else {
         // Update icon sizes for existing markers
-        const startIcon = (L as any).icon({
-          iconUrl: "/rock.png",
-          iconSize: markerConfig.iconSize,
-          iconAnchor: markerConfig.iconAnchor,
-          popupAnchor: [0, -markerConfig.iconAnchor[1]],
-        });
-
-        const endIcon = (L as any).icon({
-          iconUrl: "/beer.png",
-          iconSize: markerConfig.iconSize,
-          iconAnchor: markerConfig.iconAnchor,
-          popupAnchor: [0, -markerConfig.iconAnchor[1]],
-        });
+        const startIcon = this.createMarkerIcon("/rock.png", markerConfig);
+        const endIcon = this.createMarkerIcon("/beer.png", markerConfig);
 
         markers.start.setIcon(startIcon);
         markers.start.setOpacity(markerConfig.opacity);
