@@ -30,40 +30,13 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
   const positionRef = useRef<[number, number] | null>(null);
   const isZoomingRef = useRef<boolean>(false);
 
-  // Expose methods to parent component
-  useImperativeHandle(ref, () => ({
-    centerOnLocation: (zoomLevel: number = 16) => {
-      const currentPosition = positionRef.current;
-      
-      if (currentPosition) {
-        isZoomingRef.current = true;
-        
-        map.setView(currentPosition, zoomLevel, {
-          animate: true,
-          duration: 1
-        });
-        
-        // Reset zooming flag after zoom completes
-        setTimeout(() => {
-          isZoomingRef.current = false;
-          
-          // Recreate marker after zoom if it was removed
-          if (!markerRef.current && positionRef.current) {
-            createLocationMarker(positionRef.current);
-          }
-        }, 1500); // Wait for zoom animation to complete
-      }
-    },
-    getPosition: () => positionRef.current
-  }), [map]);
-
   // Extract marker creation logic
   const createLocationMarker = useCallback((position: [number, number], currentHeading?: number) => {
     if (markerRef.current) {
       map.removeLayer(markerRef.current);
       markerRef.current = null;
     }
-    
+
     // Create custom GPS location icon with directional pointer
     const gpsIcon = L.divIcon({
       className: 'gps-location-marker',
@@ -78,12 +51,39 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       iconSize: [60, 60],
       iconAnchor: [30, 45]
     });
-    
-    markerRef.current = L.marker(position, { 
+
+    markerRef.current = L.marker(position, {
       icon: gpsIcon,
       zIndexOffset: 1000
     }).addTo(map);
   }, [map]);
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    centerOnLocation: (zoomLevel: number = 16) => {
+      const currentPosition = positionRef.current;
+
+      if (currentPosition) {
+        isZoomingRef.current = true;
+
+        map.setView(currentPosition, zoomLevel, {
+          animate: true,
+          duration: 1
+        });
+
+        // Reset zooming flag after zoom completes
+        setTimeout(() => {
+          isZoomingRef.current = false;
+
+          // Recreate marker after zoom if it was removed
+          if (!markerRef.current && positionRef.current) {
+            createLocationMarker(positionRef.current);
+          }
+        }, 1500); // Wait for zoom animation to complete
+      }
+    },
+    getPosition: () => positionRef.current
+  }), [map, createLocationMarker]);
 
   useEffect(() => {
     const position: [number, number] = [latitude, longitude];

@@ -171,7 +171,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
             {sortedTrails.map((trail) => (
               <div
                 key={trail.id}
-                ref={(el) => trailRefs.current[trail.id] = el}
+                ref={(el) => { trailRefs.current[trail.id] = el; }}
               >
                 <TrailCard
                   trail={trail}

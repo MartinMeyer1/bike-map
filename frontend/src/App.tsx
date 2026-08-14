@@ -28,6 +28,7 @@ const AppContent: React.FC = () => {
     return saved === 'osm' ? 'osm' : 'swisstopo';
   });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
+  const locationRequestPendingRef = useRef(false);
 
   // Toast state
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -149,13 +150,13 @@ const AppContent: React.FC = () => {
     showEditPanel(trailToEdit!);
   };
 
-  // Sync selectedTrail to mobileSelectedTrail when trail is loaded from URL
-  React.useEffect(() => {
-    if (isMobile && selectedTrail && !mobileSelectedTrail) {
-      // Trail was selected (likely from URL) but mobile popup isn't showing
-      setMobileSelectedTrail(selectedTrail);
-    }
-  }, [isMobile, selectedTrail, mobileSelectedTrail]);
+  // Sync selectedTrail to mobileSelectedTrail when trail is loaded from URL.
+  // Adjusted during render (not in an effect) per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (isMobile && selectedTrail && !mobileSelectedTrail) {
+    // Trail was selected (likely from URL) but mobile popup isn't showing
+    setMobileSelectedTrail(selectedTrail);
+  }
 
   // Handle map movement end
   const handleMapMoveEnd = React.useCallback(() => {
@@ -196,7 +197,8 @@ const AppContent: React.FC = () => {
 
   const handleLocationRequest = useCallback(async () => {
     setIsLocationLoading(true);
-    
+    locationRequestPendingRef.current = true;
+
     if (!showLocationTracking) {
       setShowLocationTracking(true);
       startLocationTracking();
@@ -234,17 +236,24 @@ const AppContent: React.FC = () => {
   // Calculate user heading from device orientation
   const userHeading = orientation?.compass;
 
-  // Clear loading state and auto-zoom when location is first received
+  // Clear loading state once a location or error comes back.
+  // Adjusted during render (not in an effect) per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if ((userLocation || locationError) && isLocationLoading) {
+    setIsLocationLoading(false);
+  }
+
+  // Auto-zoom to location when first received after an explicit user request.
+  // This is a real imperative side effect (calling a ref method), so it stays
+  // in an effect; locationRequestPendingRef (not isLocationLoading) tracks
+  // whether we're still owed a zoom, since isLocationLoading may already have
+  // been cleared above by the time this effect runs.
   React.useEffect(() => {
-    if (userLocation || locationError) {
-      setIsLocationLoading(false);
-    }
-    
-    // Auto-zoom to location when first received (if it was requested by user)
-    if (userLocation && isLocationLoading && locationMarkerRef.current) {
+    if (userLocation && locationRequestPendingRef.current && locationMarkerRef.current) {
+      locationRequestPendingRef.current = false;
       locationMarkerRef.current.centerOnLocation(16);
     }
-  }, [userLocation, locationError, isLocationLoading]);
+  }, [userLocation]);
 
   if (isAuthLoading) {
     return (

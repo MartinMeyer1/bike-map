@@ -33,6 +33,9 @@ export default [
       '@typescript-eslint/no-unused-vars': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
+      // TS types (e.g. ambient DOM types like ShareData) aren't runtime globals;
+      // the TS compiler already catches genuinely undefined identifiers.
+      'no-undef': 'off',
     },
   },
   {

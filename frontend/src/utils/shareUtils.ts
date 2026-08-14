@@ -122,7 +122,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 
       return successful;
     }
-  } catch (error) {
+  } catch {
     return false;
   }
 }

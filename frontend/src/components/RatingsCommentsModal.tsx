@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import { MVTTrail, User, TrailCommentWithUser, RatingStats } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
@@ -28,26 +28,17 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, startTransition] = useTransition();
 
-  // Load data when modal opens
-  useEffect(() => {
-    if (isOpen && trail) {
-      loadData();
-    }
-  }, [isOpen, trail]);
-
-  const loadData = async (isInitialLoad = true) => {
+  const loadData = useCallback(async (isInitialLoad = true) => {
     if (!trail) return;
-    
-    if (isInitialLoad) {
-      setLoading(true);
-    } else {
+
+    if (!isInitialLoad) {
       setRefreshing(true);
     }
-    
+
     try {
       const [commentsData, statsData] = await Promise.all([
         PocketBaseService.getTrailComments(trail.id),
@@ -60,13 +51,18 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     } catch (error) {
       console.error('Failed to load ratings and comments:', error);
     } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      } else {
+      if (!isInitialLoad) {
         setRefreshing(false);
       }
     }
-  };
+  }, [trail, user]);
+
+  // Load data when modal opens
+  useEffect(() => {
+    if (isOpen && trail) {
+      startTransition(() => loadData());
+    }
+  }, [isOpen, trail, loadData]);
 
   const handleRatingClick = async (rating: number) => {
     if (!trail || !user || submitting) return;

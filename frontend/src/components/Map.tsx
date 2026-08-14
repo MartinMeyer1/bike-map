@@ -38,7 +38,7 @@ interface MapProps {
   userLocation?: UserPosition | null;
   showUserLocation?: boolean;
   userHeading?: number;
-  locationMarkerRef?: React.RefObject<LocationMarkerRef>;
+  locationMarkerRef?: React.RefObject<LocationMarkerRef | null>;
 }
 
 // Component to handle map bounds fitting

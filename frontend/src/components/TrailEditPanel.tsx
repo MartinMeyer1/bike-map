@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Trail, MVTTrail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { DIFFICULTY_LEVELS, AVAILABLE_TAGS } from '../utils/constants';
@@ -38,19 +38,20 @@ export default function TrailEditPanel({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Update form data when trail changes
-  useEffect(() => {
-    if (trail) {
-      setFormData({
-        name: trail.name,
-        description: trail.description || '',
-        level: trail.level,
-        tags: trail.tags || [],
-        file: null, // Reset file when editing different trail
-        ridden: trail.ridden || false,
-      });
-    }
-  }, [trail]);
+  // Update form data when trail changes (adjusted during render, per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [lastTrail, setLastTrail] = useState<MVTTrail | null>(null);
+  if (trail && trail !== lastTrail) {
+    setLastTrail(trail);
+    setFormData({
+      name: trail.name,
+      description: trail.description || '',
+      level: trail.level,
+      tags: trail.tags || [],
+      file: null, // Reset file when editing different trail
+      ridden: trail.ridden || false,
+    });
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
