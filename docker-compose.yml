@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.4
+    image: traefik:v3.7.10
     command:
       - "--api.dashboard=true"
       - "--providers.docker=true"
@@ -48,7 +48,7 @@ services:
     restart: unless-stopped  
 
   postgis:
-    image: postgis/postgis:17-3.5-alpine
+    image: postgis/postgis:17-3.6-alpine
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-gis}
       - POSTGRES_USER=${POSTGRES_USER:-gisuser}
