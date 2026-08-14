@@ -34,7 +34,6 @@ export default function TrailEditPanel({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -115,7 +114,6 @@ export default function TrailEditPanel({
 
     setIsLoading(true);
     setError('');
-    setSuccess('');
 
     try {
       const submitData = new FormData();
@@ -229,19 +227,6 @@ export default function TrailEditPanel({
             fontSize: '14px'
           }}>
             ⚠️ {error}
-          </div>
-        )}
-        {success && (
-          <div style={{
-            background: 'linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%)',
-            color: '#155724',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            border: '1px solid #c3e6cb',
-            fontSize: '14px'
-          }}>
-            ✅ {success}
           </div>
         )}
 

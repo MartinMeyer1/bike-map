@@ -6,7 +6,6 @@ import { getLevelColor } from "../utils/colors";
 export interface MVTTrailEvents {
   onTrailClick?: (trail: MVTTrail) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
-  onTileLoad?: () => void;
 }
 
 // Convert MVT properties to MVTTrail interface
@@ -195,14 +194,9 @@ export class MVTTrailService {
       }
     });
 
-    // Handle tile loading events
     layer.on("tileload", () => {
-      this.events.onTileLoad?.();
-
-      // After tiles load, clean up trails that are no longer visible
       this.cleanupInvisibleTrails();
 
-      // Notify about loaded trails (only currently visible ones)
       const trails = Array.from(this.loadedTrails.values());
       this.events.onTrailsLoaded?.(trails);
     });

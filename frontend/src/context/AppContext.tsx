@@ -12,7 +12,6 @@ type AppAction =
   // Trail actions
   | { type: "SET_VISIBLE_TRAILS"; payload: MVTTrail[] }
   | { type: "SET_SELECTED_TRAIL"; payload: MVTTrail | null }
-  | { type: "SET_MAP_BOUNDS"; payload: MapBounds | null }
   | { type: "FIT_MAP_TO_BOUNDS"; payload: MapBounds | null }
 
   // UI actions
@@ -43,7 +42,6 @@ const initialState: AppState = {
   // Trail state
   visibleTrails: [],
   selectedTrail: null,
-  mapBounds: null,
   fitBoundsTarget: null,
 
   // UI state
@@ -85,8 +83,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case "SET_SELECTED_TRAIL":
       return { ...state, selectedTrail: action.payload };
-    case "SET_MAP_BOUNDS":
-      return { ...state, mapBounds: action.payload };
     case "FIT_MAP_TO_BOUNDS":
       return { ...state, fitBoundsTarget: action.payload };
 
@@ -278,11 +274,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: "SET_USER", payload: user });
   }, []);
 
-  const updateVisibleTrails = useCallback((bounds: MapBounds) => {
-    dispatch({ type: "SET_MAP_BOUNDS", payload: bounds });
-    // Don't filter here - MVT tiles already contain the right trails for the bounds
-  }, []);
-
   const updateVisibleTrailsFromMVT = useCallback((mvtTrails: MVTTrail[]) => {
     // Optimize: only update if trails actually changed (simple approach)
     dispatch({ type: "SET_VISIBLE_TRAILS", payload: mvtTrails });
@@ -378,18 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: "CANCEL_DRAWING" });
   }, []);
 
-  const clearDrawnContent = useCallback((mode: "upload" | "edit") => {
-    dispatch({ type: "CLEAR_DRAWN_CONTENT", payload: mode });
-  }, []);
-
   const getGpxContent = useCallback(
-    (mode: "upload" | "edit") => {
-      return state.drawnGpxContent[mode];
-    },
-    [state.drawnGpxContent],
-  );
-
-  const getPreviousGpxContent = useCallback(
     (mode: "upload" | "edit") => {
       return state.drawnGpxContent[mode];
     },
@@ -418,7 +398,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     login,
     logout,
     updateUser,
-    updateVisibleTrails,
     updateVisibleTrailsFromMVT,
     selectTrail,
     handleTrailCreated,
@@ -431,9 +410,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     startDrawing,
     completeDrawing,
     cancelDrawing,
-    clearDrawnContent,
     getGpxContent,
-    getPreviousGpxContent,
     setError,
     clearError,
     incrementMapMoveTrigger,

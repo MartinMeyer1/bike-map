@@ -24,7 +24,6 @@ import { BaseMapType } from './BaseMapSelector';
 
 interface MapProps {
   selectedTrail: MVTTrail | null;
-  onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   onMapMoveEnd?: () => void;
@@ -61,12 +60,10 @@ function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | n
 
 // Component to handle map events and trail zoom
 function MapEvents({
-  onBoundsChange,
   selectedTrail,
   onMapClick,
   onMapMoveEnd
 }: {
-  onBoundsChange: (bounds: MapBounds) => void;
   selectedTrail: MVTTrail | null;
   onMapClick: () => void;
   onMapMoveEnd?: () => void;
@@ -74,20 +71,8 @@ function MapEvents({
   const map = useMap();
 
   useEffect(() => {
-    
     const handleMoveEnd = () => {
-        const bounds = map.getBounds();
-        onBoundsChange({
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-        });
-        
-        // Notify that map movement has ended
-        if (onMapMoveEnd) {
-          onMapMoveEnd();
-        }
+      onMapMoveEnd?.();
     };
 
     const handleMapClick = () => {
@@ -97,8 +82,7 @@ function MapEvents({
     map.on('moveend', handleMoveEnd);
     map.on('zoomend', handleMoveEnd);  // Also listen to zoom events
     map.on('click', handleMapClick);
-    
-    // Initial bounds
+
     handleMoveEnd();
 
     return () => {
@@ -106,7 +90,7 @@ function MapEvents({
       map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
-  }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
+  }, [map, onMapClick, onMapMoveEnd]);
 
   // Handle trail zoom when selectedTrail changes
   useEffect(() => {
@@ -220,7 +204,6 @@ const tileConfigs = {
 
 export default function Map({
   selectedTrail,
-  onBoundsChange,
   onTrailClick,
   onTrailsLoaded,
   onMapMoveEnd,
@@ -272,7 +255,7 @@ export default function Map({
 
 
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
+      <MapEvents selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
       {/* Fit bounds handler */}
       <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />

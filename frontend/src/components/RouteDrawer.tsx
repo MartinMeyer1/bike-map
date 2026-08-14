@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { 
-  PathPoint
-} from '../utils/pathfinding';
+import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 import { PocketBaseService } from '../services/pocketbase';
 

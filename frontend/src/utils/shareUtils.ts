@@ -7,22 +7,14 @@ import { MVTTrail, Trail } from "../types";
 /**
  * Check if the Web Share API is available on this device
  */
-export function canShare(): boolean {
+function canShare(): boolean {
   return typeof navigator !== "undefined" && "share" in navigator;
-}
-
-/**
- * Generate a shareable URL for a trail
- */
-export function getTrailShareUrl(trailId: string): string {
-  const baseUrl = window.location.origin;
-  return `${baseUrl}?trail=${trailId}`;
 }
 
 /**
  * Generate the share endpoint URL for social media preview
  */
-export function getTrailMetaUrl(
+function getTrailMetaUrl(
   trailId: string,
   bounds?: { north: number; south: number; east: number; west: number },
 ): string {
@@ -101,7 +93,7 @@ export async function shareTrail(
 /**
  * Copy text to clipboard
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
+async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);

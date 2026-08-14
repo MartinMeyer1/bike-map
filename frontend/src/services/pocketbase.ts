@@ -93,20 +93,6 @@ export class PocketBaseService {
     }
   }
 
-  static async getTrails(): Promise<Trail[]> {
-    try {
-      const records = await pb.collection("trails").getFullList({
-        sort: "-created",
-        requestKey: null, // Disable auto-cancellation for this request
-      });
-
-      return records.map((record) => this.formatTrail(record));
-    } catch (error) {
-      console.error("Error in getTrails:", error);
-      throw error;
-    }
-  }
-
   static async getTrail(id: string): Promise<Trail> {
     const record = await pb.collection("trails").getOne(id, {
       expand: "owner",

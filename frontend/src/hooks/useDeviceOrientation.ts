@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export interface DeviceOrientationData {
+interface DeviceOrientationData {
   alpha: number | null; // Z-axis rotation (0-360)
   beta: number | null;  // X-axis rotation (-180 to 180)
   gamma: number | null; // Y-axis rotation (-90 to 90)
@@ -8,7 +8,7 @@ export interface DeviceOrientationData {
   compass?: number;     // Calculated compass heading
 }
 
-export interface OrientationPermissionState {
+interface OrientationPermissionState {
   granted: boolean;
   denied: boolean;
   prompt: boolean;
@@ -164,28 +164,4 @@ export const useDeviceOrientation = (): UseDeviceOrientationResult => {
     permission,
     requestPermission
   };
-};
-
-// Utility function to format compass direction
-export const getCompassDirection = (degrees: number): string => {
-  const directions = [
-    'N', 'NNE', 'NE', 'ENE',
-    'E', 'ESE', 'SE', 'SSE',
-    'S', 'SSW', 'SW', 'WSW',
-    'W', 'WNW', 'NW', 'NNW'
-  ];
-  
-  const index = Math.round(degrees / 22.5) % 16;
-  return directions[index];
-};
-
-// Utility function to get compass arrow for given direction
-export const getCompassArrow = (degrees: number): string => {
-  const arrows = [
-    '↑', '↗', '→', '↘',
-    '↓', '↙', '←', '↖'
-  ];
-  
-  const index = Math.round(degrees / 45) % 8;
-  return arrows[index];
 };

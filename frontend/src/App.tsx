@@ -79,7 +79,6 @@ const AppContent: React.FC = () => {
     mvtRefreshTrigger,
     
     // Methods
-    updateVisibleTrails,
     updateVisibleTrailsFromMVT,
     selectTrail,
     handleTrailCreated,
@@ -93,7 +92,6 @@ const AppContent: React.FC = () => {
     completeDrawing,
     cancelDrawing,
     getGpxContent,
-    getPreviousGpxContent,
     clearError,
     incrementMapMoveTrigger
   } = useAppContext();
@@ -314,7 +312,6 @@ const AppContent: React.FC = () => {
       {/* Main map */}
       <Map
         selectedTrail={selectedTrail}
-        onBoundsChange={updateVisibleTrails}
         onTrailClick={isMobile ? handleMobileTrailClick : selectTrail}
         onTrailsLoaded={updateVisibleTrailsFromMVT}
         onMapMoveEnd={handleMapMoveEnd}
@@ -323,7 +320,7 @@ const AppContent: React.FC = () => {
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
-        initialGpxContent={getPreviousGpxContent(drawingMode || 'upload')}
+        initialGpxContent={getGpxContent(drawingMode || 'upload')}
         userLocation={userLocation}
         showUserLocation={!!userLocation}
         userHeading={userHeading}

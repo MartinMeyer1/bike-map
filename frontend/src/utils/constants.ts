@@ -11,6 +11,3 @@ export const AVAILABLE_TAGS = [
   'Flow', 'Tech', 'Steep', 'Fast', 'Rocks', 'Roots', 'Jump', 
   'Drop', 'Bermed', 'Natural', 'Switchbacks', 'Loose', 'Sketchy'
 ] as const;
-
-export type DifficultyLevel = typeof DIFFICULTY_LEVELS[number]['value'];
-export type AvailableTag = typeof AVAILABLE_TAGS[number];

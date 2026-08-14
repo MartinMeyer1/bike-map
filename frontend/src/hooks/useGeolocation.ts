@@ -9,12 +9,12 @@ export interface UserPosition {
   timestamp: number;
 }
 
-export interface GeolocationError {
+interface GeolocationError {
   code: number;
   message: string;
 }
 
-export interface GeolocationState {
+interface GeolocationState {
   position: UserPosition | null;
   error: GeolocationError | null;
   isLoading: boolean;

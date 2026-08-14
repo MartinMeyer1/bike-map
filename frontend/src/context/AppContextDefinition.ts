@@ -9,7 +9,6 @@ export interface AppState {
   // Trail state
   visibleTrails: MVTTrail[]; // From MVT layer - only currently visible tiles
   selectedTrail: MVTTrail | null;
-  mapBounds: MapBounds | null;
   fitBoundsTarget: MapBounds | null; // Bounds to fit map to (one-time action)
 
   // UI state
@@ -35,7 +34,6 @@ export interface AppContextValue extends AppState {
   updateUser: (user: User) => void;
 
   // Trail methods
-  updateVisibleTrails: (bounds: MapBounds) => void;
   updateVisibleTrailsFromMVT: (trails: MVTTrail[]) => void;
   selectTrail: (trail: MVTTrail | null) => void;
   handleTrailCreated: (newTrail: Trail) => void;
@@ -52,9 +50,7 @@ export interface AppContextValue extends AppState {
   startDrawing: (mode: "upload" | "edit") => void;
   completeDrawing: (gpxContent: string) => void;
   cancelDrawing: () => void;
-  clearDrawnContent: (mode: "upload" | "edit") => void;
   getGpxContent: (mode: "upload" | "edit") => string | undefined;
-  getPreviousGpxContent: (mode: "upload" | "edit") => string | undefined;
 
   // General methods
   setError: (error: string) => void;

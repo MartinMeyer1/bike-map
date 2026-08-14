@@ -18,7 +18,6 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   trail,
   user
 }) => {
-  // const [ratings, setRatings] = useState<TrailRatingWithUser[]>([]);
   const [comments, setComments] = useState<TrailCommentWithUser[]>([]);
   const [ratingStats, setRatingStats] = useState<RatingStats>({ count: 0, average: 0 });
   
