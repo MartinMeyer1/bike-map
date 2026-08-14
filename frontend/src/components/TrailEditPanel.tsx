@@ -104,7 +104,9 @@ export default function TrailEditPanel({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Narrows the nullable prop for the body below; the render path already
+    // bails out when trail is null.
     if (!trail) return;
 
     if (!formData.name.trim()) {

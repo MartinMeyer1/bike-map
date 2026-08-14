@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 import { PocketBaseService } from '../services/pocketbase';
+import { useAppContext } from '../hooks/useAppContext';
 
 interface RouteDrawerProps {
   isActive: boolean;
@@ -14,6 +15,7 @@ interface RouteDrawerProps {
 
 export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initialGpxContent }: RouteDrawerProps) {
   const map = useMap();
+  const { setError } = useAppContext();
   const [waypoints, setWaypoints] = useState<PathPoint[]>([]);
   const [routeSegments, setRouteSegments] = useState<Array<Array<{lat: number, lng: number, ele?: number}>>>([]);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
@@ -208,7 +210,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'https://brouter.de';
       const brouterUrl = `${BROUTER_BASE_URL}/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
 
-      const token = await PocketBaseService.getAuthToken(); // RGet the pocketbase token
+      const token = PocketBaseService.getAuthToken();
 
       const response = await fetch(brouterUrl, {
         method: 'GET',
@@ -216,34 +218,26 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      const gpxText = await response.text();
-      
-      // Parse GPX to extract track points
-      const parser = new DOMParser();
-      const gpxDoc = parser.parseFromString(gpxText, 'application/xml');
-      
-      // Extract track points from GPX including elevation data
-      const trackPoints: Array<{lat: number, lng: number, ele?: number}> = [];
-      const trkpts = gpxDoc.querySelectorAll('trkpt');
-      
-      trkpts.forEach(trkpt => {
-        const lat = parseFloat(trkpt.getAttribute('lat') || '0');
-        const lon = parseFloat(trkpt.getAttribute('lon') || '0');
-        const eleElement = trkpt.querySelector('ele');
-        const elevation = eleElement ? parseFloat(eleElement.textContent || '0') : undefined;
-        
-        if (lat && lon) {
-          trackPoints.push({ lat, lng: lon, ele: elevation });
-        }
-      });
-      
-      return trackPoints.length > 0 ? trackPoints : [fromPoint, toPoint].map(p => ({...p, ele: undefined}));
+
+      // Without this check an error body is parsed as GPX, yields no track
+      // points, and silently degrades to a straight line.
+      if (!response.ok) {
+        throw new Error(`BRouter responded ${response.status}`);
+      }
+
+      const trackPoints = parseGPXDetailed(await response.text()).route;
+
+      if (trackPoints.length === 0) {
+        throw new Error('BRouter returned no track points');
+      }
+
+      return trackPoints;
     } catch (error) {
+      setError('Could not compute the route, using a straight line instead.');
       console.error('BRouter routing error:', error);
       return [fromPoint, toPoint].map(p => ({...p, ele: undefined})); // Fallback to straight line
     }
-  }, []);
+  }, [setError]);
 
   // Calculate elevation gain, loss, and total distance from track points
   const calculateRouteData = useCallback((trackPoints: Array<{lat: number, lng: number, ele?: number}>) => {
@@ -352,9 +346,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const polyline = L.polyline(
         routePoints.map((p): L.LatLngTuple => [p.lat, p.lng]),
         {
-          color: isComputedRoute ? '#dc3545' : '#dc3545',
-          weight: isComputedRoute ? 6 : 6,
-          opacity: isComputedRoute ? 0.8 : 0.8,
+          color: '#dc3545',
+          weight: 6,
+          opacity: 0.8,
           dashArray: isComputedRoute ? undefined : '5, 5'
         }
       );
@@ -389,7 +383,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   // Handle route completion
   const handleComplete = useCallback(() => {
     if (waypoints.length < 2) {
-      alert('Please add at least 2 waypoints to create a route');
+      setError('Please add at least 2 waypoints to create a route');
       return;
     }
 
@@ -399,7 +393,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     // Generate GPX including elevation data and original waypoints
     const gpxContent = generateGPX(pointsToUse, 'Drawn Route', waypoints);
     onRouteComplete(gpxContent);
-  }, [waypoints, routePoints, routePointsWithElevation, onRouteComplete]);
+  }, [waypoints, routePoints, routePointsWithElevation, onRouteComplete, setError]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {

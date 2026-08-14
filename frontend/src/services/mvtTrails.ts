@@ -65,7 +65,6 @@ type TrailLayer = L.vectorGrid.VectorGridLayer;
 interface MarkerConfig {
   iconSize: [number, number];
   iconAnchor: [number, number];
-  opacity: number;
 }
 
 export class MVTTrailService {
@@ -78,6 +77,9 @@ export class MVTTrailService {
   private baseUrl: string;
   private cacheVersion: string = ""; // Persistent cache version for all requests
   private updateMarkersTimeout: number | null = null; // Debounce timeout
+  // Held as a field so on() and off() are given the same reference; passing a
+  // fresh arrow to each would leave the listener attached forever.
+  private readonly handleMapMove = () => this.debouncedUpdateVisibleMarkers();
 
   constructor(map: L.Map, baseUrl?: string) {
     this.map = map;
@@ -88,9 +90,7 @@ export class MVTTrailService {
     this.generateCacheVersion();
 
     // Listen to map movement to re-add markers for trails that come back into view (debounced)
-    this.map.on("moveend zoomend", () => {
-      this.debouncedUpdateVisibleMarkers();
-    });
+    this.map.on("moveend zoomend", this.handleMapMove);
   }
 
   setEvents(events: MVTTrailEvents) {
@@ -112,41 +112,13 @@ export class MVTTrailService {
     });
   }
 
-  // Calculate marker size and visibility based on zoom level
-  private getMarkerSizeForZoom(zoom: number): MarkerConfig | null {
-    if (zoom <= 10) {
-      // Small markers
-      const size = 15;
-      return {
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        opacity: 1,
-      };
-    } else if (zoom <= 12) {
-      // Medium markers
-      const size = 22;
-      return {
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        opacity: 1,
-      };
-    } else if (zoom <= 14) {
-      // Normal markers
-      const size = 30;
-      return {
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        opacity: 1,
-      };
-    } else {
-      // Large markers (zoom 17-18)
-      const size = 38;
-      return {
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        opacity: 1,
-      };
-    }
+  // Markers grow with zoom; every zoom level shows them.
+  private getMarkerSizeForZoom(zoom: number): MarkerConfig {
+    const size = zoom <= 10 ? 15 : zoom <= 12 ? 22 : zoom <= 14 ? 30 : 38;
+    return {
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    };
   }
 
   createMVTLayer(): TrailLayer {
@@ -214,18 +186,12 @@ export class MVTTrailService {
     const zoom = this.map.getZoom();
     const markerConfig = this.getMarkerSizeForZoom(zoom);
 
-    // If markers should be hidden at this zoom level, don't create them
-    if (!markerConfig) {
-      return;
-    }
-
     // Create start marker (rock hand)
     const startMarker = L.marker(
       [trail.startPoint.lat, trail.startPoint.lng],
       {
         title: `${trail.name} - Start`,
         icon: this.createMarkerIcon("/rock.png", markerConfig),
-        opacity: markerConfig.opacity,
       },
     ).addTo(this.map);
 
@@ -235,7 +201,6 @@ export class MVTTrailService {
       {
         title: `${trail.name} - End`,
         icon: this.createMarkerIcon("/beer.png", markerConfig),
-        opacity: markerConfig.opacity,
       },
     ).addTo(this.map);
 
@@ -272,7 +237,7 @@ export class MVTTrailService {
     });
 
     // Clean up map event listeners and timeout
-    this.map.off("moveend zoomend", this.debouncedUpdateVisibleMarkers);
+    this.map.off("moveend zoomend", this.handleMapMove);
 
     if (this.updateMarkersTimeout) {
       clearTimeout(this.updateMarkersTimeout);
@@ -439,32 +404,15 @@ export class MVTTrailService {
 
     // Iterate through all markers and update their sizes
     this.trailMarkers.forEach((markers) => {
-      if (!markerConfig) {
-        // Hide markers if zoom is too far out
-        if (this.map.hasLayer(markers.start)) {
-          this.map.removeLayer(markers.start);
-        }
-        if (this.map.hasLayer(markers.end)) {
-          this.map.removeLayer(markers.end);
-        }
-      } else {
-        // Update icon sizes for existing markers
-        const startIcon = this.createMarkerIcon("/rock.png", markerConfig);
-        const endIcon = this.createMarkerIcon("/beer.png", markerConfig);
+      markers.start.setIcon(this.createMarkerIcon("/rock.png", markerConfig));
+      markers.end.setIcon(this.createMarkerIcon("/beer.png", markerConfig));
 
-        markers.start.setIcon(startIcon);
-        markers.start.setOpacity(markerConfig.opacity);
-
-        markers.end.setIcon(endIcon);
-        markers.end.setOpacity(markerConfig.opacity);
-
-        // Re-add markers if they were previously removed
-        if (!this.map.hasLayer(markers.start)) {
-          markers.start.addTo(this.map);
-        }
-        if (!this.map.hasLayer(markers.end)) {
-          markers.end.addTo(this.map);
-        }
+      // Re-add markers if they were previously removed
+      if (!this.map.hasLayer(markers.start)) {
+        markers.start.addTo(this.map);
+      }
+      if (!this.map.hasLayer(markers.end)) {
+        markers.end.addTo(this.map);
       }
     });
   }

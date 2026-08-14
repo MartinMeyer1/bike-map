@@ -96,22 +96,17 @@ const AppContent: React.FC = () => {
     incrementMapMoveTrigger
   } = useAppContext();
 
-  // Handle trail creation
-  const handleTrailCreatedComplete = async (newTrail: Trail) => {
-    await handleTrailCreated(newTrail);
-    hideUploadPanel();
+  // The panels close themselves via onClose, so these only refresh the map.
+  const handleTrailCreatedComplete = (newTrail: Trail) => {
+    handleTrailCreated(newTrail);
   };
 
-  // Handle trail update
-  const handleTrailUpdatedComplete = async (updatedTrail: Trail) => {
-    await handleTrailUpdated(updatedTrail);
-    hideEditPanel();
+  const handleTrailUpdatedComplete = (updatedTrail: Trail) => {
+    handleTrailUpdated(updatedTrail);
   };
 
-  // Handle trail deletion
   const handleTrailDeletedComplete = (trailId: string) => {
     handleTrailDeleted(trailId);
-    hideEditPanel();
   };
 
   // Handle start drawing

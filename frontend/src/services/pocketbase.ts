@@ -221,7 +221,7 @@ export class PocketBaseService {
         userRating,
       };
     } catch (error) {
-      handleApiError(error);
+      console.warn("Failed to load rating stats:", handleApiError(error).message);
       return { count: 0, average: 0 };
     }
   }
@@ -260,8 +260,7 @@ export class PocketBaseService {
         return created as unknown as TrailRating;
       }
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
@@ -270,8 +269,7 @@ export class PocketBaseService {
     try {
       await pb.collection("trail_ratings").delete(ratingId);
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
@@ -285,7 +283,7 @@ export class PocketBaseService {
       });
       return response.totalItems;
     } catch (error) {
-      handleApiError(error);
+      console.warn("Failed to load comment count:", handleApiError(error).message);
       return 0;
     }
   }
@@ -302,7 +300,7 @@ export class PocketBaseService {
       });
       return response.items as unknown as TrailCommentWithUser[];
     } catch (error) {
-      handleApiError(error);
+      console.warn("Failed to load comments:", handleApiError(error).message);
       return [];
     }
   }
@@ -323,8 +321,7 @@ export class PocketBaseService {
       });
       return created as unknown as TrailComment;
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
@@ -339,8 +336,7 @@ export class PocketBaseService {
       });
       return updated as unknown as TrailComment;
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
@@ -349,8 +345,7 @@ export class PocketBaseService {
     try {
       await pb.collection("trail_comments").delete(commentId);
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 }
