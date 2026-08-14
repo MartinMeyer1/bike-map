@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import { MVTTrail, User, TrailCommentWithUser, RatingStats } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
@@ -28,16 +28,14 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, startTransition] = useTransition();
 
   const loadData = useCallback(async (isInitialLoad = true) => {
     if (!trail) return;
 
-    if (isInitialLoad) {
-      setLoading(true);
-    } else {
+    if (!isInitialLoad) {
       setRefreshing(true);
     }
 
@@ -53,18 +51,16 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     } catch (error) {
       console.error('Failed to load ratings and comments:', error);
     } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      } else {
+      if (!isInitialLoad) {
         setRefreshing(false);
       }
     }
-  }, [trail, user?.id]);
+  }, [trail, user]);
 
   // Load data when modal opens
   useEffect(() => {
     if (isOpen && trail) {
-      loadData();
+      startTransition(() => loadData());
     }
   }, [isOpen, trail, loadData]);
 
