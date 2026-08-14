@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MVTTrail, User, TrailCommentWithUser, RatingStats } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
@@ -32,22 +32,15 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load data when modal opens
-  useEffect(() => {
-    if (isOpen && trail) {
-      loadData();
-    }
-  }, [isOpen, trail]);
-
-  const loadData = async (isInitialLoad = true) => {
+  const loadData = useCallback(async (isInitialLoad = true) => {
     if (!trail) return;
-    
+
     if (isInitialLoad) {
       setLoading(true);
     } else {
       setRefreshing(true);
     }
-    
+
     try {
       const [commentsData, statsData] = await Promise.all([
         PocketBaseService.getTrailComments(trail.id),
@@ -66,7 +59,14 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
         setRefreshing(false);
       }
     }
-  };
+  }, [trail, user?.id]);
+
+  // Load data when modal opens
+  useEffect(() => {
+    if (isOpen && trail) {
+      loadData();
+    }
+  }, [isOpen, trail, loadData]);
 
   const handleRatingClick = async (rating: number) => {
     if (!trail || !user || submitting) return;

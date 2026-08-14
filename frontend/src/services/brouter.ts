@@ -101,11 +101,11 @@ export class BRouterService {
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-          throw new Error(`Unable to connect to BRouter service at ${baseUrl}. Please check if the service is running.`);
+          throw new Error(`Unable to connect to BRouter service at ${baseUrl}. Please check if the service is running.`, { cause: error });
         }
         throw error;
       }
-      throw new Error('Unknown error occurred while calculating route');
+      throw new Error('Unknown error occurred while calculating route', { cause: error });
     }
   }
 
