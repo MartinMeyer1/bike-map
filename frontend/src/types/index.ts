@@ -12,20 +12,10 @@ export interface Trail {
   ridden: boolean;
 }
 
-export interface GeoJsonGeometry {
-  type: "LineString";
-  coordinates: number[][];
-}
-
-export interface GeoJsonFeature {
-  type: "Feature";
-  properties: {
-    name: string;
-    level: string;
-    description?: string;
-    tags: string[];
-  };
-  geometry: GeoJsonGeometry;
+/** A single lat/lng waypoint used while drawing a route. */
+export interface PathPoint {
+  lat: number;
+  lng: number;
 }
 
 export interface TrailBounds {
@@ -35,24 +25,12 @@ export interface TrailBounds {
   west: number;
 }
 
-export interface ElevationData {
-  gain: number;
-  loss: number;
-  profile: Array<{ distance: number; elevation: number }>;
-}
-
 export interface User {
   id: string;
   email: string;
   name?: string;
   avatar?: string;
   role?: "Viewer" | "Editor" | "Admin";
-}
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isLoading: boolean;
 }
 
 export interface MapBounds {
@@ -147,12 +125,6 @@ export interface TrailRating {
   rating: number; // 1-5 stars
   created: string;
   updated: string;
-}
-
-export interface TrailRatingWithUser extends TrailRating {
-  expand?: {
-    user?: User;
-  };
 }
 
 export interface RatingStats {

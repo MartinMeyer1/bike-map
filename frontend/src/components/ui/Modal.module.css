@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: var(--z-modal);
   backdrop-filter: blur(4px);
 }
 
@@ -37,6 +37,19 @@
 
 .purple {
   background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+}
+
+.success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.warning {
+  background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+  color: var(--text-strong);
+}
+
+.danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
 }
 
 .centeredHeader {
@@ -74,4 +87,14 @@
   padding: 24px;
   overflow-y: auto;
   max-height: calc(80vh - 80px);
+}
+
+/* Roomier variant for the trail form, which is much taller than a dialog. */
+.wide {
+  max-width: 600px;
+  max-height: 90vh;
+}
+
+.wide .content {
+  max-height: calc(90vh - 80px);
 }

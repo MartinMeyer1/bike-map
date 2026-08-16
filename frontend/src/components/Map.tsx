@@ -2,18 +2,15 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds, MVTTrail } from '../types';
-import { setupLeafletCompatibility } from '../utils/browserCompat';
 import { MVTTrailService } from '../services/mvtTrails';
 import RouteDrawer from './RouteDrawer';
 import { LocationMarker, LocationMarkerRef } from './LocationMarker';
 import { UserPosition } from '../hooks/useGeolocation';
 
-// Set up browser compatibility once
-setupLeafletCompatibility();
-
-// Fix for default markers in react-leaflet
-delete ((L as any).Icon.Default.prototype as any)._getIconUrl;
-(L as any).Icon.Default.mergeOptions({
+// Fix for default markers in react-leaflet. The bundler-mangled icon paths
+// are cached on the prototype, so drop them before pointing Leaflet at a CDN.
+delete (L.Icon.Default.prototype as { _getIconUrl?: string })._getIconUrl;
+L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -23,7 +20,6 @@ import { BaseMapType } from './BaseMapSelector';
 
 interface MapProps {
   selectedTrail: MVTTrail | null;
-  onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   onMapMoveEnd?: () => void;
@@ -60,12 +56,10 @@ function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | n
 
 // Component to handle map events and trail zoom
 function MapEvents({
-  onBoundsChange,
   selectedTrail,
   onMapClick,
   onMapMoveEnd
 }: {
-  onBoundsChange: (bounds: MapBounds) => void;
   selectedTrail: MVTTrail | null;
   onMapClick: () => void;
   onMapMoveEnd?: () => void;
@@ -73,20 +67,8 @@ function MapEvents({
   const map = useMap();
 
   useEffect(() => {
-    
     const handleMoveEnd = () => {
-        const bounds = map.getBounds();
-        onBoundsChange({
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-        });
-        
-        // Notify that map movement has ended
-        if (onMapMoveEnd) {
-          onMapMoveEnd();
-        }
+      onMapMoveEnd?.();
     };
 
     const handleMapClick = () => {
@@ -96,8 +78,7 @@ function MapEvents({
     map.on('moveend', handleMoveEnd);
     map.on('zoomend', handleMoveEnd);  // Also listen to zoom events
     map.on('click', handleMapClick);
-    
-    // Initial bounds
+
     handleMoveEnd();
 
     return () => {
@@ -105,7 +86,7 @@ function MapEvents({
       map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
-  }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
+  }, [map, onMapClick, onMapMoveEnd]);
 
   // Handle trail zoom when selectedTrail changes
   useEffect(() => {
@@ -113,7 +94,7 @@ function MapEvents({
       const bounds = selectedTrail.bounds;
       
       // Create Leaflet bounds object
-      const leafletBounds = (L as any).latLngBounds(
+      const leafletBounds = L.latLngBounds(
         [bounds.south, bounds.west],
         [bounds.north, bounds.east]
       );
@@ -219,7 +200,6 @@ const tileConfigs = {
 
 export default function Map({
   selectedTrail,
-  onBoundsChange,
   onTrailClick,
   onTrailsLoaded,
   onMapMoveEnd,
@@ -255,27 +235,23 @@ export default function Map({
   
   return (
     <MapContainer
-      {...{ 
-        center: [46.2, 7.65], 
-        zoom: 10, 
-        zoomControl: false,
-        tapTolerance: 44 // Increase touch tolerance on mobile
-      } as any} // Center on Valais, Switzerland
+      center={[46.2, 7.65]} // Center on Valais, Switzerland
+      zoom={10}
+      zoomControl={false}
+      tapTolerance={44} // Increase touch tolerance on mobile
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Base map tile layer */}
       <TileLayer
         key={activeBaseMap}
-        {...{
-          url: tileConfigs[activeBaseMap].url,
-          attribution: tileConfigs[activeBaseMap].attribution,
-          maxZoom: tileConfigs[activeBaseMap].maxZoom
-        } as any}
+        url={tileConfigs[activeBaseMap].url}
+        attribution={tileConfigs[activeBaseMap].attribution}
+        maxZoom={tileConfigs[activeBaseMap].maxZoom}
       />
 
 
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
+      <MapEvents selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
 
       {/* Fit bounds handler */}
       <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />

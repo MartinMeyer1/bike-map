@@ -1,0 +1,90 @@
+.section {
+  margin-bottom: 24px;
+}
+
+.section:last-of-type {
+  margin-bottom: 16px;
+}
+
+.heading {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.body {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+
+.body:last-child {
+  margin-bottom: 0;
+}
+
+.levels {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.level {
+  margin-bottom: 12px;
+}
+
+.level:last-child {
+  margin-bottom: 0;
+}
+
+.levelHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.levelName {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.levelDescription {
+  margin: 0 0 0 32px;
+  color: var(--text-body);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.githubLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #24292e 0%, #586069 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(36, 41, 46, 0.2);
+}
+
+.githubLink:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(36, 41, 46, 0.3);
+}
+
+.titleIcon {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
