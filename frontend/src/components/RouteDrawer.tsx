@@ -205,7 +205,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       
       
       // BRouter API call with GPX format
-      const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'https://brouter.de';
+      const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'http://localhost:17777';
       const brouterUrl = `${BROUTER_BASE_URL}/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
 
       const token = PocketBaseService.getAuthToken();

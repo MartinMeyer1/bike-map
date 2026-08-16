@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { User, MVTTrail, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { downloadTrailGpx } from '../utils/trailFile';
@@ -13,18 +14,16 @@ import styles from './TrailSidebar.module.css';
 interface TrailSidebarProps {
   visibleTrails: MVTTrail[]; // From MVT layer
   selectedTrail: MVTTrail | null;
-  mapMoveEndTrigger: number;
   user: User | null;
   onTrailClick: (trail: MVTTrail) => void;
   onAddTrailClick: () => void;
   onEditTrailClick: (trail: MVTTrail) => void;
 }
 
-const TrailSidebar: React.FC<TrailSidebarProps> = memo(({ 
-  visibleTrails, 
+const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
+  visibleTrails,
   selectedTrail,
-  mapMoveEndTrigger,
-  user, 
+  user,
   onTrailClick, 
   onAddTrailClick,
   onEditTrailClick
@@ -33,7 +32,6 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showRatingsComments, setShowRatingsComments] = useState<MVTTrail | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const handleShowQRCode = useCallback((trail: Trail) => {
     setShowQRCode(PocketBaseService.getTrailFileUrl(trail));
@@ -55,27 +53,34 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     setShowRatingsComments(null);
   }, []);
 
-  // Auto-scroll to selected trail when map movement ends
+  // Bring the selected trail into view when the selection changes. The sort
+  // below always places the selected trail first, so this is a scroll to the top
+  // of the list -- which also means it works without asking the virtualizer to
+  // resolve an off-screen row.
+  //
+  // This used to re-run on every map move, which meant panning with a trail
+  // selected kept yanking the list back to it, at the cost of re-rendering every
+  // card.
   useEffect(() => {
-    if (selectedTrail && trailRefs.current[selectedTrail.id]) {
-      const trailElement = trailRefs.current[selectedTrail.id];
-      
-      if (trailElement && scrollContainerRef.current) {
-        // Use requestAnimationFrame for better performance and timing
-        const scrollTimeout = requestAnimationFrame(() => {
-          setTimeout(() => {
-            trailElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
-            });
-          }, 400);
-        });
-        
-        return () => cancelAnimationFrame(scrollTimeout);
-      }
+    if (!selectedTrail) {
+      return;
     }
-  }, [mapMoveEndTrigger, selectedTrail]);
+
+    // The delay waits out the map's fit-bounds animation before scrolling.
+    let timeout: number | undefined;
+    const frame = requestAnimationFrame(() => {
+      timeout = window.setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 400);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [selectedTrail]);
 
 
 
@@ -102,8 +107,33 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       return dateB - dateA; // More recent first
     });
     
-    return sorted;
+    // Engagement is built here rather than inline in the JSX below: a fresh
+    // object literal per card per render defeats TrailCard's memo for the whole
+    // list. Derived from fields on `trail`, so it stays valid as long as the
+    // trail object does. userRating is still fetched by RatingsCommentsModal.
+    return sorted.map((trail) => ({
+      trail,
+      engagement: {
+        ratingStats: {
+          average: trail.rating_average,
+          count: trail.rating_count,
+        },
+        commentCount: trail.comment_count,
+      },
+    }));
   }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
+
+  // Only the rows on screen are mounted. Card heights genuinely vary -- long
+  // names wrap, tag rows differ, the selected card expands -- so rows are
+  // measured rather than assumed; estimateSize only seeds the scrollbar before
+  // a row has been seen.
+  const virtualizer = useVirtualizer({
+    count: sortedTrails.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 150,
+    overscan: 4,
+    getItemKey: (index) => sortedTrails[index].trail.id,
+  });
 
   return (
     <div className={styles.sidebar}>
@@ -146,33 +176,36 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
             Pan the map to explore trails or {user ? 'upload a new trail!' : 'login to add trails.'}
           </div>
         ) : (
-          <div className={styles.trailsContainer}>
-            {sortedTrails.map((trail) => (
-              <div
-                key={trail.id}
-                ref={(el) => { trailRefs.current[trail.id] = el; }}
-              >
-                <TrailCard
-                  trail={trail}
-                  isSelected={selectedTrail?.id === trail.id}
-                  user={user}
-                  engagement={{
-                    ratingStats: {
-                      average: trail.rating_average,
-                      count: trail.rating_count,
-                      // Note: userRating will still be fetched separately in RatingsCommentsModal
-                      userRating: undefined
-                    },
-                    commentCount: trail.comment_count
-                  }}
-                  onTrailClick={onTrailClick}
-                  onEditTrailClick={onEditTrailClick}
-                  onDownloadGPX={downloadTrailGpx}
-                  onShowQRCode={handleShowQRCode}
-                  onShowRatingsComments={handleShowRatingsComments}
-                />
-              </div>
-            ))}
+          <div
+            className={styles.trailsContainer}
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {virtualizer.getVirtualItems().map((row) => {
+              const { trail, engagement } = sortedTrails[row.index];
+
+              return (
+                <div
+                  key={row.key}
+                  // measureElement reads this to know which row it just sized.
+                  data-index={row.index}
+                  ref={virtualizer.measureElement}
+                  className={styles.virtualRow}
+                  style={{ transform: `translateY(${row.start}px)` }}
+                >
+                  <TrailCard
+                    trail={trail}
+                    isSelected={selectedTrail?.id === trail.id}
+                    user={user}
+                    engagement={engagement}
+                    onTrailClick={onTrailClick}
+                    onEditTrailClick={onEditTrailClick}
+                    onDownloadGPX={downloadTrailGpx}
+                    onShowQRCode={handleShowQRCode}
+                    onShowRatingsComments={handleShowRatingsComments}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

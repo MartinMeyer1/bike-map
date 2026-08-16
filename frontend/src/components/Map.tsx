@@ -22,7 +22,6 @@ interface MapProps {
   selectedTrail: MVTTrail | null;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
-  onMapMoveEnd?: () => void;
   refreshTrigger?: number; // Increment this to trigger MVT refresh
   fitBoundsTarget?: MapBounds | null; // Bounds to fit the map to
   isDrawingActive?: boolean;
@@ -57,36 +56,24 @@ function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | n
 // Component to handle map events and trail zoom
 function MapEvents({
   selectedTrail,
-  onMapClick,
-  onMapMoveEnd
+  onMapClick
 }: {
   selectedTrail: MVTTrail | null;
   onMapClick: () => void;
-  onMapMoveEnd?: () => void;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    const handleMoveEnd = () => {
-      onMapMoveEnd?.();
-    };
-
     const handleMapClick = () => {
       onMapClick();
     };
 
-    map.on('moveend', handleMoveEnd);
-    map.on('zoomend', handleMoveEnd);  // Also listen to zoom events
     map.on('click', handleMapClick);
 
-    handleMoveEnd();
-
     return () => {
-      map.off('moveend', handleMoveEnd);
-      map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
-  }, [map, onMapClick, onMapMoveEnd]);
+  }, [map, onMapClick]);
 
   // Handle trail zoom when selectedTrail changes
   useEffect(() => {
@@ -198,11 +185,10 @@ const tileConfigs = {
   },
 } as const;
 
-export default function Map({
+function Map({
   selectedTrail,
   onTrailClick,
   onTrailsLoaded,
-  onMapMoveEnd,
   refreshTrigger,
   fitBoundsTarget,
   isDrawingActive = false,
@@ -251,7 +237,7 @@ export default function Map({
 
 
       {/* Map event handler */}
-      <MapEvents selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
+      <MapEvents selectedTrail={selectedTrail} onMapClick={handleMapClick} />
 
       {/* Fit bounds handler */}
       <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
@@ -285,7 +271,12 @@ export default function Map({
           autoCenter={false}
         />
       )}
-      
+
     </MapContainer>
   );
 }
+
+// Memoized because every prop it takes is already referentially stable (context
+// callbacks are useCallback'd, refs are refs). Without this, any state change in
+// AppContent re-reconciles the whole Leaflet subtree on every render.
+export default React.memo(Map);
