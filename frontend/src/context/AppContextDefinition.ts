@@ -23,7 +23,6 @@ export interface AppState {
 
   // General state
   error: string;
-  mapMoveEndTrigger: number;
   mvtRefreshTrigger: number;
 }
 
@@ -53,7 +52,6 @@ export interface AppContextValue extends AppState {
   // General methods
   setError: (error: string) => void;
   clearError: () => void;
-  incrementMapMoveTrigger: () => void;
   refreshMVTLayer: () => void;
 }
 

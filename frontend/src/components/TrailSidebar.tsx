@@ -13,18 +13,16 @@ import styles from './TrailSidebar.module.css';
 interface TrailSidebarProps {
   visibleTrails: MVTTrail[]; // From MVT layer
   selectedTrail: MVTTrail | null;
-  mapMoveEndTrigger: number;
   user: User | null;
   onTrailClick: (trail: MVTTrail) => void;
   onAddTrailClick: () => void;
   onEditTrailClick: (trail: MVTTrail) => void;
 }
 
-const TrailSidebar: React.FC<TrailSidebarProps> = memo(({ 
-  visibleTrails, 
+const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
+  visibleTrails,
   selectedTrail,
-  mapMoveEndTrigger,
-  user, 
+  user,
   onTrailClick, 
   onAddTrailClick,
   onEditTrailClick
@@ -33,7 +31,6 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showRatingsComments, setShowRatingsComments] = useState<MVTTrail | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const handleShowQRCode = useCallback((trail: Trail) => {
     setShowQRCode(PocketBaseService.getTrailFileUrl(trail));
@@ -55,15 +52,23 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     setShowRatingsComments(null);
   }, []);
 
-  // Auto-scroll to selected trail when map movement ends
+  // Scroll the selected trail into view when the selection changes. This used to
+  // also re-run on every map move, which meant panning with a trail selected kept
+  // yanking the list back to it -- and cost a full re-render of every card.
   useEffect(() => {
-    if (selectedTrail && trailRefs.current[selectedTrail.id]) {
-      const trailElement = trailRefs.current[selectedTrail.id];
-      
-      if (trailElement && scrollContainerRef.current) {
-        // Use requestAnimationFrame for better performance and timing
-        const scrollTimeout = requestAnimationFrame(() => {
-          setTimeout(() => {
+    if (selectedTrail) {
+      // Looked up by attribute rather than held in a ref map: an inline ref
+      // callback is a new function identity every render, so React would detach
+      // and reattach every card's ref on each pass.
+      const trailElement = scrollContainerRef.current?.querySelector(
+        `[data-trail-id="${CSS.escape(selectedTrail.id)}"]`
+      );
+
+      if (trailElement) {
+        // The delay waits out the map's fit-bounds animation before scrolling.
+        let timeout: number | undefined;
+        const frame = requestAnimationFrame(() => {
+          timeout = window.setTimeout(() => {
             trailElement.scrollIntoView({
               behavior: 'smooth',
               block: 'center',
@@ -71,11 +76,16 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
             });
           }, 400);
         });
-        
-        return () => cancelAnimationFrame(scrollTimeout);
+
+        return () => {
+          cancelAnimationFrame(frame);
+          if (timeout !== undefined) {
+            clearTimeout(timeout);
+          }
+        };
       }
     }
-  }, [mapMoveEndTrigger, selectedTrail]);
+  }, [selectedTrail]);
 
 
 
@@ -102,7 +112,20 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       return dateB - dateA; // More recent first
     });
     
-    return sorted;
+    // Engagement is built here rather than inline in the JSX below: a fresh
+    // object literal per card per render defeats TrailCard's memo for the whole
+    // list. Derived from fields on `trail`, so it stays valid as long as the
+    // trail object does. userRating is still fetched by RatingsCommentsModal.
+    return sorted.map((trail) => ({
+      trail,
+      engagement: {
+        ratingStats: {
+          average: trail.rating_average,
+          count: trail.rating_count,
+        },
+        commentCount: trail.comment_count,
+      },
+    }));
   }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
   return (
@@ -147,24 +170,16 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
           </div>
         ) : (
           <div className={styles.trailsContainer}>
-            {sortedTrails.map((trail) => (
+            {sortedTrails.map(({ trail, engagement }) => (
               <div
                 key={trail.id}
-                ref={(el) => { trailRefs.current[trail.id] = el; }}
+                data-trail-id={trail.id}
               >
                 <TrailCard
                   trail={trail}
                   isSelected={selectedTrail?.id === trail.id}
                   user={user}
-                  engagement={{
-                    ratingStats: {
-                      average: trail.rating_average,
-                      count: trail.rating_count,
-                      // Note: userRating will still be fetched separately in RatingsCommentsModal
-                      userRating: undefined
-                    },
-                    commentCount: trail.comment_count
-                  }}
+                  engagement={engagement}
                   onTrailClick={onTrailClick}
                   onEditTrailClick={onEditTrailClick}
                   onDownloadGPX={downloadTrailGpx}

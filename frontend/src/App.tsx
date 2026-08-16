@@ -69,9 +69,8 @@ const AppContent: React.FC = () => {
     drawingMode,
 
     error,
-    mapMoveEndTrigger,
     mvtRefreshTrigger,
-    
+
     updateVisibleTrailsFromMVT,
     selectTrail,
     handleTrailDeleted,
@@ -84,8 +83,7 @@ const AppContent: React.FC = () => {
     completeDrawing,
     cancelDrawing,
     getGpxContent,
-    clearError,
-    incrementMapMoveTrigger
+    clearError
   } = useAppContext();
 
   const handleStartDrawing = () => {
@@ -123,10 +121,6 @@ const AppContent: React.FC = () => {
     // Trail was selected (likely from URL) but mobile popup isn't showing
     setMobileSelectedTrail(selectedTrail);
   }
-
-  const handleMapMoveEnd = useCallback(() => {
-    incrementMapMoveTrigger();
-  }, [incrementMapMoveTrigger]);
 
   const handleMobileTrailClick = useCallback((trail: MVTTrail | null) => {
     if (isMobile) {
@@ -279,7 +273,6 @@ const AppContent: React.FC = () => {
         selectedTrail={selectedTrail}
         onTrailClick={isMobile ? handleMobileTrailClick : selectTrail}
         onTrailsLoaded={updateVisibleTrailsFromMVT}
-        onMapMoveEnd={handleMapMoveEnd}
         refreshTrigger={mvtRefreshTrigger}
         fitBoundsTarget={fitBoundsTarget}
         isDrawingActive={isDrawingActive}
@@ -298,7 +291,6 @@ const AppContent: React.FC = () => {
         <TrailSidebar
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
-          mapMoveEndTrigger={mapMoveEndTrigger}
           user={user}
           onTrailClick={selectTrail}
           onAddTrailClick={showUploadPanel}

@@ -26,7 +26,6 @@ type AppAction =
 
   | { type: "SET_ERROR"; payload: string }
   | { type: "CLEAR_ERROR" }
-  | { type: "INCREMENT_MAP_MOVE_TRIGGER" }
   | { type: "INCREMENT_MVT_REFRESH_TRIGGER" };
 
 const initialState: AppState = {
@@ -46,7 +45,6 @@ const initialState: AppState = {
   drawnGpxContent: {},
 
   error: "",
-  mapMoveEndTrigger: 0,
   mvtRefreshTrigger: 0,
 };
 
@@ -121,8 +119,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, error: action.payload };
     case "CLEAR_ERROR":
       return { ...state, error: "" };
-    case "INCREMENT_MAP_MOVE_TRIGGER":
-      return { ...state, mapMoveEndTrigger: state.mapMoveEndTrigger + 1 };
     case "INCREMENT_MVT_REFRESH_TRIGGER":
       return { ...state, mvtRefreshTrigger: state.mvtRefreshTrigger + 1 };
 
@@ -344,10 +340,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: "CLEAR_ERROR" });
   }, []);
 
-  const incrementMapMoveTrigger = useCallback(() => {
-    dispatch({ type: "INCREMENT_MAP_MOVE_TRIGGER" });
-  }, []);
-
   const refreshMVTLayer = useCallback(() => {
     dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
   }, []);
@@ -371,7 +363,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       getGpxContent,
       setError,
       clearError,
-      incrementMapMoveTrigger,
       refreshMVTLayer,
     }),
     [
@@ -392,7 +383,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       getGpxContent,
       setError,
       clearError,
-      incrementMapMoveTrigger,
       refreshMVTLayer,
     ],
   );
