@@ -1,4 +1,4 @@
-import PocketBase from "pocketbase";
+import PocketBase, { RecordModel } from "pocketbase";
 import {
   Trail,
   User,
@@ -10,17 +10,12 @@ import {
   RatingAverage,
 } from "../types";
 import { handleApiError } from "../utils/errorHandling";
+import { API_BASE_URL } from "../utils/apiBaseUrl";
 
-// Initialize PocketBase client with configurable base URL
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8090";
 const pb = new PocketBase(API_BASE_URL);
 
-// Enable auto-refresh and persistence of auth token
 pb.autoCancellation(false);
 
-// Auth state persistence - PocketBase should handle this automatically,
-// but we can add explicit handling for better reliability
 if (pb.authStore.isValid) {
   // Trigger a test API call to verify the token is still valid
   pb.collection("users")
@@ -93,20 +88,6 @@ export class PocketBaseService {
     }
   }
 
-  static async getTrails(): Promise<Trail[]> {
-    try {
-      const records = await pb.collection("trails").getFullList({
-        sort: "-created",
-        requestKey: null, // Disable auto-cancellation for this request
-      });
-
-      return records.map((record) => this.formatTrail(record));
-    } catch (error) {
-      console.error("Error in getTrails:", error);
-      throw error;
-    }
-  }
-
   static async getTrail(id: string): Promise<Trail> {
     const record = await pb.collection("trails").getOne(id, {
       expand: "owner",
@@ -151,7 +132,6 @@ export class PocketBaseService {
       throw new Error("You must be logged in to update your profile");
     }
     const record = await pb.collection("_pb_users_auth_").update(id, data);
-    // Update the auth store with the new data
     pb.authStore.save(pb.authStore.token, record);
     return {
       id: record.id,
@@ -170,7 +150,7 @@ export class PocketBaseService {
     return false;
   }
 
-  private static formatTrail(record: any): Trail {
+  private static formatTrail(record: RecordModel): Trail {
     return {
       id: record.id,
       name: record.name,
@@ -187,7 +167,6 @@ export class PocketBaseService {
 
   // RATINGS METHODS
 
-  // Get rating statistics for a trail
   static async getTrailRatingStats(
     trailId: string,
     userId?: string,
@@ -235,12 +214,11 @@ export class PocketBaseService {
         userRating,
       };
     } catch (error) {
-      handleApiError(error);
+      console.warn("Failed to load rating stats:", handleApiError(error).message);
       return { count: 0, average: 0 };
     }
   }
 
-  // Create or update a rating
   static async upsertTrailRating(
     trailId: string,
     rating: number,
@@ -249,7 +227,6 @@ export class PocketBaseService {
       const user = pb.authStore.model;
       if (!user) throw new Error("User not authenticated");
 
-      // Check if user already has a rating for this trail
       const existingRatings = await pb
         .collection("trail_ratings")
         .getList(1, 1, {
@@ -257,16 +234,14 @@ export class PocketBaseService {
         });
 
       if (existingRatings.items.length > 0) {
-        // Update existing rating
-        const updated = await pb
+          const updated = await pb
           .collection("trail_ratings")
           .update(existingRatings.items[0].id, {
             rating,
           });
         return updated as unknown as TrailRating;
       } else {
-        // Create new rating
-        const created = await pb.collection("trail_ratings").create({
+          const created = await pb.collection("trail_ratings").create({
           trail: trailId,
           user: user.id,
           rating,
@@ -274,24 +249,20 @@ export class PocketBaseService {
         return created as unknown as TrailRating;
       }
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
-  // Delete a rating
   static async deleteTrailRating(ratingId: string): Promise<void> {
     try {
       await pb.collection("trail_ratings").delete(ratingId);
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
   // COMMENTS METHODS
 
-  // Get comments count for a trail
   static async getTrailCommentCount(trailId: string): Promise<number> {
     try {
       const response = await pb.collection("trail_comments").getList(1, 1, {
@@ -299,12 +270,11 @@ export class PocketBaseService {
       });
       return response.totalItems;
     } catch (error) {
-      handleApiError(error);
+      console.warn("Failed to load comment count:", handleApiError(error).message);
       return 0;
     }
   }
 
-  // Get all comments for a trail
   static async getTrailComments(
     trailId: string,
   ): Promise<TrailCommentWithUser[]> {
@@ -316,12 +286,11 @@ export class PocketBaseService {
       });
       return response.items as unknown as TrailCommentWithUser[];
     } catch (error) {
-      handleApiError(error);
+      console.warn("Failed to load comments:", handleApiError(error).message);
       return [];
     }
   }
 
-  // Create a comment
   static async createTrailComment(
     trailId: string,
     comment: string,
@@ -337,12 +306,10 @@ export class PocketBaseService {
       });
       return created as unknown as TrailComment;
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
-  // Update a comment
   static async updateTrailComment(
     commentId: string,
     comment: string,
@@ -353,18 +320,15 @@ export class PocketBaseService {
       });
       return updated as unknown as TrailComment;
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 
-  // Delete a comment
   static async deleteTrailComment(commentId: string): Promise<void> {
     try {
       await pb.collection("trail_comments").delete(commentId);
     } catch (error) {
-      handleApiError(error);
-      throw error;
+      throw handleApiError(error);
     }
   }
 }

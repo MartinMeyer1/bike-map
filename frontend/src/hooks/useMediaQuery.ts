@@ -1,56 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
-export const useMediaQuery = (query: string): boolean => {
-  const [matches, setMatches] = useState(false);
-
-  useEffect(() => {
+const useMediaQuery = (query: string): boolean => {
+  const subscribe = useCallback((onChange: () => void) => {
     const media = window.matchMedia(query);
-    if (media.matches !== matches) {
-      setMatches(media.matches);
-    }
-    
-    const listener = (event: MediaQueryListEvent) => {
-      setMatches(event.matches);
-    };
-    
-    media.addEventListener('change', listener);
-    return () => media.removeEventListener('change', listener);
-  }, [matches, query]);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, [query]);
 
-  return matches;
+  const getSnapshot = useCallback(() => window.matchMedia(query).matches, [query]);
+
+  return useSyncExternalStore(subscribe, getSnapshot);
 };
 
-// Predefined mobile breakpoint hooks
 export const useIsMobile = (): boolean => {
-  // Use a combination of screen size AND touch capability to detect mobile devices
-  // This handles landscape mobile devices that might have width > 768px
+  // Screen size alone misclassifies landscape phones, which can exceed 768px wide.
+  // Pairing it with touch-without-hover catches those.
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
   const isSmallHeight = useMediaQuery('(max-height: 768px)');
   const isTouchDevice = useMediaQuery('(pointer: coarse)');
   const hasHover = useMediaQuery('(hover: hover)');
-  
-  // Mobile if: small screen OR (touch device without hover capability and small height in landscape)
+
   return isSmallScreen || (isTouchDevice && !hasHover && isSmallHeight);
-};
-
-export const useIsTablet = (): boolean => {
-  return useMediaQuery('(min-width: 769px) and (max-width: 1024px)');
-};
-
-export const useIsDesktop = (): boolean => {
-  return useMediaQuery('(min-width: 1025px)');
-};
-
-// Touch device detection
-export const useIsTouchDevice = (): boolean => {
-  return useMediaQuery('(pointer: coarse)');
-};
-
-// Orientation detection
-export const useIsPortrait = (): boolean => {
-  return useMediaQuery('(orientation: portrait)');
-};
-
-export const useIsLandscape = (): boolean => {
-  return useMediaQuery('(orientation: landscape)');
 };

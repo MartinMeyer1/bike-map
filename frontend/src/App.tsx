@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
@@ -14,7 +14,7 @@ import { useAppContext } from './hooks/useAppContext';
 import { useIsMobile } from './hooks/useMediaQuery';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
-import { Trail, MVTTrail } from './types';
+import { MVTTrail } from './types';
 import './App.css';
 
 const AppContent: React.FC = () => {
@@ -28,8 +28,8 @@ const AppContent: React.FC = () => {
     return saved === 'osm' ? 'osm' : 'swisstopo';
   });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
+  const locationRequestPendingRef = useRef(false);
 
-  // Toast state
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');
   const [showToast, setShowToast] = useState(false);
@@ -54,36 +54,27 @@ const AppContent: React.FC = () => {
   } = useDeviceOrientation();
 
   const {
-    // Auth state
     user,
     isAuthLoading,
 
-    // Trail state
     visibleTrails,
     selectedTrail,
     fitBoundsTarget,
 
-    // UI state
     isUploadPanelVisible,
     isEditPanelVisible,
     trailToEdit,
 
-    // Drawing state
     isDrawingActive,
     drawingMode,
 
-    // General state
     error,
-    mapMoveEndTrigger,
     mvtRefreshTrigger,
-    
-    // Methods
-    updateVisibleTrails,
+
     updateVisibleTrailsFromMVT,
     selectTrail,
-    handleTrailCreated,
-    handleTrailUpdated,
     handleTrailDeleted,
+    refreshMVTLayer,
     showUploadPanel,
     hideUploadPanel,
     showEditPanel,
@@ -92,77 +83,45 @@ const AppContent: React.FC = () => {
     completeDrawing,
     cancelDrawing,
     getGpxContent,
-    getPreviousGpxContent,
-    clearError,
-    incrementMapMoveTrigger
+    clearError
   } = useAppContext();
 
-  // Handle trail creation
-  const handleTrailCreatedComplete = async (newTrail: Trail) => {
-    await handleTrailCreated(newTrail);
-    hideUploadPanel();
-  };
-
-  // Handle trail update
-  const handleTrailUpdatedComplete = async (updatedTrail: Trail) => {
-    await handleTrailUpdated(updatedTrail);
-    hideEditPanel();
-  };
-
-  // Handle trail deletion
-  const handleTrailDeletedComplete = (trailId: string) => {
-    handleTrailDeleted(trailId);
-    hideEditPanel();
-  };
-
-  // Handle start drawing
   const handleStartDrawing = () => {
     startDrawing('upload');
   };
 
-  // Handle route drawing completed
   const handleRouteComplete = (gpxContent: string) => {
     completeDrawing(gpxContent);
     showUploadPanel();
   };
 
-  // Handle drawing cancelled
   const handleDrawingCancel = () => {
     cancelDrawing();
     showUploadPanel();
   };
 
-  // Handle start drawing for edit panel
   const handleEditStartDrawing = () => {
     startDrawing('edit');
   };
 
-  // Handle route drawing completed for edit panel
   const handleEditRouteComplete = (gpxContent: string) => {
     completeDrawing(gpxContent);
     showEditPanel(trailToEdit!);
   };
 
-  // Handle drawing cancelled for edit panel
   const handleEditDrawingCancel = () => {
     cancelDrawing();
     showEditPanel(trailToEdit!);
   };
 
-  // Sync selectedTrail to mobileSelectedTrail when trail is loaded from URL
-  React.useEffect(() => {
-    if (isMobile && selectedTrail && !mobileSelectedTrail) {
-      // Trail was selected (likely from URL) but mobile popup isn't showing
-      setMobileSelectedTrail(selectedTrail);
-    }
-  }, [isMobile, selectedTrail, mobileSelectedTrail]);
+  // Sync selectedTrail to mobileSelectedTrail when trail is loaded from URL.
+  // Adjusted during render (not in an effect) per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (isMobile && selectedTrail && !mobileSelectedTrail) {
+    // Trail was selected (likely from URL) but mobile popup isn't showing
+    setMobileSelectedTrail(selectedTrail);
+  }
 
-  // Handle map movement end
-  const handleMapMoveEnd = React.useCallback(() => {
-    incrementMapMoveTrigger();
-  }, [incrementMapMoveTrigger]);
-
-  // Mobile-specific handlers
   const handleMobileTrailClick = useCallback((trail: MVTTrail | null) => {
     if (isMobile) {
       setMobileSelectedTrail(trail);
@@ -179,7 +138,6 @@ const AppContent: React.FC = () => {
     selectTrail(null);
   }, [selectTrail]);
 
-  // Toast handler
   const handleShowToast = useCallback((message: string, variant: 'success' | 'error') => {
     setToastMessage(message);
     setToastVariant(variant);
@@ -196,7 +154,8 @@ const AppContent: React.FC = () => {
 
   const handleLocationRequest = useCallback(async () => {
     setIsLocationLoading(true);
-    
+    locationRequestPendingRef.current = true;
+
     if (!showLocationTracking) {
       setShowLocationTracking(true);
       startLocationTracking();
@@ -234,17 +193,24 @@ const AppContent: React.FC = () => {
   // Calculate user heading from device orientation
   const userHeading = orientation?.compass;
 
-  // Clear loading state and auto-zoom when location is first received
-  React.useEffect(() => {
-    if (userLocation || locationError) {
-      setIsLocationLoading(false);
-    }
-    
-    // Auto-zoom to location when first received (if it was requested by user)
-    if (userLocation && isLocationLoading && locationMarkerRef.current) {
+  // Clear loading state once a location or error comes back.
+  // Adjusted during render (not in an effect) per
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if ((userLocation || locationError) && isLocationLoading) {
+    setIsLocationLoading(false);
+  }
+
+  // Auto-zoom to location when first received after an explicit user request.
+  // This is a real imperative side effect (calling a ref method), so it stays
+  // in an effect; locationRequestPendingRef (not isLocationLoading) tracks
+  // whether we're still owed a zoom, since isLocationLoading may already have
+  // been cleared above by the time this effect runs.
+  useEffect(() => {
+    if (userLocation && locationRequestPendingRef.current && locationMarkerRef.current) {
+      locationRequestPendingRef.current = false;
       locationMarkerRef.current.centerOnLocation(16);
     }
-  }, [userLocation, locationError, isLocationLoading]);
+  }, [userLocation]);
 
   if (isAuthLoading) {
     return (
@@ -263,7 +229,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className={`App ${isMobile ? 'mobile-app' : ''}`}>
+    <div className="App">
       {error && (
         <div style={{
           position: 'fixed',
@@ -305,16 +271,14 @@ const AppContent: React.FC = () => {
       {/* Main map */}
       <Map
         selectedTrail={selectedTrail}
-        onBoundsChange={updateVisibleTrails}
         onTrailClick={isMobile ? handleMobileTrailClick : selectTrail}
         onTrailsLoaded={updateVisibleTrailsFromMVT}
-        onMapMoveEnd={handleMapMoveEnd}
         refreshTrigger={mvtRefreshTrigger}
         fitBoundsTarget={fitBoundsTarget}
         isDrawingActive={isDrawingActive}
         onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
         onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
-        initialGpxContent={getPreviousGpxContent(drawingMode || 'upload')}
+        initialGpxContent={getGpxContent(drawingMode || 'upload')}
         userLocation={userLocation}
         showUserLocation={!!userLocation}
         userHeading={userHeading}
@@ -327,7 +291,6 @@ const AppContent: React.FC = () => {
         <TrailSidebar
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
-          mapMoveEndTrigger={mapMoveEndTrigger}
           user={user}
           onTrailClick={selectTrail}
           onAddTrailClick={showUploadPanel}
@@ -380,8 +343,9 @@ const AppContent: React.FC = () => {
       <UploadPanel
         isVisible={isUploadPanelVisible}
         onClose={hideUploadPanel}
-        onTrailCreated={(newTrail) => {
-          handleTrailCreatedComplete(newTrail);
+        onTrailCreated={() => {
+          // The panel closes itself through onClose; this only refreshes the map.
+          refreshMVTLayer();
           if (isMobile) {
             setMobileSelectedTrail(null);
           }
@@ -395,8 +359,8 @@ const AppContent: React.FC = () => {
         isVisible={isEditPanelVisible}
         trail={trailToEdit}
         onClose={hideEditPanel}
-        onTrailUpdated={handleTrailUpdatedComplete}
-        onTrailDeleted={handleTrailDeletedComplete}
+        onTrailUpdated={refreshMVTLayer}
+        onTrailDeleted={handleTrailDeleted}
         onStartDrawing={handleEditStartDrawing}
         drawnGpxContent={getGpxContent('edit')}
       />

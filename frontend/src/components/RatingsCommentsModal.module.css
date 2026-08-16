@@ -7,7 +7,7 @@
 .loading {
   text-align: center;
   padding: 40px;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 .refreshingIndicator {
@@ -35,7 +35,7 @@
 .sectionTitle {
   font-size: 18px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text-body);
   margin-bottom: 16px;
   border-bottom: 2px solid #e9ecef;
   padding-bottom: 8px;
@@ -60,12 +60,12 @@
 
 .averageText {
   font-size: 16px;
-  color: #495057;
+  color: var(--text-body);
   font-weight: 500;
 }
 
 .noRatings {
-  color: #6c757d;
+  color: var(--text-muted);
   font-style: italic;
   margin: 0;
 }
@@ -80,7 +80,7 @@
 .userRatingTitle {
   font-size: 13px;
   font-weight: 500;
-  color: #6c757d;
+  color: var(--text-muted);
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -88,12 +88,12 @@
 
 .userRatingText {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-muted);
   margin-left: 8px;
 }
 
 .loginPrompt {
-  color: #6c757d;
+  color: var(--text-muted);
   font-style: italic;
   margin: 12px 0;
   text-align: center;
@@ -115,7 +115,7 @@
 
 .star {
   font-size: 18px;
-  color: #dee2e6;
+  color: var(--border-subtle);
   transition: color 0.2s ease;
   user-select: none;
 }
@@ -125,7 +125,7 @@
 }
 
 .star.empty {
-  color: #6c757d;
+  color: var(--text-muted);
   font-weight: bold;
 }
 
@@ -160,7 +160,7 @@
 }
 
 .commentInput:disabled {
-  background-color: #e9ecef;
+  background-color: var(--surface-muted);
   opacity: 1;
 }
 
@@ -190,13 +190,13 @@
 
 .commentAuthor {
   font-weight: 600;
-  color: #495057;
+  color: var(--text-body);
   font-size: 14px;
 }
 
 .commentDate {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 .commentActions {
@@ -230,7 +230,7 @@
 }
 
 .commentText {
-  color: #495057;
+  color: var(--text-body);
   line-height: 1.6;
   margin: 0;
   white-space: pre-wrap;
@@ -249,7 +249,7 @@
 
 .noComments {
   text-align: center;
-  color: #6c757d;
+  color: var(--text-muted);
   font-style: italic;
   padding: 20px;
   margin: 0;

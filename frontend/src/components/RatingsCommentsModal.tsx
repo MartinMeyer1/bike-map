@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import { MVTTrail, User, TrailCommentWithUser, RatingStats } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
 import { Modal, Button } from './ui';
 import styles from './RatingsCommentsModal.module.css';
+import { formatDate } from '../utils/format';
 
 interface RatingsCommentsModalProps {
   isOpen: boolean;
@@ -18,7 +19,6 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   trail,
   user
 }) => {
-  // const [ratings, setRatings] = useState<TrailRatingWithUser[]>([]);
   const [comments, setComments] = useState<TrailCommentWithUser[]>([]);
   const [ratingStats, setRatingStats] = useState<RatingStats>({ count: 0, average: 0 });
   
@@ -28,26 +28,17 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, startTransition] = useTransition();
 
-  // Load data when modal opens
-  useEffect(() => {
-    if (isOpen && trail) {
-      loadData();
-    }
-  }, [isOpen, trail]);
-
-  const loadData = async (isInitialLoad = true) => {
+  const loadData = useCallback(async (isInitialLoad = true) => {
     if (!trail) return;
-    
-    if (isInitialLoad) {
-      setLoading(true);
-    } else {
+
+    if (!isInitialLoad) {
       setRefreshing(true);
     }
-    
+
     try {
       const [commentsData, statsData] = await Promise.all([
         PocketBaseService.getTrailComments(trail.id),
@@ -60,13 +51,18 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     } catch (error) {
       console.error('Failed to load ratings and comments:', error);
     } finally {
-      if (isInitialLoad) {
-        setLoading(false);
-      } else {
+      if (!isInitialLoad) {
         setRefreshing(false);
       }
     }
-  };
+  }, [trail, user]);
+
+  // Load data when modal opens
+  useEffect(() => {
+    if (isOpen && trail) {
+      startTransition(() => loadData());
+    }
+  }, [isOpen, trail, loadData]);
 
   const handleRatingClick = async (rating: number) => {
     if (!trail || !user || submitting) return;
@@ -256,7 +252,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                           {comment.expand?.user?.name || comment.expand?.user?.email || 'Anonymous'}
                         </span>
                         <span className={styles.commentDate}>
-                          {new Date(comment.created).toLocaleDateString()}
+                          {formatDate(comment.created)}
                         </span>
                         {canEditComment(comment) && (
                           <div className={styles.commentActions}>

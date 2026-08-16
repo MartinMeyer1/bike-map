@@ -2,18 +2,15 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds, MVTTrail } from '../types';
-import { setupLeafletCompatibility } from '../utils/browserCompat';
 import { MVTTrailService } from '../services/mvtTrails';
 import RouteDrawer from './RouteDrawer';
 import { LocationMarker, LocationMarkerRef } from './LocationMarker';
 import { UserPosition } from '../hooks/useGeolocation';
 
-// Set up browser compatibility once
-setupLeafletCompatibility();
-
-// Fix for default markers in react-leaflet
-delete ((L as any).Icon.Default.prototype as any)._getIconUrl;
-(L as any).Icon.Default.mergeOptions({
+// Fix for default markers in react-leaflet. The bundler-mangled icon paths
+// are cached on the prototype, so drop them before pointing Leaflet at a CDN.
+delete (L.Icon.Default.prototype as { _getIconUrl?: string })._getIconUrl;
+L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -23,10 +20,8 @@ import { BaseMapType } from './BaseMapSelector';
 
 interface MapProps {
   selectedTrail: MVTTrail | null;
-  onBoundsChange: (bounds: MapBounds) => void;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
-  onMapMoveEnd?: () => void;
   refreshTrigger?: number; // Increment this to trigger MVT refresh
   fitBoundsTarget?: MapBounds | null; // Bounds to fit the map to
   isDrawingActive?: boolean;
@@ -38,7 +33,7 @@ interface MapProps {
   userLocation?: UserPosition | null;
   showUserLocation?: boolean;
   userHeading?: number;
-  locationMarkerRef?: React.RefObject<LocationMarkerRef>;
+  locationMarkerRef?: React.RefObject<LocationMarkerRef | null>;
 }
 
 // Component to handle map bounds fitting
@@ -60,52 +55,25 @@ function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | n
 
 // Component to handle map events and trail zoom
 function MapEvents({
-  onBoundsChange,
   selectedTrail,
-  onMapClick,
-  onMapMoveEnd
+  onMapClick
 }: {
-  onBoundsChange: (bounds: MapBounds) => void;
   selectedTrail: MVTTrail | null;
   onMapClick: () => void;
-  onMapMoveEnd?: () => void;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    
-    const handleMoveEnd = () => {
-        const bounds = map.getBounds();
-        onBoundsChange({
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-        });
-        
-        // Notify that map movement has ended
-        if (onMapMoveEnd) {
-          onMapMoveEnd();
-        }
-    };
-
     const handleMapClick = () => {
       onMapClick();
     };
 
-    map.on('moveend', handleMoveEnd);
-    map.on('zoomend', handleMoveEnd);  // Also listen to zoom events
     map.on('click', handleMapClick);
-    
-    // Initial bounds
-    handleMoveEnd();
 
     return () => {
-      map.off('moveend', handleMoveEnd);
-      map.off('zoomend', handleMoveEnd);
       map.off('click', handleMapClick);
     };
-  }, [map, onBoundsChange, onMapClick, onMapMoveEnd]);
+  }, [map, onMapClick]);
 
   // Handle trail zoom when selectedTrail changes
   useEffect(() => {
@@ -113,7 +81,7 @@ function MapEvents({
       const bounds = selectedTrail.bounds;
       
       // Create Leaflet bounds object
-      const leafletBounds = (L as any).latLngBounds(
+      const leafletBounds = L.latLngBounds(
         [bounds.south, bounds.west],
         [bounds.north, bounds.east]
       );
@@ -217,12 +185,10 @@ const tileConfigs = {
   },
 } as const;
 
-export default function Map({
+function Map({
   selectedTrail,
-  onBoundsChange,
   onTrailClick,
   onTrailsLoaded,
-  onMapMoveEnd,
   refreshTrigger,
   fitBoundsTarget,
   isDrawingActive = false,
@@ -255,27 +221,23 @@ export default function Map({
   
   return (
     <MapContainer
-      {...{ 
-        center: [46.2, 7.65], 
-        zoom: 10, 
-        zoomControl: false,
-        tapTolerance: 44 // Increase touch tolerance on mobile
-      } as any} // Center on Valais, Switzerland
+      center={[46.2, 7.65]} // Center on Valais, Switzerland
+      zoom={10}
+      zoomControl={false}
+      tapTolerance={44} // Increase touch tolerance on mobile
       style={{ height: '100vh', width: '100%' }}
     >
       {/* Base map tile layer */}
       <TileLayer
         key={activeBaseMap}
-        {...{
-          url: tileConfigs[activeBaseMap].url,
-          attribution: tileConfigs[activeBaseMap].attribution,
-          maxZoom: tileConfigs[activeBaseMap].maxZoom
-        } as any}
+        url={tileConfigs[activeBaseMap].url}
+        attribution={tileConfigs[activeBaseMap].attribution}
+        maxZoom={tileConfigs[activeBaseMap].maxZoom}
       />
 
 
       {/* Map event handler */}
-      <MapEvents onBoundsChange={onBoundsChange} selectedTrail={selectedTrail} onMapClick={handleMapClick} onMapMoveEnd={onMapMoveEnd} />
+      <MapEvents selectedTrail={selectedTrail} onMapClick={handleMapClick} />
 
       {/* Fit bounds handler */}
       <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
@@ -309,7 +271,12 @@ export default function Map({
           autoCenter={false}
         />
       )}
-      
+
     </MapContainer>
   );
 }
+
+// Memoized because every prop it takes is already referentially stable (context
+// callbacks are useCallback'd, refs are refs). Without this, any state change in
+// AppContent re-reconciles the whole Leaflet subtree on every render.
+export default React.memo(Map);

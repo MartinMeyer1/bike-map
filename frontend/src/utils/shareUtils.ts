@@ -1,4 +1,5 @@
 import { MVTTrail, Trail } from "../types";
+import { API_BASE_URL } from "./apiBaseUrl";
 
 /**
  * Utility functions for sharing trails via Web Share API or clipboard fallback
@@ -7,28 +8,18 @@ import { MVTTrail, Trail } from "../types";
 /**
  * Check if the Web Share API is available on this device
  */
-export function canShare(): boolean {
+function canShare(): boolean {
   return typeof navigator !== "undefined" && "share" in navigator;
-}
-
-/**
- * Generate a shareable URL for a trail
- */
-export function getTrailShareUrl(trailId: string): string {
-  const baseUrl = window.location.origin;
-  return `${baseUrl}?trail=${trailId}`;
 }
 
 /**
  * Generate the share endpoint URL for social media preview
  */
-export function getTrailMetaUrl(
+function getTrailMetaUrl(
   trailId: string,
   bounds?: { north: number; south: number; east: number; west: number },
 ): string {
-  const apiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8090";
-  let url = `${apiBaseUrl}/api/meta/${trailId}`;
+  let url = `${API_BASE_URL}/api/meta/${trailId}`;
 
   // Add bbox parameter if bounds are provided
   if (bounds) {
@@ -101,7 +92,7 @@ export async function shareTrail(
 /**
  * Copy text to clipboard
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
+async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
@@ -122,7 +113,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 
       return successful;
     }
-  } catch (error) {
+  } catch {
     return false;
   }
 }

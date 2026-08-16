@@ -37,7 +37,7 @@ func (c *CollectionService) EnsureTrailsCollection(app core.App) error {
 	publicRule := ""
 	createRule := `@request.auth.id != "" && (@request.auth.role = "Editor" || @request.auth.role = "Admin")`
 	updateRule := `@request.auth.id = owner || @request.auth.role = "Admin" || (@request.auth.id != "" && ridden = false)`
-	deleteRule := `@request.auth.id = owner || @request.auth.role = "Admin"`
+	deleteRule := `@request.auth.id = owner || @request.auth.role = "Admin" || (@request.auth.id != "" && ridden = false)`
 
 	collection.ListRule = &publicRule // Allow public read access
 	collection.ViewRule = &publicRule // Allow public read access

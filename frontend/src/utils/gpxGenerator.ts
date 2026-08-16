@@ -1,17 +1,12 @@
-export interface RoutePoint {
+interface RoutePoint {
   lat: number;
   lng: number;
   ele?: number;
 }
 
-export interface ParsedGPX {
+interface ParsedGPX {
   waypoints: RoutePoint[];
   route: RoutePoint[];
-}
-
-export function parseGPX(gpxContent: string): RoutePoint[] {
-  const parsed = parseGPXDetailed(gpxContent);
-  return parsed.waypoints.length > 0 ? parsed.waypoints : parsed.route;
 }
 
 export function parseGPXDetailed(gpxContent: string): ParsedGPX {

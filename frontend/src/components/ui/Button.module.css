@@ -33,9 +33,10 @@
   font-size: 14px;
 }
 
+/* Matches the modal action buttons this size was introduced for. */
 .large {
   padding: 12px 20px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* Variants */
@@ -71,7 +72,7 @@
 
 .warning {
   background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-  color: #212529;
+  color: var(--text-strong);
   box-shadow: 0 2px 4px rgba(255,193,7,0.2);
 }
 
@@ -97,4 +98,14 @@
 
 .purple:hover {
   box-shadow: 0 4px 8px rgba(111,66,193,0.3);
+}
+
+/* 44px is the minimum comfortable touch target. */
+@media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
+  .medium,
+  .large {
+    min-height: 44px;
+    padding: 12px 20px;
+    font-size: 16px;
+  }
 }

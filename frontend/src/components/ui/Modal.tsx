@@ -9,7 +9,10 @@ export interface ModalProps {
   className?: string;
   showCloseButton?: boolean;
   centerTitle?: boolean;
-  headerVariant?: 'blue' | 'purple';
+  headerVariant?: 'blue' | 'purple' | 'success' | 'warning' | 'danger';
+  size?: 'default' | 'wide';
+  /** Forms set this false so a stray backdrop click cannot discard input. */
+  closeOnOverlayClick?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -20,14 +23,16 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   showCloseButton = true,
   centerTitle = false,
-  headerVariant = 'blue'
+  headerVariant = 'blue',
+  size = 'default',
+  closeOnOverlayClick = true
 }) => {
   if (!isOpen) return null;
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div 
-        className={`${styles.modal} ${className || ''}`} 
+    <div className={styles.overlay} onClick={closeOnOverlayClick ? onClose : undefined}>
+      <div
+        className={`${styles.modal} ${size === 'wide' ? styles.wide : ''} ${className || ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (

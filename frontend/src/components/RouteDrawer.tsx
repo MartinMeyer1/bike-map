@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { 
-  PathPoint
-} from '../utils/pathfinding';
+import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 import { PocketBaseService } from '../services/pocketbase';
+import { useAppContext } from '../hooks/useAppContext';
 
 interface RouteDrawerProps {
   isActive: boolean;
@@ -16,16 +15,39 @@ interface RouteDrawerProps {
 
 export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initialGpxContent }: RouteDrawerProps) {
   const map = useMap();
+  const { setError } = useAppContext();
   const [waypoints, setWaypoints] = useState<PathPoint[]>([]);
-  const [routePoints, setRoutePoints] = useState<PathPoint[]>([]);
   const [routeSegments, setRouteSegments] = useState<Array<Array<{lat: number, lng: number, ele?: number}>>>([]);
-  const [routeLayer, setRouteLayer] = useState<any | null>(null);
-  const [waypointLayer, setWaypointLayer] = useState<any | null>(null);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
-  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
-  const [routePointsWithElevation, setRoutePointsWithElevation] = useState<Array<{lat: number, lng: number, ele?: number}>>([]);
+  const [isCalculatingRoute, startRouteTransition] = useTransition();
   const isUndoingRef = useRef(false);
   const lastUserWaypointCountRef = useRef(0);
+  const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const waypointLayerRef = useRef<L.LayerGroup | null>(null);
+
+  // Route points are entirely derived from the accumulated BRouter segments
+  // (or, absent those, the raw waypoints) - no need to store them separately.
+  const routePointsWithElevation = useMemo(() => {
+    if (routeSegments.length === 0) return [];
+
+    // Concatenate all segments, avoiding duplicate points at segment boundaries
+    const completeRoute: Array<{lat: number, lng: number, ele?: number}> = [];
+    routeSegments.forEach((segment, index) => {
+      if (index === 0) {
+        // First segment: add all points
+        completeRoute.push(...segment);
+      } else {
+        // Subsequent segments: skip first point to avoid duplication
+        completeRoute.push(...segment.slice(1));
+      }
+    });
+    return completeRoute;
+  }, [routeSegments]);
+
+  const routePoints = useMemo<PathPoint[]>(() => {
+    if (routePointsWithElevation.length === 0) return [...waypoints];
+    return routePointsWithElevation.map(p => ({ lat: p.lat, lng: p.lng }));
+  }, [waypoints, routePointsWithElevation]);
 
   // Calculate distance between two lat/lng points in meters (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -83,65 +105,68 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     return segments;
   }, [calculateDistance]);
 
-  // Initialize waypoints from GPX content when drawing becomes active
-  useEffect(() => {
-        if (!isActive) {
+  // Initialize waypoints from GPX content when drawing becomes active.
+  // This is a pure reset driven by props (isActive/initialGpxContent), so it's
+  // adjusted during render rather than in an effect - see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [lastInitKey, setLastInitKey] = useState('');
+  const initKey = `${isActive}|${initialGpxContent ?? ''}`;
+  if (initKey !== lastInitKey) {
+    setLastInitKey(initKey);
+
+    if (!isActive) {
       // Clear state when drawing becomes inactive
-            setRoutePointsWithElevation([]);
       setRouteSegments([]);
-      lastUserWaypointCountRef.current = 0;
-            return;
-    }
-    
-    const parsedGPX = parseGPXDetailed(initialGpxContent || '');
-    const { waypoints: initialWaypoints, route: cachedRoute } = parsedGPX;
-    
-    setInitialWaypoints(initialWaypoints);
-    setWaypoints(initialWaypoints);
-    
-    // Initialize the user waypoint count with existing waypoints
-    lastUserWaypointCountRef.current = initialWaypoints.length;
-    
-    // Check if we have existing content with both waypoints and computed route
-    const hasExisting = initialWaypoints.length > 0 && cachedRoute.length > 0;
-    
-    if (hasExisting) {
-      // Cache the computed route and split it into segments
-      const reconstructedSegments = splitRouteIntoSegments(cachedRoute, initialWaypoints);
-      setRouteSegments(reconstructedSegments);
     } else {
-      // Starting fresh - clear route data
-      setRoutePointsWithElevation([]);
-      setRouteSegments([]);
+      const parsedGPX = parseGPXDetailed(initialGpxContent || '');
+      const { waypoints: initialWaypoints, route: cachedRoute } = parsedGPX;
+
+      setInitialWaypoints(initialWaypoints);
+      setWaypoints(initialWaypoints);
+
+      // Check if we have existing content with both waypoints and computed route
+      const hasExisting = initialWaypoints.length > 0 && cachedRoute.length > 0;
+
+      // Cache the computed route and split it into segments, or start fresh
+      setRouteSegments(hasExisting ? splitRouteIntoSegments(cachedRoute, initialWaypoints) : []);
     }
-    
-  }, [isActive, initialGpxContent, splitRouteIntoSegments]);
+  }
+
+  // Keep the incremental-routing waypoint counter (a ref, not state - see the
+  // "Update route when waypoints change" effect below) in sync with the reset
+  // above. Refs can't be written during render, so this runs as an effect;
+  // it's declared before the waypoints-change effect so it primes the ref
+  // first within the same commit.
+  useEffect(() => {
+    lastUserWaypointCountRef.current = isActive ? initialWaypoints.length : 0;
+  }, [isActive, initialWaypoints]);
 
   // Initialize layers
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const rLayer = new (L as any).LayerGroup();
-    const wLayer = new (L as any).LayerGroup();
+    const rLayer = new L.LayerGroup();
+    const wLayer = new L.LayerGroup();
     
     map.addLayer(rLayer);
     map.addLayer(wLayer);
-    
-    setRouteLayer(rLayer);
-    setWaypointLayer(wLayer);
+
+    routeLayerRef.current = rLayer;
+    waypointLayerRef.current = wLayer;
 
     return () => {
       if (map.hasLayer(rLayer)) map.removeLayer(rLayer);
       if (map.hasLayer(wLayer)) map.removeLayer(wLayer);
+      routeLayerRef.current = null;
+      waypointLayerRef.current = null;
     };
   }, [map, isActive]);
 
 
-  // Handle map clicks to add waypoints
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const handleMapClick = (e: any) => {
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
       if (isUndoingRef.current) {
         return;
       }
@@ -160,7 +185,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           lng: e.latlng.lng,
         };
 
-        // User is adding a new waypoint - routing will be handled automatically
 
         return [...prev, newPoint];
       });
@@ -184,7 +208,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const BROUTER_BASE_URL = import.meta.env.VITE_BROUTER_BASE_URL || 'http://localhost:17777';
       const brouterUrl = `${BROUTER_BASE_URL}/brouter?lonlats=${lonlats}&profile=hiking-mountain&format=gpx`;
 
-      const token = await PocketBaseService.getAuthToken(); // RGet the pocketbase token
+      const token = PocketBaseService.getAuthToken();
 
       const response = await fetch(brouterUrl, {
         method: 'GET',
@@ -192,34 +216,26 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      const gpxText = await response.text();
-      
-      // Parse GPX to extract track points
-      const parser = new DOMParser();
-      const gpxDoc = parser.parseFromString(gpxText, 'application/xml');
-      
-      // Extract track points from GPX including elevation data
-      const trackPoints: Array<{lat: number, lng: number, ele?: number}> = [];
-      const trkpts = gpxDoc.querySelectorAll('trkpt');
-      
-      trkpts.forEach(trkpt => {
-        const lat = parseFloat(trkpt.getAttribute('lat') || '0');
-        const lon = parseFloat(trkpt.getAttribute('lon') || '0');
-        const eleElement = trkpt.querySelector('ele');
-        const elevation = eleElement ? parseFloat(eleElement.textContent || '0') : undefined;
-        
-        if (lat && lon) {
-          trackPoints.push({ lat, lng: lon, ele: elevation });
-        }
-      });
-      
-      return trackPoints.length > 0 ? trackPoints : [fromPoint, toPoint].map(p => ({...p, ele: undefined}));
+
+      // Without this check an error body is parsed as GPX, yields no track
+      // points, and silently degrades to a straight line.
+      if (!response.ok) {
+        throw new Error(`BRouter responded ${response.status}`);
+      }
+
+      const trackPoints = parseGPXDetailed(await response.text()).route;
+
+      if (trackPoints.length === 0) {
+        throw new Error('BRouter returned no track points');
+      }
+
+      return trackPoints;
     } catch (error) {
+      setError('Could not compute the route, using a straight line instead.');
       console.error('BRouter routing error:', error);
       return [fromPoint, toPoint].map(p => ({...p, ele: undefined})); // Fallback to straight line
     }
-  }, []);
+  }, [setError]);
 
   // Calculate elevation gain, loss, and total distance from track points
   const calculateRouteData = useCallback((trackPoints: Array<{lat: number, lng: number, ele?: number}>) => {
@@ -253,72 +269,53 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     };
   }, [calculateDistance]);
 
-  // Update route when waypoints change - handle incrementally
+  // Update route when waypoints change - handle incrementally.
+  // routeSegments accumulates results from real BRouter network calls, so this
+  // stays an effect; the state updates are wrapped in a transition (rather than
+  // called synchronously) so isCalculatingRoute is derived from the transition's
+  // pending status instead of being managed by hand.
   useEffect(() => {
     if (waypoints.length < 2) {
-      setRoutePoints([...waypoints]);
-      setRoutePointsWithElevation([]);
-      setRouteSegments([]);
-      setIsCalculatingRoute(false);
+      startRouteTransition(() => {
+        setRouteSegments([]);
+      });
       lastUserWaypointCountRef.current = waypoints.length;
       return;
     }
-    
+
     // Only trigger BRouter calls if the user has actually added waypoints
     const currentWaypointCount = waypoints.length;
     const lastWaypointCount = lastUserWaypointCountRef.current;
-    
+
     if (currentWaypointCount > lastWaypointCount) {
       // User added a waypoint - calculate route from previous waypoint to new one
       const fromPoint = waypoints[waypoints.length - 2];
       const toPoint = waypoints[waypoints.length - 1];
-      
-      setIsCalculatingRoute(true);
-      calculateRouteSegment(fromPoint, toPoint).then(newSegment => {
+
+      startRouteTransition(async () => {
+        const newSegment = await calculateRouteSegment(fromPoint, toPoint);
         setRouteSegments(prev => [...prev, newSegment]);
-        setIsCalculatingRoute(false);
       });
-      
+
       // Update the cached count
       lastUserWaypointCountRef.current = currentWaypointCount;
     } else if (currentWaypointCount < lastWaypointCount) {
       // User removed a waypoint - remove the last segment
       const segmentsToRemove = lastWaypointCount - currentWaypointCount;
-      setRouteSegments(prev => prev.slice(0, -segmentsToRemove));
-      
+      startRouteTransition(() => {
+        setRouteSegments(prev => prev.slice(0, -segmentsToRemove));
+      });
+
       // Update the cached count
       lastUserWaypointCountRef.current = currentWaypointCount;
     }
     // If currentWaypointCount === lastWaypointCount, it's just reinitialization - do nothing
   }, [waypoints, calculateRouteSegment]);
 
-  // Rebuild complete route from segments
-  useEffect(() => {
-    if (routeSegments.length === 0) {
-      setRoutePointsWithElevation([]);
-      setRoutePoints([...waypoints]);
-      return;
-    }
-    
-    // Concatenate all segments, avoiding duplicate points at segment boundaries
-    const completeRoute: Array<{lat: number, lng: number, ele?: number}> = [];
-    
-    routeSegments.forEach((segment, index) => {
-      if (index === 0) {
-        // First segment: add all points
-        completeRoute.push(...segment);
-      } else {
-        // Subsequent segments: skip first point to avoid duplication
-        completeRoute.push(...segment.slice(1));
-      }
-    });
-    
-    setRoutePointsWithElevation(completeRoute);
-    setRoutePoints(completeRoute.map(p => ({ lat: p.lat, lng: p.lng })));
-  }, [routeSegments, waypoints]);
-
   // Update map display
   useEffect(() => {
+    const routeLayer = routeLayerRef.current;
+    const waypointLayer = waypointLayerRef.current;
     if (!routeLayer || !waypointLayer) return;
 
     // Clear existing layers
@@ -327,7 +324,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
     // Draw waypoints
     waypoints.forEach((point, index) => {
-      const marker = (L as any).circleMarker([point.lat, point.lng], {
+      const marker = L.circleMarker([point.lat, point.lng], {
         radius: 8,
         fillColor: index === 0 ? '#28a745' : index === waypoints.length - 1 ? '#dc3545' : '#007bff',
         color: '#fff',
@@ -344,12 +341,12 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     if (routePoints.length >= 2) {
       const isComputedRoute = routePoints.length > waypoints.length;
       
-      const polyline = (L as any).polyline(
-        routePoints.map(p => [p.lat, p.lng]),
+      const polyline = L.polyline(
+        routePoints.map((p): L.LatLngTuple => [p.lat, p.lng]),
         {
-          color: isComputedRoute ? '#dc3545' : '#dc3545',
-          weight: isComputedRoute ? 6 : 6,
-          opacity: isComputedRoute ? 0.8 : 0.8,
+          color: '#dc3545',
+          weight: 6,
+          opacity: 0.8,
           dashArray: isComputedRoute ? undefined : '5, 5'
         }
       );
@@ -360,18 +357,14 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
         : 'Fallback: straight line between waypoints';
       polyline.bindTooltip(tooltipText, { permanent: false });
     }
-  }, [routePoints, waypoints, routeLayer, waypointLayer]);
+  }, [routePoints, waypoints]);
 
-  // Handle undo last waypoint
   const handleUndo = useCallback(() => {
     isUndoingRef.current = true;
     
     setWaypoints(prev => {
       if (prev.length === 0) return prev;
       
-      // User is modifying waypoints - routing will be handled automatically
-      
-      // Remove the last waypoint
       return prev.slice(0, -1);
     });
     
@@ -381,10 +374,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     }, 200);
   }, []);
 
-  // Handle route completion
   const handleComplete = useCallback(() => {
     if (waypoints.length < 2) {
-      alert('Please add at least 2 waypoints to create a route');
+      setError('Please add at least 2 waypoints to create a route');
       return;
     }
 
@@ -394,9 +386,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     // Generate GPX including elevation data and original waypoints
     const gpxContent = generateGPX(pointsToUse, 'Drawn Route', waypoints);
     onRouteComplete(gpxContent);
-  }, [waypoints, routePoints, routePointsWithElevation, onRouteComplete]);
+  }, [waypoints, routePoints, routePointsWithElevation, onRouteComplete, setError]);
 
-  // Handle cancel
   const handleCancel = useCallback(() => {
     // Generate GPX from initial waypoints to restore previous state
     if (initialWaypoints.length > 0) {
