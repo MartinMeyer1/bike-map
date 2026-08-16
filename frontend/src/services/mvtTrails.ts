@@ -84,9 +84,6 @@ export class MVTTrailService {
     this.baseUrl = baseUrl || API_BASE_URL;
 
     this.generateCacheVersion();
-
-    // Listen to map movement to re-add markers for trails that come back into view (debounced)
-    this.map.on("moveend zoomend", this.handleMapMove);
   }
 
   setEvents(events: MVTTrailEvents) {
@@ -209,6 +206,13 @@ export class MVTTrailService {
 
     this.mvtLayer = this.createMVTLayer();
     this.map.addLayer(this.mvtLayer);
+
+    // Paired with the off() in removeFromMap. Registering here rather than in
+    // the constructor is what makes the pair symmetric: the service outlives
+    // any single add/remove cycle, so a constructor-time listener would be
+    // detached by the first teardown and never come back. Leaflet ignores a
+    // repeat registration of the same function reference.
+    this.map.on("moveend zoomend", this.handleMapMove);
   }
 
   removeFromMap(): void {
