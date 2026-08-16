@@ -1,4 +1,5 @@
 import { MVTTrail, Trail } from "../types";
+import { API_BASE_URL } from "./apiBaseUrl";
 
 /**
  * Utility functions for sharing trails via Web Share API or clipboard fallback
@@ -18,9 +19,7 @@ function getTrailMetaUrl(
   trailId: string,
   bounds?: { north: number; south: number; east: number; west: number },
 ): string {
-  const apiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8090";
-  let url = `${apiBaseUrl}/api/meta/${trailId}`;
+  let url = `${API_BASE_URL}/api/meta/${trailId}`;
 
   // Add bbox parameter if bounds are provided
   if (bounds) {

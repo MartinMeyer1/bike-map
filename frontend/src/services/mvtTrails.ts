@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet.vectorgrid";
 import { MVTTrailProperties, MVTTrail, MapBounds } from "../types";
 import { getLevelColor } from "../utils/colors";
+import { API_BASE_URL } from "../utils/apiBaseUrl";
 
 export interface MVTTrailEvents {
   onTrailClick?: (trail: MVTTrail) => void;
@@ -83,8 +84,7 @@ export class MVTTrailService {
 
   constructor(map: L.Map, baseUrl?: string) {
     this.map = map;
-    this.baseUrl =
-      baseUrl || import.meta.env.VITE_API_BASE_URL || "http://localhost:8090";
+    this.baseUrl = baseUrl || API_BASE_URL;
 
     // Initialize with current timestamp as initial cache version
     this.generateCacheVersion();

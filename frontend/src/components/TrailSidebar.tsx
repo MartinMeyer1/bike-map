@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { User, MVTTrail, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
+import { downloadTrailGpx } from '../utils/trailFile';
 import UserSection from './UserSection';
 import { TrailCard } from './TrailCard';
 import { QRModal } from './QRModal';
@@ -34,31 +35,9 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const trailRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  const handleDownloadGPX = useCallback((trail: Trail) => {
-    // Use the actual file name from the trail data
-    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = `${trail.name}.gpx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }, []);
-
   const handleShowQRCode = useCallback((trail: Trail) => {
-    // Use the actual file name from the trail data
-    const fileUrl = PocketBaseService.getTrailFileUrl(trail);
-    setShowQRCode(fileUrl);
+    setShowQRCode(PocketBaseService.getTrailFileUrl(trail));
   }, []);
-
-  // Memoize callback props to prevent TrailCard re-renders
-  const memoizedOnTrailClick = useCallback((trail: MVTTrail) => {
-    onTrailClick(trail);
-  }, [onTrailClick]);
-
-  const memoizedOnEditTrailClick = useCallback((trail: MVTTrail) => {
-    onEditTrailClick(trail);
-  }, [onEditTrailClick]);
 
   const handleCloseQRCode = useCallback(() => {
     setShowQRCode(null);
@@ -186,9 +165,9 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
                     },
                     commentCount: trail.comment_count
                   }}
-                  onTrailClick={memoizedOnTrailClick}
-                  onEditTrailClick={memoizedOnEditTrailClick}
-                  onDownloadGPX={handleDownloadGPX}
+                  onTrailClick={onTrailClick}
+                  onEditTrailClick={onEditTrailClick}
+                  onDownloadGPX={downloadTrailGpx}
                   onShowQRCode={handleShowQRCode}
                   onShowRatingsComments={handleShowRatingsComments}
                 />

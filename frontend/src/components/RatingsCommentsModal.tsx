@@ -4,6 +4,7 @@ import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
 import { Modal, Button } from './ui';
 import styles from './RatingsCommentsModal.module.css';
+import { formatDate } from '../utils/format';
 
 interface RatingsCommentsModalProps {
   isOpen: boolean;
@@ -251,7 +252,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                           {comment.expand?.user?.name || comment.expand?.user?.email || 'Anonymous'}
                         </span>
                         <span className={styles.commentDate}>
-                          {new Date(comment.created).toLocaleDateString()}
+                          {formatDate(comment.created)}
                         </span>
                         {canEditComment(comment) && (
                           <div className={styles.commentActions}>

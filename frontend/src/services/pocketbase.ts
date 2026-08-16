@@ -10,10 +10,8 @@ import {
   RatingAverage,
 } from "../types";
 import { handleApiError } from "../utils/errorHandling";
+import { API_BASE_URL } from "../utils/apiBaseUrl";
 
-// Initialize PocketBase client with configurable base URL
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8090";
 const pb = new PocketBase(API_BASE_URL);
 
 // Enable auto-refresh and persistence of auth token
