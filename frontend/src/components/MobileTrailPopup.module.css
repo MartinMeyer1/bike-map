@@ -6,7 +6,7 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 2000;
+  z-index: var(--z-modal);
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -18,7 +18,7 @@
   max-height: 70vh;
   background: white;
   border-radius: 16px 16px 0 0;
-  z-index: 2001;
+  z-index: calc(var(--z-modal) + 1);
   display: flex;
   flex-direction: column;
   animation: slideUp 0.3s ease-out;
@@ -66,7 +66,7 @@
 }
 
 .closeButton {
-  background: #f8f9fa;
+  background: var(--surface-subtle);
   border: 1px solid #dee2e6;
   border-radius: 50%;
   width: 36px;
@@ -76,13 +76,13 @@
   justify-content: center;
   cursor: pointer;
   font-size: 20px;
-  color: #6c757d;
+  color: var(--text-muted);
   transition: all 0.2s;
 }
 
 .closeButton:hover {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--surface-muted);
+  color: var(--text-body);
 }
 
 /* Content */
@@ -135,7 +135,7 @@
 .loadingState, .errorState {
   text-align: center;
   padding: 20px;
-  color: #6c757d;
+  color: var(--text-muted);
   font-style: italic;
 }
 

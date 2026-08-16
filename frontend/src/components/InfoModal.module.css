@@ -10,14 +10,14 @@
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #212529;
+  color: var(--text-strong);
 }
 
 .body {
   margin: 0 0 16px 0;
   font-size: 14px;
   line-height: 1.5;
-  color: #495057;
+  color: var(--text-body);
 }
 
 .body:last-child {
@@ -45,13 +45,13 @@
 }
 
 .levelName {
-  color: #212529;
+  color: var(--text-strong);
   font-weight: 600;
 }
 
 .levelDescription {
   margin: 0 0 0 32px;
-  color: #495057;
+  color: var(--text-body);
   font-size: 11px;
   line-height: 1.4;
 }

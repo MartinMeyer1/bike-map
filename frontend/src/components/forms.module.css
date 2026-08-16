@@ -21,7 +21,7 @@
 .formGroup textarea {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-input);
   border-radius: 4px;
   font-size: 14px;
 }
@@ -109,7 +109,7 @@
   flex: 0 0 auto;
   margin-bottom: 0;
   min-width: 140px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-input);
   border-radius: 4px;
   padding: 8px 12px;
   display: flex;
@@ -170,21 +170,21 @@
 
 .deleteLead {
   margin: 0 0 8px 0;
-  color: #495057;
+  color: var(--text-body);
   font-size: 16px;
   line-height: 1.5;
 }
 
 .deleteName {
   margin: 0 0 16px 0;
-  color: #212529;
+  color: var(--text-strong);
   font-size: 18px;
   font-weight: 600;
 }
 
 .deleteWarning {
   margin: 0 0 24px 0;
-  color: #6c757d;
+  color: var(--text-muted);
   font-size: 14px;
   font-style: italic;
 }
@@ -211,5 +211,50 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/*
+ * Touch ergonomics. These previously hung off the global .form-group rules in
+ * App.css; they move here with the form itself. The 16px font size is what
+ * stops iOS Safari zooming when an input takes focus, so it must not shrink.
+ */
+@media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
+  .formGroup input,
+  .formGroup select,
+  .formGroup textarea {
+    font-size: 16px;
+    padding: 12px 16px;
+    min-height: 44px;
+  }
+
+  .checkboxGroup label {
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    background: var(--surface-subtle);
+  }
+
+  .riddenBox {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px), (pointer: coarse) and (hover: none) and (max-height: 480px) {
+  .formGroup {
+    margin-bottom: 20px;
+  }
+
+  .formGroup label {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+}
+
+@media ((max-width: 768px) and (orientation: landscape)),
+  ((pointer: coarse) and (hover: none) and (max-height: 768px) and (orientation: landscape)) {
+  .formGroup {
+    margin-bottom: 12px;
   }
 }

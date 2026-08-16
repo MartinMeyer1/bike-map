@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
+import controls from './mapControls.module.css';
+import marker from './locationMarker.module.css';
 
 interface LocationMarkerProps {
   latitude: number;
@@ -39,13 +41,13 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
 
     // Create custom GPS location icon with directional pointer
     const gpsIcon = L.divIcon({
-      className: 'gps-location-marker',
+      className: marker.marker,
       html: `
-        <div class="gps-marker-container">
-          <div class="gps-direction-cone" style="transform: rotate(${currentHeading || 0}deg); opacity: ${typeof currentHeading === 'number' ? 1 : 0.4};"></div>
-          <div class="gps-marker-outer"></div>
-          <div class="gps-marker-inner"></div>
-          <div class="gps-marker-dot"></div>
+        <div class="${marker.container}">
+          <div class="${marker.directionCone}" style="transform: rotate(${currentHeading || 0}deg); opacity: ${typeof currentHeading === 'number' ? 1 : 0.4};"></div>
+          <div class="${marker.outer}"></div>
+          <div class="${marker.inner}"></div>
+          <div class="${marker.dot}"></div>
         </div>
       `,
       iconSize: [60, 60],
@@ -208,9 +210,14 @@ export const LocationControls: React.FC<{
   };
 
   return (
-    <div className="location-controls">
+    <div className={`${controls.controls} ${controls.locationControls}`}>
       <button
-        className={`location-button ${isTracking ? 'tracking' : ''} ${locationError ? 'error' : ''} ${isLoading ? 'loading' : ''}`}
+        className={[
+          controls.controlButton,
+          isTracking && controls.tracking,
+          locationError && controls.hasError,
+          isLoading && controls.isLoading,
+        ].filter(Boolean).join(' ')}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         disabled={isLoading}
@@ -229,149 +236,6 @@ export const LocationControls: React.FC<{
         {isLoading ? '⏳' : locationError ? '⚠️' : isTracking ? '📍' : hasLocation ? '📍' : '📍'}
       </button>
       
-      <style>{`
-        .location-controls {
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          z-index: 1000;
-        }
-        
-        .location-button {
-          width: 48px;
-          height: 48px;
-          background: white;
-          border: 2px solid #007AFF;
-          border-radius: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          cursor: pointer;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-          transition: all 0.2s ease;
-        }
-        
-        .location-button:hover {
-          background: #f0f8ff;
-          transform: scale(1.05);
-        }
-        
-        .location-button.tracking {
-          background: #007AFF;
-          color: white;
-          animation: pulse 2s infinite;
-        }
-        
-        .location-button.error {
-          border-color: #FF3B30;
-          background: #fff5f5;
-        }
-        
-        .location-button.loading {
-          border-color: #FF9500;
-          background: #fff8f0;
-        }
-        
-        .location-button:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-        
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
-        }
-        
-        /* GPS Location Marker Styles */
-        .gps-location-marker {
-          background: none !important;
-          border: none !important;
-        }
-        
-        .gps-marker-container {
-          position: relative;
-          width: 60px;
-          height: 60px;
-        }
-        
-        .gps-marker-outer {
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 28px;
-          height: 28px;
-          background: rgba(0, 122, 255, 0.2);
-          border: 2px solid #007AFF;
-          border-radius: 50%;
-          animation: gps-pulse 2s ease-out infinite;
-        }
-        
-        .gps-marker-inner {
-          position: absolute;
-          bottom: 6px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 16px;
-          height: 16px;
-          background: #007AFF;
-          border: 2px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        
-        .gps-marker-dot {
-          position: absolute;
-          bottom: 11px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 6px;
-          height: 6px;
-          background: white;
-          border-radius: 50%;
-        }
-        
-        .gps-direction-cone {
-          position: absolute;
-          bottom: 14px; /* Position from bottom edge, centering on the dot */
-          left: 50%;
-          transform-origin: 50% 100%; /* Rotate around bottom center */
-          width: 40px;
-          height: 40px;
-          background: linear-gradient(to top, rgba(0, 122, 255, 0.8) 0%, rgba(0, 122, 255, 0.5) 50%, rgba(0, 122, 255, 0.2) 100%);
-          clip-path: polygon(50% 100%, 20% 20%, 80% 20%);
-          pointer-events: none;
-          transition: transform 0.3s ease-out;
-          margin-left: -20px; /* Center the 40px width */
-          z-index: -1; /* Behind the circular marker */
-        }
-        
-        
-        @keyframes gps-pulse {
-          0% {
-            transform: translateX(-50%) scale(0.8);
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(-50%) scale(1.5);
-            opacity: 0;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .location-controls {
-            top: 60px;
-            right: 16px;
-          }
-          
-          .location-button {
-            width: 44px;
-            height: 44px;
-            font-size: 18px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

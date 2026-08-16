@@ -32,7 +32,7 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #212529;
+  color: var(--text-strong);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -73,8 +73,8 @@
 }
 
 .tag {
-  background: #e9ecef;
-  color: #495057;
+  background: var(--surface-muted);
+  color: var(--text-body);
   padding: 2px 6px;
   border-radius: 4px;
   margin-right: 4px;
@@ -85,7 +85,7 @@
 }
 
 .moreTag {
-  color: #6c757d;
+  color: var(--text-muted);
   font-size: 11px;
   font-style: italic;
 }
@@ -147,7 +147,7 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  color: #6c757d;
+  color: var(--text-muted);
   font-size: 14px;
   font-style: italic;
 }

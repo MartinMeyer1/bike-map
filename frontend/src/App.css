@@ -1,11 +1,67 @@
-/* Reset and base styles for full-screen map app */
+/*
+ * Global styles. Everything component-scoped now lives in a CSS module next to
+ * its component; what remains here is the reset, the app shell, and the design
+ * tokens those modules read.
+ *
+ * This file previously had a twin in index.css that redeclared 18 of the same
+ * selectors with different values. Because main.tsx imported App.tsx before
+ * ./index.css, index.css was emitted last and quietly won every tie. The values
+ * kept below are the ones that were actually rendering.
+ */
+
+:root {
+  /*
+   * The S-grade difficulty scale, single source of truth. Read by
+   * ui/Badge.module.css for the badges and by utils/colors.ts for the trail
+   * lines drawn on the map.
+   */
+  --level-s0: #28a745;
+  --level-s1: #007bff;
+  --level-s2: #fd7e14;
+  --level-s3: #dc3545;
+  --level-s4: #6f42c1;
+  --level-s5: #343a40;
+  --level-unknown: #6c757d;
+
+  /* Accent used by the floating map controls and the GPS marker. */
+  --accent: #007aff;
+
+  /*
+   * Neutral ramp and semantic colours. Deliberately independent of the
+   * difficulty scale above even where the hex currently matches: recolouring
+   * an S3 trail should not recolour every error message.
+   */
+  --text-strong: #212529;
+  --text-body: #495057;
+  --text-muted: #6c757d;
+  --surface-subtle: #f8f9fa;
+  --surface-muted: #e9ecef;
+  --border-subtle: #dee2e6;
+  --border-input: #ddd;
+
+  /* Stacking order, so these stop being scattered magic numbers. */
+  --z-map-control: 1000;
+  --z-overlay: 1500;
+  --z-modal: 2000;
+  --z-toast: 9999;
+
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -19,8 +75,6 @@ html, body {
   position: relative;
 }
 
-
-/* App layout */
 .App {
   height: 100vh;
   width: 100vw;
@@ -28,425 +82,44 @@ html, body {
   display: flex;
 }
 
-/* Sidebar styles */
-.sidebar {
-  position: fixed !important;
-  top: 10px !important;
-  left: 10px !important;
-  width: 320px !important;
-  height: calc(100vh - 20px) !important;
-  background: white !important;
-  border: 1px solid #ddd !important;
-  border-radius: 8px !important;
-  padding: 15px !important;
-  overflow-y: auto !important;
-  z-index: 1000 !important;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.1) !important;
-  display: flex !important;
-  flex-direction: column !important;
+/* Map fills the viewport; Leaflet sizes its own container otherwise. */
+.leaflet-container {
+  width: 100vw !important;
+  height: 100vh !important;
 }
 
-/* Auth panel styles */
-.auth-panel {
-  position: fixed;
-  top: 15px;
-  right: 15px;
-  width: 280px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 15px;
-  z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-/* Upload panel styles */
-.upload-panel {
-  position: fixed;
-  top: 5vh;
-  left: 50vw;
-  transform: translateX(-50%);
-  width: 400px;
-  max-width: 90vw;
-  max-height: 90vh;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 20px;
-  z-index: 1001;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  overflow-y: auto;
-  display: none;
-}
-
-.upload-panel.visible {
-  display: block;
-}
-
-
-/* Form styles */
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #333;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 60px;
-}
-
-.checkbox-group {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.checkbox-group label {
-  display: flex;
-  align-items: center;
-  font-weight: normal;
-  margin-bottom: 0;
-}
-
-.checkbox-group input[type="checkbox"] {
-  width: auto;
-  margin-right: 6px;
-}
-
-/* Button styles */
-.btn {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  color: #333;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.btn:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-success {
-  background: #28a745;
-  color: white;
-  border-color: #28a745;
-}
-
-.btn-success:hover {
-  background: #218838;
-  border-color: #1e7e34;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-  border-color: #6c757d;
-}
-
-.btn-secondary:hover {
-  background: #5a6268;
-  border-color: #545b62;
-}
-
-/* Trail item styles */
-.trail-item {
-  padding: 12px;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: white;
-}
-
-.trail-item:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.trail-item.selected {
-  background: #e3f2fd;
-  border-color: #2196f3;
-  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
-  transform: translateY(-1px);
-}
-
-.trail-item.selected:hover {
-  background: #bbdefb;
-  border-color: #1976d2;
-}
-
-.trail-item h4 {
-  margin: 0 0 4px 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.trail-meta {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-  font-size: 12px;
-}
-
-.trail-stats {
-  font-size: 11px;
-  color: #666;
-}
-
-/* Difficulty level colors */
-.level-s0 {
-  background: #28a745; /* Green */
-  color: white !important;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.level-s1 {
-  background: #007bff; /* Blue */
-  color: white !important;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.level-s2 {
-  background: #fd7e14; /* Orange */
-  color: white !important;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.level-s3 {
-  background: #dc3545; /* Red */
-  color: white !important;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.level-s4 {
-  background: #6f42c1; /* Purple */
-  color: white !important;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.level-s5 {
-  background: #343a40; /* Black */
-  color: white !important;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-/* Error and success messages */
-.error {
-  background: #f8d7da;
-  color: #721c24;
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #f5c6cb;
-  margin-bottom: 15px;
-  font-size: 14px;
-}
-
-.success {
-  background: #d4edda;
-  color: #155724;
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid #c3e6cb;
-  margin-bottom: 15px;
-  font-size: 14px;
-}
-
-/* Loading spinner */
+/* Inline spinner used while the app boots. */
 .loading {
   display: inline-block;
   width: 16px;
   height: 16px;
   border: 2px solid #f3f3f3;
-  border-top: 2px solid #333;
+  border-top: 2px solid var(--level-s1);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-right: 8px;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Map container adjustments */
-.leaflet-container {
-  width: 100vw !important;
-  height: 100vh !important;
-}
-
-/* Emoji marker styles */
-.emoji-marker {
-  background: transparent !important;
-  border: none !important;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-/* Mobile responsive styles - include landscape mobile devices */
-@media (max-width: 768px), 
-       (pointer: coarse) and (hover: none) and (max-height: 768px) {
-  /* Hide sidebar on mobile */
-  .sidebar {
-    display: none !important;
+  0% {
+    transform: rotate(0deg);
   }
-  
-  /* Full screen map on mobile */
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
   .App {
     flex-direction: column;
   }
-  
-  /* Mobile-friendly panels */
-  .upload-panel, .edit-panel {
-    top: 2vh;
-    left: 2vw;
-    right: 2vw;
-    width: auto;
-    max-width: none;
-    transform: none;
-    max-height: 85vh;
-  }
-  
-  /* Touch-friendly form elements */
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    font-size: 16px; /* Prevents zoom on iOS */
-    padding: 12px 16px;
-    min-height: 44px;
-  }
-  
-  .btn {
-    min-height: 44px;
-    padding: 12px 20px;
-    font-size: 16px;
-  }
-  
-  /* Mobile checkbox adjustments */
-  .checkbox-group {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .checkbox-group label {
-    min-height: 44px;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #f8f9fa;
-  }
-  
-  /* Touch-friendly trail markers on mobile */
-  .emoji-marker {
-    padding: 8px !important; /* Increase touch area */
-    border-radius: 8px !important;
-    transition: background-color 0.2s ease !important;
-  }
-  
-  .emoji-marker:active {
-    background-color: rgba(0, 0, 0, 0.1) !important; /* Visual feedback on touch */
-  }
 }
 
-@media (max-width: 480px), 
-       (pointer: coarse) and (hover: none) and (max-height: 480px) {
-  /* Extra small screens */
-  .upload-panel, .edit-panel {
-    top: 1vh;
-    left: 1vw;
-    right: 1vw;
-    max-height: 90vh;
-    padding: 16px;
-  }
-  
-  .form-group {
-    margin-bottom: 20px;
-  }
-  
-  .form-group label {
-    font-size: 16px;
-    margin-bottom: 8px;
-  }
-}
-
-/* Landscape orientation on mobile */
-@media ((max-width: 768px) and (orientation: landscape)), 
-       ((pointer: coarse) and (hover: none) and (max-height: 768px) and (orientation: landscape)) {
-  .upload-panel, .edit-panel {
-    max-height: 75vh;
-    padding: 12px;
-  }
-  
-  .form-group {
-    margin-bottom: 12px;
-  }
-}
-
-/* High DPI displays */
+/* Hairline borders read too heavy at 1px on high-density screens. */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .btn, .form-group input, .form-group select, .form-group textarea {
+  input,
+  select,
+  textarea {
     border-width: 0.5px;
   }
-}
-
-/* Custom location marker styles */
-.location-marker {
-  position: relative;
-  z-index: 1000;
-}
-
-.location-marker > div {
-  position: relative;
-  background: #007AFF !important;
-  border: 3px solid white !important;
-  border-radius: 50% !important;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3) !important;
 }

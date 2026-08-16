@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './mapControls.module.css';
 
 export type BaseMapType = 'swisstopo' | 'osm';
 
@@ -9,9 +10,9 @@ interface BaseMapSelectorProps {
 
 export const BaseMapSelector: React.FC<BaseMapSelectorProps> = ({ activeBaseMap, onToggle }) => {
   return (
-    <div className="basemap-controls">
+    <div className={`${styles.controls} ${styles.basemapControls}`}>
       <button
-        className="basemap-button"
+        className={styles.controlButton}
         onClick={onToggle}
         title={activeBaseMap === 'swisstopo' ? 'Switch to OpenStreetMap' : 'Switch to Swisstopo'}
       >
@@ -22,45 +23,6 @@ export const BaseMapSelector: React.FC<BaseMapSelectorProps> = ({ activeBaseMap,
         </svg>
       </button>
 
-      <style>{`
-        .basemap-controls {
-          position: fixed;
-          top: 80px;
-          right: 20px;
-          z-index: 1000;
-        }
-
-        .basemap-button {
-          width: 48px;
-          height: 48px;
-          background: white;
-          border: 2px solid #007AFF;
-          border-radius: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-          transition: all 0.2s ease;
-        }
-
-        .basemap-button:hover {
-          background: #f0f8ff;
-          transform: scale(1.05);
-        }
-
-        @media (max-width: 768px) {
-          .basemap-controls {
-            top: 114px;
-            right: 16px;
-          }
-
-          .basemap-button {
-            width: 44px;
-            height: 44px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

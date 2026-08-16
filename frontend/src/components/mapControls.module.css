@@ -1,0 +1,95 @@
+/*
+ * The floating circular controls stacked down the right edge of the map.
+ * The location and base-map buttons were previously two identical copies of
+ * this styling, injected as global <style> blocks.
+ */
+
+.controls {
+  position: fixed;
+  right: 20px;
+  z-index: var(--z-map-control);
+}
+
+.locationControls {
+  top: 20px;
+}
+
+.basemapControls {
+  top: 80px;
+}
+
+.controlButton {
+  width: 48px;
+  height: 48px;
+  background: white;
+  border: 2px solid var(--accent);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.controlButton:hover {
+  background: #f0f8ff;
+  transform: scale(1.05);
+}
+
+.controlButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/*
+ * These were called `error` and `loading`, which collided with the global
+ * .error banner and .loading spinner: the button picked up the spinner's
+ * animation and the banner's padding. Scoping them to this module ends that.
+ */
+.tracking {
+  background: var(--accent);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.hasError {
+  border-color: #ff3b30;
+  background: #fff5f5;
+}
+
+.isLoading {
+  border-color: #ff9500;
+  background: #fff8f0;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+@media (max-width: 768px) {
+  .controls {
+    right: 16px;
+  }
+
+  .locationControls {
+    top: 60px;
+  }
+
+  .basemapControls {
+    top: 114px;
+  }
+
+  .controlButton {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+}

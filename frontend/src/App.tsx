@@ -265,7 +265,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className={`App ${isMobile ? 'mobile-app' : ''}`}>
+    <div className="App">
       {error && (
         <div style={{
           position: 'fixed',
