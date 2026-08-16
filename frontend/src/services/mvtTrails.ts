@@ -135,14 +135,6 @@ export class MVTTrailService {
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt?cache=${this.cacheVersion}`;
 
     const layer = L.vectorGrid.protobuf(url, {
-      // vectorgrid defaults to L.svg.tile, which emits one <path> element per
-      // trail per tile. Canvas draws them all into one element per tile instead.
-      // Everything this layer relies on survives the switch: L.Canvas.Tile
-      // extends L.Canvas, whose _updateStyle applies dashArray via setLineDash;
-      // setFeatureStyle/resetFeatureStyle go through the renderer-agnostic
-      // _updateStyles path; and the canvas renderer implements hit testing for
-      // interactive layers, so clicking a trail still selects it.
-      rendererFactory: L.canvas.tile,
       vectorTileLayerStyles: {
         trails: (properties: MVTTrailProperties) => {
           const trail = convertMVTPropertiesToTrail(properties);

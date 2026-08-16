@@ -2,19 +2,6 @@
 import * as L from 'leaflet';
 
 declare module 'leaflet' {
-  /**
-   * vectorgrid adds a tile-scoped canvas renderer alongside Leaflet's own
-   * `L.canvas`, for use as a `rendererFactory`. Merged into the existing
-   * `canvas` function declaration.
-   */
-  namespace canvas {
-    function tile(
-      tileCoord: L.Coords,
-      tileSize: L.Point,
-      options?: L.RendererOptions,
-    ): L.Renderer;
-  }
-
   namespace vectorGrid {
     /** A decoded vector tile feature, as handed to `getFeatureId`. */
     interface VectorTileFeature<P> {
