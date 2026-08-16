@@ -163,7 +163,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   }, [map, isActive]);
 
 
-  // Handle map clicks to add waypoints
   useEffect(() => {
     if (!map || !isActive) return;
 
@@ -186,7 +185,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           lng: e.latlng.lng,
         };
 
-        // User is adding a new waypoint - routing will be handled automatically
 
         return [...prev, newPoint];
       });
@@ -361,16 +359,12 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     }
   }, [routePoints, waypoints]);
 
-  // Handle undo last waypoint
   const handleUndo = useCallback(() => {
     isUndoingRef.current = true;
     
     setWaypoints(prev => {
       if (prev.length === 0) return prev;
       
-      // User is modifying waypoints - routing will be handled automatically
-      
-      // Remove the last waypoint
       return prev.slice(0, -1);
     });
     
@@ -380,7 +374,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     }, 200);
   }, []);
 
-  // Handle route completion
   const handleComplete = useCallback(() => {
     if (waypoints.length < 2) {
       setError('Please add at least 2 waypoints to create a route');
@@ -395,7 +388,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     onRouteComplete(gpxContent);
   }, [waypoints, routePoints, routePointsWithElevation, onRouteComplete, setError]);
 
-  // Handle cancel
   const handleCancel = useCallback(() => {
     // Generate GPX from initial waypoints to restore previous state
     if (initialWaypoints.length > 0) {

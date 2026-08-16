@@ -9,7 +9,6 @@ export interface MVTTrailEvents {
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
 }
 
-// Convert MVT properties to MVTTrail interface
 export function convertMVTPropertiesToTrail(
   props: MVTTrailProperties,
 ): MVTTrail {
@@ -51,12 +50,10 @@ export function convertMVTPropertiesToTrail(
       lng: props.end_lng,
     },
 
-    // Engagement data
     rating_average: props.rating_average,
     rating_count: props.rating_count,
     comment_count: props.comment_count,
 
-    // Ridden status
     ridden: props.ridden,
   };
 }
@@ -86,7 +83,6 @@ export class MVTTrailService {
     this.map = map;
     this.baseUrl = baseUrl || API_BASE_URL;
 
-    // Initialize with current timestamp as initial cache version
     this.generateCacheVersion();
 
     // Listen to map movement to re-add markers for trails that come back into view (debounced)
@@ -97,7 +93,6 @@ export class MVTTrailService {
     this.events = events;
   }
 
-  // Generate a new cache version for cache busting
   private generateCacheVersion(): void {
     this.cacheVersion = `v${Date.now()}`;
   }
@@ -122,13 +117,11 @@ export class MVTTrailService {
   }
 
   createMVTLayer(): TrailLayer {
-    // Add cache version to all tile requests
     const url = `${this.baseUrl}/api/tiles/{z}/{x}/{y}.mvt?cache=${this.cacheVersion}`;
 
     const layer = L.vectorGrid.protobuf(url, {
       vectorTileLayerStyles: {
         trails: (properties: MVTTrailProperties) => {
-          // Convert and store trail data
           const trail = convertMVTPropertiesToTrail(properties);
           this.loadedTrails.set(trail.id, trail);
 
@@ -148,7 +141,6 @@ export class MVTTrailService {
           };
         },
       },
-      // Add getFeatureId to enable setFeatureStyle functionality
       getFeatureId: (feature) => feature.properties.id,
       interactive: true,
       maxZoom: 18,
@@ -177,16 +169,13 @@ export class MVTTrailService {
   }
 
   private createTrailMarkers(trail: MVTTrail) {
-    // Prevent duplicate markers
     if (this.trailMarkers.has(trail.id)) {
       return;
     }
 
-    // Get current zoom level and marker sizing
     const zoom = this.map.getZoom();
     const markerConfig = this.getMarkerSizeForZoom(zoom);
 
-    // Create start marker (rock hand)
     const startMarker = L.marker(
       [trail.startPoint.lat, trail.startPoint.lng],
       {
@@ -195,7 +184,6 @@ export class MVTTrailService {
       },
     ).addTo(this.map);
 
-    // Create end marker (beer)
     const endMarker = L.marker(
       [trail.endPoint.lat, trail.endPoint.lng],
       {
@@ -204,7 +192,6 @@ export class MVTTrailService {
       },
     ).addTo(this.map);
 
-    // Add click handlers to markers for trail selection
     const handleMarkerClick = () => {
       this.events.onTrailClick?.(trail);
     };
@@ -212,7 +199,6 @@ export class MVTTrailService {
     startMarker.on("click", handleMarkerClick);
     endMarker.on("click", handleMarkerClick);
 
-    // Store markers
     this.trailMarkers.set(trail.id, { start: startMarker, end: endMarker });
   }
 
@@ -230,7 +216,6 @@ export class MVTTrailService {
       this.map.removeLayer(this.mvtLayer);
     }
 
-    // Remove all markers
     this.trailMarkers.forEach(({ start, end }) => {
       this.map.removeLayer(start);
       this.map.removeLayer(end);
@@ -271,7 +256,6 @@ export class MVTTrailService {
       west: currentBounds.west - buffer.lng,
     };
 
-    // Find trails that are far outside buffered bounds
     const trailsToRemove: string[] = [];
 
     this.loadedTrails.forEach((trail, trailId) => {
@@ -288,11 +272,9 @@ export class MVTTrailService {
       }
     });
 
-    // Remove trails that are far outside buffered bounds
     trailsToRemove.forEach((trailId) => {
       this.loadedTrails.delete(trailId);
 
-      // Remove markers for this trail
       const markers = this.trailMarkers.get(trailId);
       if (markers) {
         this.map.removeLayer(markers.start);
@@ -303,12 +285,10 @@ export class MVTTrailService {
   }
 
   selectTrail(trailId: string | null): void {
-    // Reset previous selection
     if (this.selectedTrailId && this.mvtLayer) {
       this.mvtLayer.resetFeatureStyle(this.selectedTrailId);
     }
 
-    // Apply new selection
     if (trailId && this.mvtLayer) {
       const trail = this.loadedTrails.get(trailId);
       if (trail) {
@@ -329,19 +309,15 @@ export class MVTTrailService {
   }
 
   refreshMVTLayer(): void {
-    // Generate new cache version to invalidate all cached tiles
     this.generateCacheVersion();
 
-    // Store current selection to restore it after refresh
     const currentSelection = this.selectedTrailId;
 
-    // Remove the current MVT layer
     if (this.mvtLayer) {
       this.map.removeLayer(this.mvtLayer);
       this.mvtLayer = null;
     }
 
-    // Clear loaded trails and markers
     this.loadedTrails.clear();
     this.trailMarkers.forEach(({ start, end }) => {
       this.map.removeLayer(start);
@@ -349,12 +325,10 @@ export class MVTTrailService {
     });
     this.trailMarkers.clear();
 
-    // Reset selection state
     this.selectedTrailId = null;
 
     // Add a small delay to ensure cleanup is complete
     setTimeout(() => {
-      // Recreate and add the MVT layer with new cache version
       this.mvtLayer = this.createMVTLayer();
       this.map.addLayer(this.mvtLayer);
 
@@ -384,7 +358,6 @@ export class MVTTrailService {
     });
   }
 
-  // Get only trails that are actually visible in current map view
   getVisibleTrails(): MVTTrail[] {
     const mapBounds = this.map.getBounds();
     const currentBounds = {
@@ -397,12 +370,10 @@ export class MVTTrailService {
     return this.getTrailsInBounds(currentBounds);
   }
 
-  // Update marker sizes based on current zoom level
   private updateMarkerSizes(): void {
     const zoom = this.map.getZoom();
     const markerConfig = this.getMarkerSizeForZoom(zoom);
 
-    // Iterate through all markers and update their sizes
     this.trailMarkers.forEach((markers) => {
       markers.start.setIcon(this.createMarkerIcon("/rock.png", markerConfig));
       markers.end.setIcon(this.createMarkerIcon("/beer.png", markerConfig));
@@ -417,14 +388,11 @@ export class MVTTrailService {
     });
   }
 
-  // Debounced version of updateVisibleMarkers
   private debouncedUpdateVisibleMarkers(): void {
-    // Clear existing timeout
     if (this.updateMarkersTimeout) {
       clearTimeout(this.updateMarkersTimeout);
     }
 
-    // Set new timeout (300ms debounce)
     this.updateMarkersTimeout = window.setTimeout(() => {
       this.updateVisibleMarkers();
       this.updateMarkersTimeout = null;
@@ -435,20 +403,16 @@ export class MVTTrailService {
   private updateVisibleMarkers(): void {
     if (!this.mvtLayer) return;
 
-    // Get current visible trails
     const visibleTrails = this.getVisibleTrails();
 
-    // Add missing markers for visible trails
     visibleTrails.forEach((trail) => {
       if (!this.trailMarkers.has(trail.id)) {
         this.createTrailMarkers(trail);
       }
     });
 
-    // Update marker sizes based on current zoom level
-    this.updateMarkerSizes();
+      this.updateMarkerSizes();
 
-    // Notify about current visible trails
     this.events.onTrailsLoaded?.(visibleTrails);
   }
 }

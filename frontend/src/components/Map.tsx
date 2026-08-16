@@ -2,14 +2,10 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapBounds, MVTTrail } from '../types';
-import { setupLeafletCompatibility } from '../utils/browserCompat';
 import { MVTTrailService } from '../services/mvtTrails';
 import RouteDrawer from './RouteDrawer';
 import { LocationMarker, LocationMarkerRef } from './LocationMarker';
 import { UserPosition } from '../hooks/useGeolocation';
-
-// Set up browser compatibility once
-setupLeafletCompatibility();
 
 // Fix for default markers in react-leaflet. The bundler-mangled icon paths
 // are cached on the prototype, so drop them before pointing Leaflet at a CDN.

@@ -1,25 +1,21 @@
-import React, { useReducer, useCallback, useEffect } from "react";
-import { User, MapBounds, Trail, MVTTrail } from "../types";
+import React, { useReducer, useCallback, useEffect, useMemo } from "react";
+import { User, MapBounds, MVTTrail } from "../types";
 import { PocketBaseService } from "../services/pocketbase";
 import { handleApiError, getErrorMessage } from "../utils/errorHandling";
 import { AppContext, AppContextValue, AppState } from "./AppContextDefinition";
 
 type AppAction =
-  // Auth actions
   | { type: "SET_USER"; payload: User | null }
   | { type: "SET_AUTH_LOADING"; payload: boolean }
 
-  // Trail actions
   | { type: "SET_VISIBLE_TRAILS"; payload: MVTTrail[] }
   | { type: "SET_SELECTED_TRAIL"; payload: MVTTrail | null }
   | { type: "FIT_MAP_TO_BOUNDS"; payload: MapBounds | null }
 
-  // UI actions
   | { type: "SET_UPLOAD_PANEL_VISIBLE"; payload: boolean }
   | { type: "SET_EDIT_PANEL_VISIBLE"; payload: boolean }
   | { type: "SET_TRAIL_TO_EDIT"; payload: MVTTrail | null }
 
-  // Drawing actions
   | { type: "START_DRAWING"; payload: "upload" | "edit" }
   | {
       type: "COMPLETE_DRAWING";
@@ -28,33 +24,27 @@ type AppAction =
   | { type: "CANCEL_DRAWING" }
   | { type: "CLEAR_DRAWN_CONTENT"; payload: "upload" | "edit" }
 
-  // General actions
   | { type: "SET_ERROR"; payload: string }
   | { type: "CLEAR_ERROR" }
   | { type: "INCREMENT_MAP_MOVE_TRIGGER" }
   | { type: "INCREMENT_MVT_REFRESH_TRIGGER" };
 
 const initialState: AppState = {
-  // Auth state
   user: null,
   isAuthLoading: true,
 
-  // Trail state
   visibleTrails: [],
   selectedTrail: null,
   fitBoundsTarget: null,
 
-  // UI state
   isUploadPanelVisible: false,
   isEditPanelVisible: false,
   trailToEdit: null,
 
-  // Drawing state
   isDrawingActive: false,
   drawingMode: null,
   drawnGpxContent: {},
 
-  // General state
   error: "",
   mapMoveEndTrigger: 0,
   mvtRefreshTrigger: 0,
@@ -62,8 +52,7 @@ const initialState: AppState = {
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    // Auth actions
-    case "SET_USER":
+      case "SET_USER":
       return { ...state, user: action.payload };
     case "SET_AUTH_LOADING":
       return { ...state, isAuthLoading: action.payload };
@@ -147,32 +136,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Initialize auth and trails on mount
+  // Initialize auth on mount
   useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        // Initialize auth
-        const currentUser = PocketBaseService.getCurrentUser();
-        dispatch({ type: "SET_USER", payload: currentUser });
-        dispatch({ type: "SET_AUTH_LOADING", payload: false });
+    try {
+      dispatch({ type: "SET_USER", payload: PocketBaseService.getCurrentUser() });
+      dispatch({ type: "SET_AUTH_LOADING", payload: false });
 
-        // Set up auth change listener
-        const unsubscribe = PocketBaseService.onAuthChange((newUser) => {
-          dispatch({ type: "SET_USER", payload: newUser });
-        });
-
-        return unsubscribe;
-      } catch (error) {
-        console.error("Failed to initialize app:", error);
-        dispatch({ type: "SET_ERROR", payload: getErrorMessage(error) });
-        dispatch({ type: "SET_AUTH_LOADING", payload: false });
-      }
-    };
-
-    const cleanup = initializeApp();
-    return () => {
-      cleanup.then((unsubscribe) => unsubscribe && unsubscribe());
-    };
+      return PocketBaseService.onAuthChange((newUser) => {
+        dispatch({ type: "SET_USER", payload: newUser });
+      });
+    } catch (error) {
+      console.error("Failed to initialize app:", error);
+      dispatch({ type: "SET_ERROR", payload: getErrorMessage(error) });
+      dispatch({ type: "SET_AUTH_LOADING", payload: false });
+    }
   }, []);
 
   // Load trail from URL parameter on mount
@@ -252,7 +229,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     loadTrailFromUrl();
   }, [state.visibleTrails]);
 
-  // Auth methods
   const login = useCallback(async () => {
     try {
       const user = await PocketBaseService.loginWithGoogle();
@@ -275,7 +251,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const updateVisibleTrailsFromMVT = useCallback((mvtTrails: MVTTrail[]) => {
-    // Optimize: only update if trails actually changed (simple approach)
     dispatch({ type: "SET_VISIBLE_TRAILS", payload: mvtTrails });
   }, []);
 
@@ -303,31 +278,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const handleTrailCreated = useCallback((_newTrail: Trail) => {
-    // Refresh MVT layer to show new trail
-      dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
-    
-  }, []);
-
-  const handleTrailUpdated = useCallback((_updatedTrail: Trail) => {
-    // Refresh MVT layer to show updated trail
-      dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
-    
-  }, []);
-
   const handleTrailDeleted = useCallback(
     (trailId: string) => {
       if (state.selectedTrail?.id === trailId) {
         dispatch({ type: "SET_SELECTED_TRAIL", payload: null });
       }
 
-      // Refresh MVT layer to remove deleted trail
-        dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
+      dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
     },
     [state.selectedTrail],
   );
 
-  // UI methods
   const showUploadPanel = useCallback(() => {
     dispatch({ type: "SET_UPLOAD_PANEL_VISIBLE", payload: true });
   }, []);
@@ -348,7 +309,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: "CLEAR_DRAWN_CONTENT", payload: "edit" });
   }, []);
 
-  // Drawing methods
   const startDrawing = useCallback((mode: "upload" | "edit") => {
     dispatch({ type: "START_DRAWING", payload: mode });
   }, []);
@@ -376,7 +336,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [state.drawnGpxContent],
   );
 
-  // General methods
   const setError = useCallback((error: string) => {
     dispatch({ type: "SET_ERROR", payload: error });
   }, []);
@@ -393,29 +352,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
   }, []);
 
-  const contextValue: AppContextValue = {
-    ...state,
-    login,
-    logout,
-    updateUser,
-    updateVisibleTrailsFromMVT,
-    selectTrail,
-    handleTrailCreated,
-    handleTrailUpdated,
-    handleTrailDeleted,
-    showUploadPanel,
-    hideUploadPanel,
-    showEditPanel,
-    hideEditPanel,
-    startDrawing,
-    completeDrawing,
-    cancelDrawing,
-    getGpxContent,
-    setError,
-    clearError,
-    incrementMapMoveTrigger,
-    refreshMVTLayer,
-  };
+  const contextValue: AppContextValue = useMemo(
+    () => ({
+      ...state,
+      login,
+      logout,
+      updateUser,
+      updateVisibleTrailsFromMVT,
+      selectTrail,
+      handleTrailDeleted,
+      showUploadPanel,
+      hideUploadPanel,
+      showEditPanel,
+      hideEditPanel,
+      startDrawing,
+      completeDrawing,
+      cancelDrawing,
+      getGpxContent,
+      setError,
+      clearError,
+      incrementMapMoveTrigger,
+      refreshMVTLayer,
+    }),
+    [
+      state,
+      login,
+      logout,
+      updateUser,
+      updateVisibleTrailsFromMVT,
+      selectTrail,
+      handleTrailDeleted,
+      showUploadPanel,
+      hideUploadPanel,
+      showEditPanel,
+      hideEditPanel,
+      startDrawing,
+      completeDrawing,
+      cancelDrawing,
+      getGpxContent,
+      setError,
+      clearError,
+      incrementMapMoveTrigger,
+      refreshMVTLayer,
+    ],
+  );
 
   return (
     <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>

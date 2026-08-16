@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { User, MapBounds, Trail, MVTTrail } from "../types";
+import { User, MapBounds, MVTTrail } from "../types";
 
 export interface AppState {
   // Auth state
@@ -36,8 +36,6 @@ export interface AppContextValue extends AppState {
   // Trail methods
   updateVisibleTrailsFromMVT: (trails: MVTTrail[]) => void;
   selectTrail: (trail: MVTTrail | null) => void;
-  handleTrailCreated: (newTrail: Trail) => void;
-  handleTrailUpdated: (updatedTrail: Trail) => void;
   handleTrailDeleted: (trailId: string) => void;
 
   // UI methods
