@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { User, MVTTrail, Trail } from '../types';
 import { PocketBaseService } from '../services/pocketbase';
 import { downloadTrailGpx } from '../utils/trailFile';
@@ -52,39 +53,33 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     setShowRatingsComments(null);
   }, []);
 
-  // Scroll the selected trail into view when the selection changes. This used to
-  // also re-run on every map move, which meant panning with a trail selected kept
-  // yanking the list back to it -- and cost a full re-render of every card.
+  // Bring the selected trail into view when the selection changes. The sort
+  // below always places the selected trail first, so this is a scroll to the top
+  // of the list -- which also means it works without asking the virtualizer to
+  // resolve an off-screen row.
+  //
+  // This used to re-run on every map move, which meant panning with a trail
+  // selected kept yanking the list back to it, at the cost of re-rendering every
+  // card.
   useEffect(() => {
-    if (selectedTrail) {
-      // Looked up by attribute rather than held in a ref map: an inline ref
-      // callback is a new function identity every render, so React would detach
-      // and reattach every card's ref on each pass.
-      const trailElement = scrollContainerRef.current?.querySelector(
-        `[data-trail-id="${CSS.escape(selectedTrail.id)}"]`
-      );
-
-      if (trailElement) {
-        // The delay waits out the map's fit-bounds animation before scrolling.
-        let timeout: number | undefined;
-        const frame = requestAnimationFrame(() => {
-          timeout = window.setTimeout(() => {
-            trailElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
-            });
-          }, 400);
-        });
-
-        return () => {
-          cancelAnimationFrame(frame);
-          if (timeout !== undefined) {
-            clearTimeout(timeout);
-          }
-        };
-      }
+    if (!selectedTrail) {
+      return;
     }
+
+    // The delay waits out the map's fit-bounds animation before scrolling.
+    let timeout: number | undefined;
+    const frame = requestAnimationFrame(() => {
+      timeout = window.setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 400);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+    };
   }, [selectedTrail]);
 
 
@@ -128,6 +123,18 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     }));
   }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
+  // Only the rows on screen are mounted. Card heights genuinely vary -- long
+  // names wrap, tag rows differ, the selected card expands -- so rows are
+  // measured rather than assumed; estimateSize only seeds the scrollbar before
+  // a row has been seen.
+  const virtualizer = useVirtualizer({
+    count: sortedTrails.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 150,
+    overscan: 4,
+    getItemKey: (index) => sortedTrails[index].trail.id,
+  });
+
   return (
     <div className={styles.sidebar}>
       {/* Fixed Header Section */}
@@ -169,25 +176,36 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
             Pan the map to explore trails or {user ? 'upload a new trail!' : 'login to add trails.'}
           </div>
         ) : (
-          <div className={styles.trailsContainer}>
-            {sortedTrails.map(({ trail, engagement }) => (
-              <div
-                key={trail.id}
-                data-trail-id={trail.id}
-              >
-                <TrailCard
-                  trail={trail}
-                  isSelected={selectedTrail?.id === trail.id}
-                  user={user}
-                  engagement={engagement}
-                  onTrailClick={onTrailClick}
-                  onEditTrailClick={onEditTrailClick}
-                  onDownloadGPX={downloadTrailGpx}
-                  onShowQRCode={handleShowQRCode}
-                  onShowRatingsComments={handleShowRatingsComments}
-                />
-              </div>
-            ))}
+          <div
+            className={styles.trailsContainer}
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {virtualizer.getVirtualItems().map((row) => {
+              const { trail, engagement } = sortedTrails[row.index];
+
+              return (
+                <div
+                  key={row.key}
+                  // measureElement reads this to know which row it just sized.
+                  data-index={row.index}
+                  ref={virtualizer.measureElement}
+                  className={styles.virtualRow}
+                  style={{ transform: `translateY(${row.start}px)` }}
+                >
+                  <TrailCard
+                    trail={trail}
+                    isSelected={selectedTrail?.id === trail.id}
+                    user={user}
+                    engagement={engagement}
+                    onTrailClick={onTrailClick}
+                    onEditTrailClick={onEditTrailClick}
+                    onDownloadGPX={downloadTrailGpx}
+                    onShowQRCode={handleShowQRCode}
+                    onShowRatingsComments={handleShowRatingsComments}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

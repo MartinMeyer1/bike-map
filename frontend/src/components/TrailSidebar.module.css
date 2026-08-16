@@ -54,6 +54,22 @@
 
 .trailsContainer {
   padding-top: 2px;
+  /* Containing block for the absolutely positioned virtual rows. */
+  position: relative;
+}
+
+.virtualRow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /*
+   * Establishes a block formatting context so the card's own margin-bottom
+   * stays inside the row. The virtualizer measures offsetHeight, and a margin
+   * that collapsed out of the row would be invisible to it -- every card would
+   * be positioned 12px too high and they would overlap.
+   */
+  display: flow-root;
 }
 
 .footer {
