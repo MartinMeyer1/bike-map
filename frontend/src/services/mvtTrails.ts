@@ -9,6 +9,12 @@ export interface MVTTrailEvents {
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
 }
 
+// How long tile arrivals are allowed to accumulate before one flush. Not a
+// resetting debounce: the window starts at the first tile and fires regardless
+// of later ones, so a long stream of tiles still reports at a steady cadence
+// instead of being starved until it stops.
+const TILE_FLUSH_MS = 150;
+
 export function convertMVTPropertiesToTrail(
   props: MVTTrailProperties,
 ): MVTTrail {
@@ -60,9 +66,33 @@ export function convertMVTPropertiesToTrail(
 
 type TrailLayer = L.vectorGrid.VectorGridLayer;
 
-interface MarkerConfig {
-  iconSize: [number, number];
-  iconAnchor: [number, number];
+const START_ICON_URL = "/rock.png";
+const END_ICON_URL = "/beer.png";
+
+// Four zoom buckets x two images means eight distinct icons for the lifetime of
+// the app. L.Icon holds no per-marker state -- Leaflet builds a fresh element
+// from it for each marker -- so one instance can back every marker at a size.
+const iconCache = new Map<string, L.Icon>();
+
+function markerIcon(iconUrl: string, size: number): L.Icon {
+  const key = `${iconUrl}@${size}`;
+  const cached = iconCache.get(key);
+
+  if (cached) {
+    return cached;
+  }
+
+  const half = size / 2;
+  const icon = L.icon({
+    iconUrl,
+    iconSize: [size, size],
+    iconAnchor: [half, half],
+    popupAnchor: [0, -half],
+  });
+
+  iconCache.set(key, icon);
+
+  return icon;
 }
 
 export class MVTTrailService {
@@ -75,6 +105,8 @@ export class MVTTrailService {
   private baseUrl: string;
   private cacheVersion: string = ""; // Persistent cache version for all requests
   private updateMarkersTimeout: number | null = null; // Debounce timeout
+  private tileFlushTimeout: number | null = null; // Coalesces tileload bursts
+  private appliedMarkerSize: number | null = null; // Icon size currently on screen
   // Held as a field so on() and off() are given the same reference; passing a
   // fresh arrow to each would leave the listener attached forever.
   private readonly handleMapMove = () => this.debouncedUpdateVisibleMarkers();
@@ -94,23 +126,9 @@ export class MVTTrailService {
     this.cacheVersion = `v${Date.now()}`;
   }
 
-  // Build a trail-endpoint icon at the size the current zoom calls for
-  private createMarkerIcon(iconUrl: string, config: MarkerConfig): L.Icon {
-    return L.icon({
-      iconUrl,
-      iconSize: config.iconSize,
-      iconAnchor: config.iconAnchor,
-      popupAnchor: [0, -config.iconAnchor[1]],
-    });
-  }
-
   // Markers grow with zoom; every zoom level shows them.
-  private getMarkerSizeForZoom(zoom: number): MarkerConfig {
-    const size = zoom <= 10 ? 15 : zoom <= 12 ? 22 : zoom <= 14 ? 30 : 38;
-    return {
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-    };
+  private getMarkerSizeForZoom(zoom: number): number {
+    return zoom <= 10 ? 15 : zoom <= 12 ? 22 : zoom <= 14 ? 30 : 38;
   }
 
   createMVTLayer(): TrailLayer {
@@ -155,12 +173,7 @@ export class MVTTrailService {
       }
     });
 
-    layer.on("tileload", () => {
-      this.cleanupInvisibleTrails();
-
-      const trails = Array.from(this.loadedTrails.values());
-      this.events.onTrailsLoaded?.(trails);
-    });
+    layer.on("tileload", () => this.scheduleTileFlush());
 
     return layer;
   }
@@ -170,14 +183,13 @@ export class MVTTrailService {
       return;
     }
 
-    const zoom = this.map.getZoom();
-    const markerConfig = this.getMarkerSizeForZoom(zoom);
+    const size = this.getMarkerSizeForZoom(this.map.getZoom());
 
     const startMarker = L.marker(
       [trail.startPoint.lat, trail.startPoint.lng],
       {
         title: `${trail.name} - Start`,
-        icon: this.createMarkerIcon("/rock.png", markerConfig),
+        icon: markerIcon(START_ICON_URL, size),
       },
     ).addTo(this.map);
 
@@ -185,7 +197,7 @@ export class MVTTrailService {
       [trail.endPoint.lat, trail.endPoint.lng],
       {
         title: `${trail.name} - End`,
-        icon: this.createMarkerIcon("/beer.png", markerConfig),
+        icon: markerIcon(END_ICON_URL, size),
       },
     ).addTo(this.map);
 
@@ -233,9 +245,35 @@ export class MVTTrailService {
       this.updateMarkersTimeout = null;
     }
 
+    this.cancelTileFlush();
+
     this.trailMarkers.clear();
     this.loadedTrails.clear();
     this.selectedTrailId = null;
+    this.appliedMarkerSize = null;
+  }
+
+  // tileload fires once per tile, so a single pan can fire it a dozen times or
+  // more. Each firing swept every loaded trail and pushed a fresh array into
+  // React; now a burst of tiles costs one sweep and one dispatch.
+  private scheduleTileFlush(): void {
+    if (this.tileFlushTimeout !== null) {
+      return;
+    }
+
+    this.tileFlushTimeout = window.setTimeout(() => {
+      this.tileFlushTimeout = null;
+
+      this.cleanupInvisibleTrails();
+      this.events.onTrailsLoaded?.(this.getLoadedTrails());
+    }, TILE_FLUSH_MS);
+  }
+
+  private cancelTileFlush(): void {
+    if (this.tileFlushTimeout !== null) {
+      clearTimeout(this.tileFlushTimeout);
+      this.tileFlushTimeout = null;
+    }
   }
 
   private cleanupInvisibleTrails(): void {
@@ -315,6 +353,10 @@ export class MVTTrailService {
   refreshMVTLayer(): void {
     this.generateCacheVersion();
 
+    // A flush queued against the old layer would report trails we are about to
+    // clear.
+    this.cancelTileFlush();
+
     const currentSelection = this.selectedTrailId;
 
     if (this.mvtLayer) {
@@ -330,6 +372,7 @@ export class MVTTrailService {
     this.trailMarkers.clear();
 
     this.selectedTrailId = null;
+    this.appliedMarkerSize = null;
 
     // Add a small delay to ensure cleanup is complete
     setTimeout(() => {
@@ -375,12 +418,19 @@ export class MVTTrailService {
   }
 
   private updateMarkerSizes(): void {
-    const zoom = this.map.getZoom();
-    const markerConfig = this.getMarkerSizeForZoom(zoom);
+    const size = this.getMarkerSizeForZoom(this.map.getZoom());
+
+    // setIcon replaces the marker's <img> element. Applying it on every settled
+    // move rebuilt two DOM nodes per loaded trail even when the size was
+    // identical, which is the common case: panning never changes the bucket.
+    const sizeChanged = size !== this.appliedMarkerSize;
+    this.appliedMarkerSize = size;
 
     this.trailMarkers.forEach((markers) => {
-      markers.start.setIcon(this.createMarkerIcon("/rock.png", markerConfig));
-      markers.end.setIcon(this.createMarkerIcon("/beer.png", markerConfig));
+      if (sizeChanged) {
+        markers.start.setIcon(markerIcon(START_ICON_URL, size));
+        markers.end.setIcon(markerIcon(END_ICON_URL, size));
+      }
 
       // Re-add markers if they were previously removed
       if (!this.map.hasLayer(markers.start)) {
