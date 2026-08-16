@@ -73,8 +73,6 @@ services:
     volumes:
       - "./mvt-server/initdb:/docker-entrypoint-initdb.d"
       - "postgis_data:/var/lib/postgresql/data"
-    ports:
-      - "5432:5432"
     networks:
       - traefik
     restart: unless-stopped
