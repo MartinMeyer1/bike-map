@@ -57,7 +57,6 @@ export default function UsernameEditModal({
       isOpen={isVisible}
       onClose={onClose}
       title="✏️ Edit Username"
-      headerVariant="warning"
       centerTitle
       showCloseButton={false}
       closeOnOverlayClick={false}
@@ -82,7 +81,7 @@ export default function UsernameEditModal({
         <div className={styles.actions}>
           <Button
             type="submit"
-            variant="success"
+            variant="primary"
             size="large"
             disabled={isLoading || !newName.trim()}
           >

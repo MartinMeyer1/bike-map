@@ -70,7 +70,7 @@ export default function UserSection({ user }: UserSectionProps) {
             <div className={styles.usernameRow}>
               <div className={styles.username}>{user.name || user.email}</div>
               <Button
-                variant="warning"
+                variant="secondary"
                 size="small"
                 className={styles.editButton}
                 onClick={() => setShowUsernameEdit(true)}

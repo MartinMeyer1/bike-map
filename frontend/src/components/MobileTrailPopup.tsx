@@ -107,7 +107,7 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
 
         <div className={styles.actions}>
           <Button
-            variant="success"
+            variant="primary"
             size="medium"
             onClick={() => detailedTrail && downloadTrailGpx(detailedTrail)}
             disabled={!detailedTrail}
@@ -120,7 +120,7 @@ export const MobileTrailPopup: React.FC<MobileTrailPopupProps> = ({
           </Button>
 
           {canEdit && (
-            <Button variant="warning" size="medium" onClick={handleEdit}>
+            <Button variant="secondary" size="medium" onClick={handleEdit}>
               ✏️ Edit
             </Button>
           )}

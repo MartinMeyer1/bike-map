@@ -1,103 +1,110 @@
+/*
+ * Mono-labelled rectangles. No radius, no gradient, no shadow: a button is
+ * either filled with ink, outlined with a hairline, or nothing but its label.
+ *
+ * The variants are named for intent rather than colour -- they used to be
+ * success/warning/purple, which described gradients that no longer exist.
+ */
+
 .button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border: none;
-  border-radius: 8px;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  font-family: var(--font-mono);
   font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
   text-decoration: none;
   box-sizing: border-box;
 }
 
-.button:hover {
-  transform: translateY(-1px);
-}
-
 .button:disabled {
-  opacity: 0.6;
+  opacity: 0.45;
   cursor: not-allowed;
-  transform: none;
 }
 
 /* Sizes */
 .small {
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: 9px 14px;
+  font-size: 11px;
 }
 
 .medium {
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 11px 16px;
+  font-size: 11.5px;
 }
 
 /* Matches the modal action buttons this size was introduced for. */
 .large {
-  padding: 12px 20px;
-  font-size: 14px;
+  padding: 12px 22px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
 }
 
 /* Variants */
+
+/* The one affirmative action in any given view. */
 .primary {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(0,123,255,0.2);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 
-.primary:hover {
-  box-shadow: 0 4px 8px rgba(0,123,255,0.3);
+.primary:hover:not(:disabled) {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
 }
 
+/* Everything alongside it: cancel, secondary navigation, toggles. */
 .secondary {
-  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(108,117,125,0.2);
+  background: var(--paper);
+  border-color: var(--rule-control);
+  color: var(--ink-body);
 }
 
-.secondary:hover {
-  box-shadow: 0 4px 8px rgba(108,117,125,0.3);
+.secondary:hover:not(:disabled) {
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
+  color: var(--ink);
 }
 
-.success {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(40,167,69,0.2);
-}
-
-.success:hover {
-  box-shadow: 0 4px 8px rgba(40,167,69,0.3);
-}
-
-.warning {
-  background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-  color: var(--text-strong);
-  box-shadow: 0 2px 4px rgba(255,193,7,0.2);
-}
-
-.warning:hover {
-  box-shadow: 0 4px 8px rgba(255,193,7,0.3);
-}
-
+/* Destructive. Outlined until it is the confirming action, then filled. */
 .danger {
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(220,53,69,0.2);
+  background: var(--paper);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
-.danger:hover {
-  box-shadow: 0 4px 8px rgba(220,53,69,0.3);
+.danger:hover:not(:disabled) {
+  background: var(--danger-bg);
 }
 
-.purple {
-  background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(111,66,193,0.2);
+.dangerFilled {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--paper);
 }
 
-.purple:hover {
-  box-shadow: 0 4px 8px rgba(111,66,193,0.3);
+.dangerFilled:hover:not(:disabled) {
+  background: #86200f;
+  border-color: #86200f;
+}
+
+/* Label only, for actions that must not compete: inline links, dismissals. */
+.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-body);
+}
+
+.quiet:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--paper-active);
 }
 
 /* 44px is the minimum comfortable touch target. */
@@ -105,7 +112,6 @@
   .medium,
   .large {
     min-height: 44px;
-    padding: 12px 20px;
-    font-size: 16px;
+    padding: 13px 20px;
   }
 }

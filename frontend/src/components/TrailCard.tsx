@@ -106,7 +106,7 @@ export const TrailCard: React.FC<TrailCardProps> = memo(
               className={`${styles.actions} ${canEdit ? styles.threeColumns : styles.twoColumns}`}
             >
               <Button
-                variant="success"
+                variant="primary"
                 size="small"
                 onClick={stopPropagation(
                   () => detailedTrail && onDownloadGPX(detailedTrail),
@@ -116,7 +116,7 @@ export const TrailCard: React.FC<TrailCardProps> = memo(
               </Button>
 
               <Button
-                variant="purple"
+                variant="secondary"
                 size="small"
                 onClick={stopPropagation(
                   () => detailedTrail && onShowQRCode(detailedTrail),
@@ -127,7 +127,7 @@ export const TrailCard: React.FC<TrailCardProps> = memo(
 
               {canEdit && (
                 <Button
-                  variant="warning"
+                  variant="secondary"
                   size="small"
                   onClick={stopPropagation(() => onEditTrailClick(trail))}
                   title="Edit trail"

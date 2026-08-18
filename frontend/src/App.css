@@ -14,6 +14,9 @@
    * The S-grade difficulty scale, single source of truth. Read by
    * ui/Badge.module.css for the badges and by utils/colors.ts for the trail
    * lines drawn on the map.
+   *
+   * These six are the only saturated colours in the interface. Everything else
+   * is ink on paper, so a trail's grade is the one thing colour ever means.
    */
   --level-s0: #28a745;
   --level-s1: #007bff;
@@ -23,21 +26,83 @@
   --level-s5: #343a40;
   --level-unknown: #6c757d;
 
-  /* Accent used by the floating map controls and the GPS marker. */
+  /*
+   * Map marker tints: each grade mixed well down towards paper. The start and
+   * finish markers fill with these rather than the full-strength colour above,
+   * so they read as belonging to their line without adding a seventh saturated
+   * colour to the map. Read by utils/markerIcons.ts.
+   */
+  --tint-s0: #c3e3cb;
+  --tint-s1: #bfd9f7;
+  --tint-s2: #fbdcbd;
+  --tint-s3: #f5c8c9;
+  --tint-s4: #d5c8ec;
+  --tint-s5: #cbcac8;
+  --tint-unknown: #d9d6cf;
+
+  /* Accent for the GPS marker, the one element no mockup covers. */
   --accent: #007aff;
 
   /*
-   * Neutral ramp and semantic colours. Deliberately independent of the
-   * difficulty scale above even where the hex currently matches: recolouring
-   * an S3 trail should not recolour every error message.
+   * Paper: the panel ground and its three recesses. --paper-field is reserved
+   * for inputs and the mobile trail cards, which sit brighter than the panel.
    */
-  --text-strong: #212529;
-  --text-body: #495057;
-  --text-muted: #6c757d;
-  --surface-subtle: #f8f9fa;
-  --surface-muted: #e9ecef;
-  --border-subtle: #dee2e6;
-  --border-input: #ddd;
+  --paper: #faf7f0;
+  --paper-sunk: #f3eee2;
+  --paper-active: #f1ece0;
+  --paper-field: #fff;
+
+  /* Ink: one ramp from the headline weight down to labels. */
+  --ink: #26231d;
+  --ink-soft: #3d382e;
+  --ink-body: #4d473c;
+  --ink-muted: #8b8270;
+  --ink-faint: #a89d87;
+
+  /*
+   * Rules, lightest last. Every border in the interface is one of these at 1px:
+   * --rule-strong edges a panel against the map, --rule divides sections,
+   * --rule-control outlines a control, --rule-row separates list rows.
+   */
+  --rule-strong: #b8ae99;
+  --rule: #d8d0bd;
+  --rule-control: #cfc6b1;
+  --rule-row: #e4ddcc;
+
+  /* Destructive and error, as ink rather than a fill wherever it can be. */
+  --danger: #9a2418;
+  --danger-bg: #fbf0ef;
+  --danger-rule: #e3c4c0;
+  --danger-chip: #cf9d97;
+  --danger-ink: #7c2a1f;
+  --danger-on: #f7e2de;
+
+  /* Confirmation, used by the toast only. */
+  --ok-bg: #eef2e4;
+  --ok-rule: #b9c9a4;
+  --ok-chip: #9fba86;
+  --ok-ink: #2c4a1c;
+  --ok-label: #2f6b1c;
+
+  /* Modal and sheet scrims. */
+  --scrim: rgba(30, 26, 20, 0.5);
+  --scrim-strong: rgba(30, 26, 20, 0.6);
+
+  /*
+   * Shadows exist only where something floats over the map. Panels, rows and
+   * inputs have none -- they are separated by rules, not elevation.
+   */
+  --shadow-panel: 6px 0 24px rgba(30, 26, 20, 0.28);
+  --shadow-modal: 0 30px 70px rgba(20, 17, 12, 0.5);
+  --shadow-control: 0 4px 14px rgba(30, 26, 20, 0.3);
+  --shadow-float: 0 8px 22px rgba(30, 26, 20, 0.35);
+  --shadow-sheet: 0 -6px 24px rgba(20, 17, 12, 0.34);
+
+  /* Sans for copy, mono for labels, numbers and anything tabular. */
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas,
+    monospace;
 
   /* Stacking order, so these stop being scattered magic numbers. */
   --z-map-control: 1000;
@@ -64,9 +129,9 @@ html,
 body {
   height: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  color: var(--ink-body);
+  background: var(--ink);
 }
 
 #root {
@@ -86,6 +151,7 @@ body {
 .leaflet-container {
   width: 100vw !important;
   height: 100vh !important;
+  font-family: var(--font-sans);
 }
 
 /* Inline spinner used while the app boots. */
@@ -93,8 +159,8 @@ body {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid var(--level-s1);
+  border: 1.5px solid var(--rule-control);
+  border-top-color: var(--ink);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-right: 8px;

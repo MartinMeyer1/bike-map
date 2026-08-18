@@ -1,55 +1,48 @@
 .overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  inset: 0;
+  background: var(--scrim);
+  display: grid;
+  place-items: center;
+  padding: 28px;
   z-index: var(--z-modal);
-  backdrop-filter: blur(4px);
 }
 
 .modal {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  width: 430px;
+  max-width: 100%;
+  max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--paper);
+  border: 1px solid var(--ink-muted);
+  border-radius: 0;
+  box-shadow: var(--shadow-modal);
+}
+
+/* Roomier variants: the trail form, then the ratings sheet between the two. */
+.wide {
+  width: 780px;
+  max-height: 92vh;
+}
+
+.medium {
+  width: 640px;
+}
+
+.narrow {
+  width: 390px;
 }
 
 .header {
-  color: white;
-  padding: 20px 24px;
+  flex-shrink: 0;
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-}
-
-.blue {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-}
-
-.purple {
-  background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
-}
-
-.success {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.warning {
-  background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-  color: var(--text-strong);
-}
-
-.danger {
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  gap: 16px;
+  padding: 18px 26px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .centeredHeader {
@@ -57,44 +50,105 @@
   text-align: center;
 }
 
+/*
+ * The delete dialog's band. It is the one place a saturated fill is allowed
+ * outside the difficulty scale, because the mockup uses it as a stop sign.
+ */
+.danger {
+  background: var(--danger);
+  border-bottom-color: var(--danger);
+}
+
+.danger .eyebrow {
+  color: var(--danger-on);
+}
+
+.danger .title {
+  color: var(--paper);
+}
+
+.eyebrow {
+  composes: eyebrow from '../../styles/type.module.css';
+}
+
 .title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  composes: title from '../../styles/type.module.css';
+  margin: 3px 0 0;
+  font-size: 20px;
+  letter-spacing: -0.3px;
+}
+
+.titleGroup {
+  min-width: 0;
 }
 
 .closeButton {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 24px;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--ink-body);
   cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .closeButton:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
 }
 
 .content {
-  padding: 24px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  max-height: calc(80vh - 80px);
+  padding: 22px 26px 24px;
 }
 
-/* Roomier variant for the trail form, which is much taller than a dialog. */
-.wide {
-  max-width: 600px;
-  max-height: 90vh;
+/* Action bar pinned under the scroll area, on the recessed paper. */
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  padding: 16px 26px;
+  border-top: 1px solid var(--rule);
+  background: var(--paper-sunk);
 }
 
-.wide .content {
-  max-height: calc(90vh - 80px);
+/* The affirmative action takes the remaining width; the rest stay intrinsic. */
+.footer > :first-child {
+  flex: 1;
+}
+
+.centeredFooter {
+  justify-content: center;
+}
+
+.centeredFooter > :first-child {
+  flex: 0 0 auto;
+  min-width: 180px;
+}
+
+@media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
+  .overlay {
+    padding: 14px;
+  }
+
+  .header {
+    padding: 16px 18px;
+  }
+
+  .content {
+    padding: 18px;
+  }
+
+  .footer {
+    padding: 14px 18px;
+    flex-wrap: wrap;
+  }
 }

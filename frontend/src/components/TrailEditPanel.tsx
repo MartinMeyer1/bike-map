@@ -117,7 +117,6 @@ export default function TrailEditPanel({
         isOpen
         onClose={onClose}
         title="✏️ Edit Trail"
-        headerVariant="warning"
         centerTitle
         showCloseButton={false}
         size="wide"
@@ -140,7 +139,7 @@ export default function TrailEditPanel({
           />
 
           <div className={styles.actions}>
-            <Button type="submit" variant="success" size="large" disabled={isLoading}>
+            <Button type="submit" variant="primary" size="large" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <span className={styles.spinner}></span>

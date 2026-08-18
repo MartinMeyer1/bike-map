@@ -229,7 +229,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                   />
                   <Button
                     type="submit"
-                    variant="success"
+                    variant="primary"
                     size="small"
                     disabled={!newComment.trim() || submitting}
                   >
@@ -287,7 +287,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
                           <div className={styles.editActions}>
                             <Button
                               onClick={handleUpdateComment}
-                              variant="success"
+                              variant="primary"
                               size="small"
                               disabled={!editingCommentText.trim() || submitting}
                             >

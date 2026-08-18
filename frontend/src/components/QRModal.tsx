@@ -18,7 +18,6 @@ export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, fileUrl }) =>
       title="📱 QR Code Download"
       showCloseButton={false}
       centerTitle={true}
-      headerVariant="purple"
     >
       <div className={styles.content}>
         <div className={styles.qrContainer}>
@@ -34,7 +33,7 @@ export const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, fileUrl }) =>
         </p>
         
         <Button 
-          variant="purple"
+          variant="secondary"
           onClick={onClose}
           className={styles.closeButton}
         >

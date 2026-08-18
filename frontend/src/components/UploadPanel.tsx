@@ -94,7 +94,6 @@ export default function UploadPanel({
       isOpen={isVisible}
       onClose={onClose}
       title="➕ Add New Trail"
-      headerVariant="success"
       centerTitle
       showCloseButton={false}
       size="wide"
@@ -116,7 +115,7 @@ export default function UploadPanel({
         />
 
         <div className={styles.actions}>
-          <Button type="submit" variant="success" size="large" disabled={isLoading}>
+          <Button type="submit" variant="primary" size="large" disabled={isLoading}>
             {isLoading ? (
               <>
                 <span className={styles.spinner}></span>

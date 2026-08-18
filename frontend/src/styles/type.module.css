@@ -1,0 +1,74 @@
+/*
+ * The shared type scale. Every component module owns its own layout, but the
+ * mono label treatment recurs in about a dozen of them, so it lives here once
+ * and is pulled in with CSS Modules `composes:`:
+ *
+ *   .visibleTrailsLabel {
+ *     composes: label from '../styles/type.module.css';
+ *     ...
+ *   }
+ *
+ * Composing classes must be listed before any other declaration in the rule.
+ * Callers override font-size freely -- the design uses half-pixel steps between
+ * 8.5px and 12px -- but should leave family, tracking and colour alone.
+ */
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Kicker above a title: "EDIT TRAIL", "NEW ENTRY", "TRAIL REGISTER". */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--ink-muted);
+}
+
+/* Names a field or a section: "TRAIL NAME *", "DIFFICULTY LEGEND". */
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+}
+
+/* Smallest annotation: legend keys, hints, the UNCONF. mark. */
+.caption {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+/* The datum a label points at: counts, distances, dates. */
+.value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+/* Mono text set as a control's own label: buttons, chips, tabs. */
+.control {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+/* Sans headline. Size is the caller's business; weight and tracking are not. */
+.title {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+/* Sans body copy. */
+.body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-body);
+  text-wrap: pretty;
+}

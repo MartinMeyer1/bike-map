@@ -146,7 +146,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
           </h2>
           {user && (user.role === 'Editor' || user.role === 'Admin') && (
             <Button 
-              variant="success"
+              variant="primary"
               size="small"
               onClick={onAddTrailClick}
               title="Add new trail"

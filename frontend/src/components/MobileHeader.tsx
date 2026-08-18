@@ -156,7 +156,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
               <div className={styles.actionRow}>
                 {user && (user.role === 'Editor' || user.role === 'Admin') && (
                   <Button 
-                    variant="success"
+                    variant="primary"
                     size="medium"
                     onClick={handleAddTrailClick}
                     title="Add new trail"

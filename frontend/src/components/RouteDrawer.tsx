@@ -3,6 +3,7 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
+import { haversineDistance } from '../utils/geo';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
 
@@ -49,19 +50,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     return routePointsWithElevation.map(p => ({ lat: p.lat, lng: p.lng }));
   }, [waypoints, routePointsWithElevation]);
 
-  // Calculate distance between two lat/lng points in meters (Haversine formula)
-  const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }, []);
-
   // Split a complete route back into segments between waypoints
   const splitRouteIntoSegments = useCallback((completeRoute: Array<{lat: number, lng: number, ele?: number}>, waypoints: PathPoint[]): Array<Array<{lat: number, lng: number, ele?: number}>> => {
     if (waypoints.length < 2 || completeRoute.length < 2) return [];
@@ -77,7 +65,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       let startIndex = 0;
       let minStartDist = Infinity;
       for (let j = 0; j < completeRoute.length; j++) {
-        const dist = calculateDistance(startWaypoint.lat, startWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
+        const dist = haversineDistance(startWaypoint.lat, startWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
         if (dist < minStartDist) {
           minStartDist = dist;
           startIndex = j;
@@ -88,7 +76,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       let endIndex = completeRoute.length - 1;
       let minEndDist = Infinity;
       for (let j = startIndex; j < completeRoute.length; j++) {
-        const dist = calculateDistance(endWaypoint.lat, endWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
+        const dist = haversineDistance(endWaypoint.lat, endWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
         if (dist < minEndDist) {
           minEndDist = dist;
           endIndex = j;
@@ -103,7 +91,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     }
     
     return segments;
-  }, [calculateDistance]);
+  }, []);
 
   // Initialize waypoints from GPX content when drawing becomes active.
   // This is a pure reset driven by props (isActive/initialGpxContent), so it's
@@ -248,7 +236,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const prevPoint = trackPoints[i - 1];
       
       // Calculate distance
-      const distance = calculateDistance(prevPoint.lat, prevPoint.lng, point.lat, point.lng);
+      const distance = haversineDistance(prevPoint.lat, prevPoint.lng, point.lat, point.lng);
       totalDistance += distance;
       
       // Calculate elevation change
@@ -267,7 +255,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       loss: totalLoss,
       distance: totalDistance
     };
-  }, [calculateDistance]);
+  }, []);
 
   // Update route when waypoints change - handle incrementally.
   // routeSegments accumulates results from real BRouter network calls, so this
