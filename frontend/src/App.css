@@ -16,21 +16,33 @@
    * lines drawn on the map.
    *
    * These six are the only saturated colours in the interface. Everything else
-   * is ink on paper, so a trail's grade is the one thing colour ever means.
+   * is ink on paper, so a trail's grade is the one thing colour ever means --
+   * which is also why they are pigment rather than screen primaries. The mockups
+   * specify the Bootstrap set (#28a745 #007bff #fd7e14 #dc3545 #6f42c1 #343a40),
+   * which against paper reads as backlit.
+   *
+   * These are the exact midpoint, in OkLab, between that set and a considerably
+   * darker one: pigment rather than backlight, without going so deep that the
+   * scale reads as mud. Every badge keeps its white label.
    */
-  --level-s0: #28a745;
-  --level-s1: #007bff;
-  --level-s2: #fd7e14;
-  --level-s3: #dc3545;
-  --level-s4: #6f42c1;
-  --level-s5: #343a40;
-  --level-unknown: #6c757d;
+  --level-s0: #309042;
+  --level-s1: #176eda;
+  --level-s2: #d36b09;
+  --level-s3: #b62c3e;
+  --level-s4: #603da4;
+  --level-s5: #2e343a;
+  --level-unknown: #6c6a63;
 
   /*
    * Map marker tints: each grade mixed well down towards paper. The start and
    * finish markers fill with these rather than the full-strength colour above,
    * so they read as belonging to their line without adding a seventh saturated
    * colour to the map. Read by utils/markerIcons.ts.
+   *
+   * Unchanged by the palette going darker, which is not an oversight: darkening
+   * held each hue, and a tint is defined by its own lightness and chroma rather
+   * than the base's. Rotating these onto the new hues moves them by an OkLab
+   * distance of at most 0.009 -- invisible -- so the values already fit.
    */
   --tint-s0: #c3e3cb;
   --tint-s1: #bfd9f7;

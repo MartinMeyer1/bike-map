@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 import { haversineDistance } from '../utils/geo';
+import { getToken } from '../utils/colors';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
 import styles from './routeDrawer.module.css';
@@ -311,17 +312,27 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     routeLayer.clearLayers();
     waypointLayer.clearLayers();
 
+    /*
+     * The overlay borrows the grade scale's green, blue and red for start,
+     * middle and end. Read from the tokens rather than written out: these were
+     * literal copies of the old bright palette, so when the scale was darkened
+     * they stayed behind as the only vivid thing left on the map.
+     */
+    const startColor = getToken('--level-s0');
+    const midColor = getToken('--level-s1');
+    const endColor = getToken('--level-s3');
+
     // Draw waypoints
     waypoints.forEach((point, index) => {
       const marker = L.circleMarker([point.lat, point.lng], {
         radius: 8,
-        fillColor: index === 0 ? '#28a745' : index === waypoints.length - 1 ? '#dc3545' : '#007bff',
-        color: '#fff',
+        fillColor: index === 0 ? startColor : index === waypoints.length - 1 ? endColor : midColor,
+        color: getToken('--paper'),
         weight: 2,
         opacity: 1,
-        fillOpacity: 0.8,
+        fillOpacity: 0.9,
       });
-      
+
       marker.bindTooltip(`Waypoint ${index + 1}`, { permanent: false });
       waypointLayer.addLayer(marker);
     });
@@ -329,13 +340,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     // Draw route - either computed by BRouter or straight lines as fallback
     if (routePoints.length >= 2) {
       const isComputedRoute = routePoints.length > waypoints.length;
-      
+
       const polyline = L.polyline(
         routePoints.map((p): L.LatLngTuple => [p.lat, p.lng]),
         {
-          color: '#dc3545',
+          color: endColor,
           weight: 6,
-          opacity: 0.8,
+          opacity: 0.85,
           dashArray: isComputedRoute ? undefined : '5, 5'
         }
       );

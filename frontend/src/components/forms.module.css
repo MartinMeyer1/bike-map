@@ -208,13 +208,18 @@
   color: var(--ink);
 }
 
-/* The grade's colour, dimmed until chosen. */
+/*
+ * The grade's colour, dimmed until chosen. 0.55 rather than the mockups' 0.45,
+ * which was drawn over the brighter palette: this pigment washes out to
+ * near-indistinguishable pastels at that strength, and a picker whose job is to
+ * show the scale has to keep the six apart.
+ */
 .levelBar {
   display: block;
   height: 7px;
   margin: 0 10px;
   background: var(--level);
-  opacity: 0.45;
+  opacity: 0.55;
 }
 
 .levelCellOn .levelBar {
