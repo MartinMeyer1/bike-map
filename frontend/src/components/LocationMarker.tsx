@@ -233,7 +233,30 @@ export const LocationControls: React.FC<{
                 : 'Click to get current location'
         }
       >
-        {isLoading ? '⏳' : locationError ? '⚠️' : isTracking ? '📍' : hasLocation ? '📍' : '📍'}
+        {/*
+         * One crosshair in every state. The button's border and ink already say
+         * which state it is in -- muted while locating, red on error, inverted
+         * while tracking -- and the title spells it out; swapping in a different
+         * glyph per state made the control read as three different buttons.
+         */}
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="3.2" />
+          <circle cx="12" cy="12" r="7.6" />
+          <line x1="12" y1="1.4" x2="12" y2="4.4" />
+          <line x1="12" y1="19.6" x2="12" y2="22.6" />
+          <line x1="1.4" y1="12" x2="4.4" y2="12" />
+          <line x1="19.6" y1="12" x2="22.6" y2="12" />
+        </svg>
       </button>
       
     </div>

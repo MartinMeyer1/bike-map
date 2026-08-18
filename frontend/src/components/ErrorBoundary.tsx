@@ -46,22 +46,37 @@ const DefaultErrorFallback: React.FC<{ error: Error; resetError: () => void }> =
   error,
   resetError
 }) => (
+  /*
+   * Inline styles, but reading the same tokens as everything else: this renders
+   * when the app has already failed, so it must not depend on a CSS module
+   * having loaded -- while the :root custom properties in App.css have.
+   */
   <div style={{
     padding: '20px',
     margin: '20px',
-    border: '1px solid #dc3545',
-    borderRadius: '8px',
-    backgroundColor: '#f8d7da',
-    color: '#721c24'
+    border: '1px solid var(--danger-rule)',
+    backgroundColor: 'var(--danger-bg)',
+    color: 'var(--danger-ink)'
   }}>
-    <h2 style={{ margin: '0 0 16px 0', fontSize: '18px' }}>Something went wrong</h2>
+    <div style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: '10px',
+      letterSpacing: '0.2em',
+      color: 'var(--danger)'
+    }}>
+      ERROR
+    </div>
+    <h2 style={{ margin: '4px 0 16px 0', fontSize: '18px', color: 'var(--ink)' }}>
+      Something went wrong
+    </h2>
     <details style={{ marginBottom: '16px' }}>
       <summary style={{ cursor: 'pointer', marginBottom: '8px' }}>Error details</summary>
-      <pre style={{ 
-        fontSize: '12px', 
-        backgroundColor: '#fff', 
-        padding: '8px', 
-        borderRadius: '4px',
+      <pre style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '12px',
+        backgroundColor: 'var(--paper-field)',
+        border: '1px solid var(--danger-rule)',
+        padding: '8px',
         whiteSpace: 'pre-wrap'
       }}>
         {error.message}
@@ -70,11 +85,14 @@ const DefaultErrorFallback: React.FC<{ error: Error; resetError: () => void }> =
     <button
       onClick={resetError}
       style={{
-        padding: '8px 16px',
-        backgroundColor: '#dc3545',
-        color: 'white',
+        padding: '12px 22px',
+        backgroundColor: 'var(--danger)',
+        color: 'var(--paper)',
         border: 'none',
-        borderRadius: '4px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '12px',
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
         cursor: 'pointer'
       }}
     >

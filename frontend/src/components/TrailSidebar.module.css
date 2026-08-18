@@ -1,59 +1,120 @@
+/*
+ * The register: a paper panel flush against the left edge of the map, not a
+ * floating card. Its own rule and shadow are the only thing separating it from
+ * the terrain behind.
+ */
+
 .sidebar {
-  position: fixed !important;
-  top: 10px !important;
-  left: 10px !important;
-  width: 320px !important;
-  height: calc(100vh - 20px) !important;
-  background: white !important;
-  border: 1px solid #ddd !important;
-  border-radius: 8px !important;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  z-index: var(--z-map-control) !important;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 396px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper);
+  border-right: 1px solid var(--rule-strong);
+  box-shadow: var(--shadow-panel);
+  z-index: var(--z-map-control);
 }
 
 .header {
   flex-shrink: 0;
-  padding: 15px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .titleRow {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mark {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.eyebrow {
+  composes: eyebrow from '../styles/type.module.css';
+  font-size: 9.5px;
 }
 
 .title {
+  composes: title from '../styles/type.module.css';
   margin: 0;
-  font-size: 20px;
+  font-size: 24px;
 }
 
-.visibleTrailsTitle {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+/*
+ * Not a ui/Button: the design gives this one tighter tracking and a heavier
+ * weight than the shared control, since it sits against the wordmark.
+ */
+.addButton {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  background: var(--ink);
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--paper);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.addButton:hover {
+  background: var(--ink-soft);
+}
+
+/* Section head above the list: label left, count right. */
+.listHead {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 20px 8px;
+}
+
+.listLabel {
+  composes: label from '../styles/type.module.css';
+  letter-spacing: 0.22em;
+}
+
+.listCount {
+  composes: value from '../styles/type.module.css';
 }
 
 .scrollContainer {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 0 15px;
+  border-top: 1px solid var(--rule);
 }
 
 .emptyState {
-  padding: 15px;
+  margin: 20px;
+  padding: 16px;
   text-align: center;
-  color: #666;
-  font-size: 14px;
-  border: 1px dashed #dee2e6;
-  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-muted);
+  border: 1px dashed var(--rule-control);
+  text-wrap: pretty;
 }
 
 .trailsContainer {
-  padding-top: 2px;
   /* Containing block for the absolutely positioned virtual rows. */
   position: relative;
 }
@@ -64,61 +125,54 @@
   left: 0;
   width: 100%;
   /*
-   * Establishes a block formatting context so the card's own margin-bottom
-   * stays inside the row. The virtualizer measures offsetHeight, and a margin
-   * that collapsed out of the row would be invisible to it -- every card would
-   * be positioned 12px too high and they would overlap.
+   * Establishes a block formatting context so a row's own margins stay inside
+   * it. The virtualizer measures offsetHeight, and a margin that collapsed out
+   * of the row would be invisible to it -- every row would be positioned too
+   * high and they would overlap.
    */
   display: flow-root;
 }
 
 .footer {
   flex-shrink: 0;
-  margin-top: 15px;
-  padding: 15px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--rule);
+  background: var(--paper-sunk);
 }
 
-.legend {
-  padding: 10px;
-  background: var(--surface-subtle);
-  border-radius: 4px;
-  font-size: 12px;
-  color: #666;
-  position: relative;
+.legendHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .legendTitle {
-  margin-bottom: 6px;
-  font-weight: bold;
-}
-
-.legendBadges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  composes: label from '../styles/type.module.css';
+  letter-spacing: 0.22em;
 }
 
 .infoButton {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
-  background: transparent;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  width: 32px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-body);
   cursor: pointer;
-  font-size: 14px;
-  color: var(--text-muted);
-  transition: all 0.2s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .infoButton:hover {
-  background-color: var(--surface-muted);
-  border-color: #adb5bd;
-  color: var(--text-body);
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
+  color: var(--ink);
 }
+
+/* The scale bar and the solid/dashed key live in DifficultyLegend. */

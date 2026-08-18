@@ -1,173 +1,173 @@
+/*
+ * The account block, sitting in the sidebar header. Signed in it is a single
+ * mono row that opens onto role and two actions; signed out it becomes the
+ * invitation to sign in.
+ */
+
 .card {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border: 1px solid #dee2e6;
-  border-radius: 12px;
-  font-size: 14px;
-  margin-bottom: 20px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 14px;
+  border: 1px solid var(--rule-control);
+  background: var(--paper-sunk);
 }
 
-.guestCard {
-  text-align: center;
-}
-
-.guestHeader {
-  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-  color: white;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.guestTitle {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.guestSubtitle {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.guestBody {
-  padding: 0 16px 16px 16px;
-}
-
-/* Google brand colours, so this one does not map to a Button variant. */
-.googleButton {
+/* Signed-in summary row. A button, so it is reachable by keyboard. */
+.summary {
   width: 100%;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.googleButton:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.header {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: white;
-  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  cursor: pointer;
 }
 
 .identity {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
+  gap: 9px;
   min-width: 0;
 }
 
+/* The one green dot in the interface: presence, not a grade. */
 .onlineDot {
-  width: 8px;
-  height: 8px;
-  background-color: #00ff88;
-  border-radius: 50%;
   flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(0, 255, 136, 0.6);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--level-s0);
 }
 
 .name {
-  font-size: 15px;
+  composes: mono from '../styles/type.module.css';
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
-  flex: 1;
 }
 
-.collapseButton {
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
-  margin-left: 8px;
+.caret {
   flex-shrink: 0;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.collapseButton:hover {
-  background: rgba(255, 255, 255, 0.2);
+  font-size: 9px;
+  color: var(--ink-muted);
 }
 
 .body {
-  padding: 16px;
-}
-
-.usernameRow {
+  padding: 0 12px 12px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: rgba(40, 167, 69, 0.1);
-  border-radius: 8px;
-  border: 1px solid rgba(40, 167, 69, 0.2);
-}
-
-.username {
-  font-size: 14px;
-  color: #155724;
-  font-weight: 500;
-}
-
-.editButton {
-  padding: 6px 12px;
-  font-size: 11px;
+  flex-direction: column;
+  gap: 9px;
 }
 
 .roleRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule-control);
 }
 
 .roleLabel {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  composes: caption from '../styles/type.module.css';
+  font-size: 10px;
+  letter-spacing: 0.18em;
 }
 
+/*
+ * The role badge keeps a fill because it is a standing status rather than an
+ * action -- muted for Viewer, and the S4/S2 hues for Admin and Editor, which is
+ * the one place those colours appear off the difficulty scale.
+ */
 .roleBadge {
-  color: white;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--text-muted);
+  composes: mono from '../styles/type.module.css';
+  padding: 3px 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--paper);
+  background: var(--ink-muted);
 }
 
 .roleAdmin {
-  background: #dc3545;
+  background: var(--level-s4);
 }
 
 .roleEditor {
-  background: #fd7e14;
+  background: var(--level-s2);
 }
 
-.signOutButton {
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action {
+  flex: 1;
+  padding: 8px 0;
+  background: var(--paper);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.action:hover {
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+/* Guest */
+
+.guestHeader {
+  padding: 14px 14px 12px;
+  border-bottom: 1px dashed var(--rule-control);
+}
+
+.guestTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.guestSubtitle {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--ink-body);
+}
+
+.guestBody {
+  padding: 12px;
+}
+
+/*
+ * Deliberately not Google's brand button. Everything else on this panel is ink
+ * on paper, and a blue-and-green gradient here would be the loudest thing on
+ * screen; the wording carries the provider.
+ */
+.signInButton {
   width: 100%;
+  padding: 12px 0;
+  background: var(--ink);
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--paper);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.signInButton:hover {
+  background: var(--ink-soft);
 }

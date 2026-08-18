@@ -1,0 +1,167 @@
+/*
+ * The drawing-mode panel, top right of the map while a route is being laid out.
+ * Same paper-and-hairline construction as the sidebar, narrower.
+ */
+
+.panel {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  z-index: var(--z-map-control);
+  width: 264px;
+  background: var(--paper);
+  border: 1px solid var(--ink-muted);
+  box-shadow: var(--shadow-float);
+  /* The panel sits over the map, which is listening for waypoint clicks. */
+  pointer-events: auto;
+}
+
+.header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.eyebrow {
+  composes: eyebrow from '../styles/type.module.css';
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+}
+
+.title {
+  composes: title from '../styles/type.module.css';
+  margin-top: 2px;
+  font-size: 18px;
+  letter-spacing: -0.3px;
+}
+
+.readout {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.measure {
+  padding: 12px;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-row);
+}
+
+.measureLabel {
+  composes: caption from '../styles/type.module.css';
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+}
+
+/* The one big number in the panel: how long the route is so far. */
+.distance {
+  composes: mono from '../styles/type.module.css';
+  margin-top: 2px;
+  font-size: 24px;
+  color: var(--ink);
+}
+
+.climb {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--rule-control);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-body);
+}
+
+.pending {
+  composes: caption from '../styles/type.module.css';
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.waypoints {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.waypointsLabel {
+  composes: caption from '../styles/type.module.css';
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.waypointsCount {
+  composes: value from '../styles/type.module.css';
+}
+
+.actions {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action {
+  padding: 11px 0;
+  background: var(--paper);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.action:hover:not(:disabled) {
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
+}
+
+.action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.actionPrimary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.actionPrimary:hover:not(:disabled) {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+}
+
+.actionDanger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.actionDanger:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.hint {
+  composes: caption from '../styles/type.module.css';
+  margin-top: 2px;
+  font-size: 9.5px;
+  text-align: center;
+}
+
+@media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
+  /* Bottom of the screen on mobile: the top right is where the map lives. */
+  .panel {
+    right: 14px;
+    left: 14px;
+    top: auto;
+    bottom: 14px;
+    width: auto;
+  }
+
+  .action {
+    padding: 13px 0;
+  }
+}

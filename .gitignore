@@ -70,3 +70,5 @@ jspm_packages/
 *.rd5
 routing-server/brouter/
 backend/data/*
+# Screenshots from MCP-driven browser checks
+.playwright-mcp/

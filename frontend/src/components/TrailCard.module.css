@@ -1,163 +1,117 @@
-.trailCard {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+/*
+ * A row in the register, not a card: no radius, no shadow, no lift on hover.
+ * Rows are separated by a hairline and the selected one is marked by a recess
+ * plus an ink bar down its left edge.
+ */
+
+.row {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--rule-row);
+  background: transparent;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.15s;
 }
 
-.trailCard:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-1px);
+.row:hover {
+  background: var(--paper-sunk);
 }
 
-.trailCard.selected {
-  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-  border: 2px solid #007bff;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
-  transform: translateY(-1px);
+.selected,
+.selected:hover {
+  background: var(--paper-active);
+  box-shadow: inset 3px 0 0 var(--ink);
 }
 
 .header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.identity {
+  flex: 1;
+  min-width: 0;
 }
 
 .title {
   margin: 0;
-  font-size: 16px;
+  font-size: 16.5px;
   font-weight: 600;
-  color: var(--text-strong);
+  letter-spacing: -0.2px;
+  line-height: 1.25;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
-  margin-right: 8px;
-}
-
-.badgeContainer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.selectedIndicator {
-  width: 8px;
-  height: 8px;
-  background-color: #007bff;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.tags {
-  margin-bottom: 12px;
-  font-size: 12px;
-}
-
-.tag {
-  background: var(--surface-muted);
-  color: var(--text-body);
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-right: 4px;
-  display: inline-block;
-  margin-bottom: 2px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.moreTag {
-  color: var(--text-muted);
-  font-size: 11px;
-  font-style: italic;
 }
 
 .stats {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
-  margin-bottom: 0;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-body);
 }
 
-.stats.expanded {
-  margin-bottom: 16px;
+.expanded {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--rule-control);
 }
 
-.elevationStats {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.expandedContent {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* One segmented control, hairline-boxed, rather than three separate buttons. */
 .actions {
-  display: grid;
-  gap: 8px;
-}
-
-.actions.twoColumns {
-  grid-template-columns: 1fr 1fr;
-}
-
-.actions.threeColumns {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-/* Loading and Error States */
-.loadingState {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-style: italic;
+  margin-top: 14px;
+  border: 1px solid var(--ink);
+}
+
+.action {
+  flex: 1;
+  padding: 9px 0;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--ink);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.action:last-child {
+  border-right: none;
+}
+
+.action:hover:not(:disabled) {
+  background: var(--paper-sunk);
+}
+
+.action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.actionPrimary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.actionPrimary:hover:not(:disabled) {
+  background: var(--ink-soft);
+}
+
+.loadingState,
+.errorState {
+  composes: caption from '../styles/type.module.css';
+  padding: 10px 0;
+  text-align: center;
 }
 
 .errorState {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  color: #dc3545;
-  font-size: 14px;
-  font-style: italic;
+  color: var(--danger);
 }

@@ -14,30 +14,107 @@
    * The S-grade difficulty scale, single source of truth. Read by
    * ui/Badge.module.css for the badges and by utils/colors.ts for the trail
    * lines drawn on the map.
+   *
+   * These six are the only saturated colours in the interface. Everything else
+   * is ink on paper, so a trail's grade is the one thing colour ever means --
+   * which is also why they are pigment rather than screen primaries. The mockups
+   * specify the Bootstrap set (#28a745 #007bff #fd7e14 #dc3545 #6f42c1 #343a40),
+   * which against paper reads as backlit.
+   *
+   * These are the exact midpoint, in OkLab, between that set and a considerably
+   * darker one: pigment rather than backlight, without going so deep that the
+   * scale reads as mud. Every badge keeps its white label.
    */
-  --level-s0: #28a745;
-  --level-s1: #007bff;
-  --level-s2: #fd7e14;
-  --level-s3: #dc3545;
-  --level-s4: #6f42c1;
-  --level-s5: #343a40;
-  --level-unknown: #6c757d;
+  --level-s0: #309042;
+  --level-s1: #176eda;
+  --level-s2: #d36b09;
+  --level-s3: #b62c3e;
+  --level-s4: #603da4;
+  --level-s5: #2e343a;
+  --level-unknown: #6c6a63;
 
-  /* Accent used by the floating map controls and the GPS marker. */
+  /*
+   * Map marker tints: each grade mixed well down towards paper. The start and
+   * finish markers fill with these rather than the full-strength colour above,
+   * so they read as belonging to their line without adding a seventh saturated
+   * colour to the map. Read by utils/markerIcons.ts.
+   *
+   * Unchanged by the palette going darker, which is not an oversight: darkening
+   * held each hue, and a tint is defined by its own lightness and chroma rather
+   * than the base's. Rotating these onto the new hues moves them by an OkLab
+   * distance of at most 0.009 -- invisible -- so the values already fit.
+   */
+  --tint-s0: #c3e3cb;
+  --tint-s1: #bfd9f7;
+  --tint-s2: #fbdcbd;
+  --tint-s3: #f5c8c9;
+  --tint-s4: #d5c8ec;
+  --tint-s5: #cbcac8;
+  --tint-unknown: #d9d6cf;
+
+  /* Accent for the GPS marker, the one element no mockup covers. */
   --accent: #007aff;
 
   /*
-   * Neutral ramp and semantic colours. Deliberately independent of the
-   * difficulty scale above even where the hex currently matches: recolouring
-   * an S3 trail should not recolour every error message.
+   * Paper: the panel ground and its three recesses. --paper-field is reserved
+   * for inputs and the mobile trail cards, which sit brighter than the panel.
    */
-  --text-strong: #212529;
-  --text-body: #495057;
-  --text-muted: #6c757d;
-  --surface-subtle: #f8f9fa;
-  --surface-muted: #e9ecef;
-  --border-subtle: #dee2e6;
-  --border-input: #ddd;
+  --paper: #faf7f0;
+  --paper-sunk: #f3eee2;
+  --paper-active: #f1ece0;
+  --paper-field: #fff;
+
+  /* Ink: one ramp from the headline weight down to labels. */
+  --ink: #26231d;
+  --ink-soft: #3d382e;
+  --ink-body: #4d473c;
+  --ink-muted: #8b8270;
+  --ink-faint: #a89d87;
+
+  /*
+   * Rules, lightest last. Every border in the interface is one of these at 1px:
+   * --rule-strong edges a panel against the map, --rule divides sections,
+   * --rule-control outlines a control, --rule-row separates list rows.
+   */
+  --rule-strong: #b8ae99;
+  --rule: #d8d0bd;
+  --rule-control: #cfc6b1;
+  --rule-row: #e4ddcc;
+
+  /* Destructive and error, as ink rather than a fill wherever it can be. */
+  --danger: #9a2418;
+  --danger-bg: #fbf0ef;
+  --danger-rule: #e3c4c0;
+  --danger-chip: #cf9d97;
+  --danger-ink: #7c2a1f;
+  --danger-on: #f7e2de;
+
+  /* Confirmation, used by the toast only. */
+  --ok-bg: #eef2e4;
+  --ok-rule: #b9c9a4;
+  --ok-chip: #9fba86;
+  --ok-ink: #2c4a1c;
+  --ok-label: #2f6b1c;
+
+  /* Modal and sheet scrims. */
+  --scrim: rgba(30, 26, 20, 0.5);
+  --scrim-strong: rgba(30, 26, 20, 0.6);
+
+  /*
+   * Shadows exist only where something floats over the map. Panels, rows and
+   * inputs have none -- they are separated by rules, not elevation.
+   */
+  --shadow-panel: 6px 0 24px rgba(30, 26, 20, 0.28);
+  --shadow-modal: 0 30px 70px rgba(20, 17, 12, 0.5);
+  --shadow-control: 0 4px 14px rgba(30, 26, 20, 0.3);
+  --shadow-float: 0 8px 22px rgba(30, 26, 20, 0.35);
+  --shadow-sheet: 0 -6px 24px rgba(20, 17, 12, 0.34);
+
+  /* Sans for copy, mono for labels, numbers and anything tabular. */
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas,
+    monospace;
 
   /* Stacking order, so these stop being scattered magic numbers. */
   --z-map-control: 1000;
@@ -64,9 +141,9 @@ html,
 body {
   height: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  color: var(--ink-body);
+  background: var(--ink);
 }
 
 #root {
@@ -82,10 +159,87 @@ body {
   display: flex;
 }
 
-/* Map fills the viewport; Leaflet sizes its own container otherwise. */
+/*
+ * The map fills its shell rather than the viewport: on mobile the shell is only
+ * the space above the sheet. Not !important, so MapContainer's own inline size
+ * still wins -- that inline 100% is what makes the shell the authority.
+ */
+.mapShell {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100vh;
+}
+
 .leaflet-container {
-  width: 100vw !important;
-  height: 100vh !important;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+}
+
+/*
+ * Scrollbars, squared off like everything else: a sunk paper track and a plain
+ * ink-muted thumb, no radius and no gradient. Set globally rather than per
+ * scroll container -- the trail list, the dialog bodies and the mobile sheet all
+ * want the same one. The mobile strip hides its own in MobileSheet.module.css.
+ */
+/*
+ * Firefox only: it has no ::-webkit-scrollbar, and the standard properties are
+ * all it offers -- but where both are understood the standard `scrollbar-width`
+ * wins over the exact 8px below, so it has to stay out of Chromium's way.
+ */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) var(--paper-sunk);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper-sunk);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rule-strong);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--paper-sunk);
+}
+
+/*
+ * Trail start/finish markers, built as divIcons in utils/markerIcons.ts. Leaflet
+ * paints its own white box with a blue border behind a divIcon; the marker's SVG
+ * carries all of its own shape, so that box has to go.
+ */
+.bikemap-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Boot screen, before auth has resolved and there is any chrome to show. */
+.appBooting {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
 
 /* Inline spinner used while the app boots. */
@@ -93,11 +247,10 @@ body {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid var(--level-s1);
+  border: 1.5px solid var(--rule-control);
+  border-top-color: var(--ink);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-right: 8px;
 }
 
 @keyframes spin {
@@ -112,6 +265,24 @@ body {
 @media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
   .App {
     flex-direction: column;
+  }
+
+  /*
+   * The map gives up exactly the height the sheet has taken beyond its collapsed
+   * state. Both values are published by MobileSheet as custom properties, which
+   * keeps a drag from re-rendering the Leaflet subtree sixty times a second: only
+   * CSS reads them. The transition matches the sheet's own, and is dropped while
+   * a finger is down so the map tracks the drag exactly.
+   */
+  .mapShell {
+    height: calc(
+      100vh - max(0px, var(--bm-sheet-height, 0px) - var(--bm-sheet-collapsed, 0px))
+    );
+    transition: height 340ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  :root[data-bm-sheet-dragging='true'] .mapShell {
+    transition: none;
   }
 }
 

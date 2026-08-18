@@ -1,90 +1,75 @@
-.section {
-  margin-bottom: 24px;
-}
-
-.section:last-of-type {
-  margin-bottom: 16px;
-}
-
-.heading {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.body {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-body);
-}
-
-.body:last-child {
-  margin-bottom: 0;
-}
-
-.levels {
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.level {
-  margin-bottom: 12px;
-}
-
-.level:last-child {
-  margin-bottom: 0;
-}
-
-.levelHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.levelName {
-  color: var(--text-strong);
-  font-weight: 600;
-}
-
-.levelDescription {
-  margin: 0 0 0 32px;
-  color: var(--text-body);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.githubLink {
+.titleRow {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #24292e 0%, #586069 100%);
-  color: white;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(36, 41, 46, 0.2);
-}
-
-.githubLink:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(36, 41, 46, 0.3);
+  gap: 8px;
 }
 
 .titleIcon {
-  width: 24px;
-  height: 24px;
-  vertical-align: middle;
-  margin-right: 6px;
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
-.footer {
+.sections {
   display: flex;
-  justify-content: center;
-  margin-top: 24px;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.heading {
+  composes: label from '../styles/type.module.css';
+  margin: 0 0 6px;
+  font-weight: 400;
+}
+
+.body {
+  composes: body from '../styles/type.module.css';
+  margin: 0;
+}
+
+/* The scale, spelled out one grade at a time. */
+.levels {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.level {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule-row);
+}
+
+.levelName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.levelDescription {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-body);
+  text-wrap: pretty;
+}
+
+.githubLink {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--paper);
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+
+.githubLink:hover {
+  background: var(--ink-soft);
+  color: var(--paper);
+  text-decoration: none;
 }
