@@ -143,7 +143,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
           <div className={styles.brand}>
             <img src="/rock.png" alt="" className={styles.mark} />
             <div>
-              <div className={styles.eyebrow}>TRAIL REGISTER</div>
+              <div className={styles.eyebrow}>SHREDDING SINCE 2025</div>
               <h2 className={styles.title}>BikeMap</h2>
             </div>
           </div>
