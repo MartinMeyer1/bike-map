@@ -8,7 +8,7 @@ import { MobileHeader } from './components/MobileHeader';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
 import { BaseMapSelector, BaseMapType } from './components/BaseMapSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Toast } from './components/ui';
+import { ToastStack, Notice, ToastVariant } from './components/ui';
 import { AppProvider } from './context/AppContext';
 import { useAppContext } from './hooks/useAppContext';
 import { useIsMobile } from './hooks/useMediaQuery';
@@ -16,6 +16,9 @@ import { useGeolocation } from './hooks/useGeolocation';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
 import { MVTTrail } from './types';
 import './App.css';
+
+/** How long a notice stands before dismissing itself. */
+const NOTICE_DURATION_MS = 4000;
 
 const AppContent: React.FC = () => {
   const isMobile = useIsMobile();
@@ -30,10 +33,12 @@ const AppContent: React.FC = () => {
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
   const locationRequestPendingRef = useRef(false);
 
-  const [toastMessage, setToastMessage] = useState<string>('');
-  const [toastVariant, setToastVariant] = useState<'success' | 'error'>('success');
-  const [showToast, setShowToast] = useState(false);
-  
+  // Notices share one stack so a share confirmation and a context error can
+  // stand together instead of one covering the other.
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const nextNoticeId = useRef(1);
+
+
   // Location services for all devices
   const {
     position: userLocation,
@@ -138,11 +143,15 @@ const AppContent: React.FC = () => {
     selectTrail(null);
   }, [selectTrail]);
 
-  const handleShowToast = useCallback((message: string, variant: 'success' | 'error') => {
-    setToastMessage(message);
-    setToastVariant(variant);
-    setShowToast(true);
+  const dismissNotice = useCallback((id: number) => {
+    setNotices((current) => current.filter((notice) => notice.id !== id));
   }, []);
+
+  const handleShowToast = useCallback((message: string, variant: ToastVariant) => {
+    const id = nextNoticeId.current++;
+    setNotices((current) => [...current, { id, message, variant }]);
+    window.setTimeout(() => dismissNotice(id), NOTICE_DURATION_MS);
+  }, [dismissNotice]);
 
   const handleToggleBaseMap = useCallback(() => {
     setActiveBaseMap(prev => {
@@ -214,52 +223,15 @@ const AppContent: React.FC = () => {
 
   if (isAuthLoading) {
     return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '18px',
-        color: '#666'
-      }}>
-        <span className="loading" style={{ marginRight: '12px' }}></span>
-        Loading BikeMap...
+      <div className="appBooting">
+        <span className="loading"></span>
+        Loading BikeMap…
       </div>
     );
   }
 
   return (
     <div className="App">
-      {error && (
-        <div style={{
-          position: 'fixed',
-          top: '10px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 2000,
-          background: '#f8d7da',
-          color: '#721c24',
-          padding: '10px 20px',
-          borderRadius: '4px',
-          border: '1px solid #f5c6cb'
-        }}>
-          {error}
-          <button 
-            onClick={clearError}
-            style={{ 
-              marginLeft: '10px', 
-              background: 'none', 
-              border: 'none', 
-              color: 'inherit',
-              cursor: 'pointer',
-              fontSize: '16px'
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       {/* Mobile Header - only shown on mobile */}
       {isMobile && !isDrawingActive && (
         <MobileHeader
@@ -312,12 +284,14 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {/* Toast notification */}
-      <Toast
-        message={toastMessage}
-        variant={toastVariant}
-        show={showToast}
-        onClose={() => setShowToast(false)}
+      {/*
+       * One stack for everything: notices raised by a component (sharing,
+       * routing fallbacks) and the context error, which used to be its own
+       * fixed banner in a different visual language.
+       */}
+      <ToastStack
+        notices={error ? [...notices, { id: 0, message: error, variant: 'error' }] : notices}
+        onDismiss={(id) => (id === 0 ? clearError() : dismissNotice(id))}
       />
 
       {/* Location controls and base map selector - available on all devices */}

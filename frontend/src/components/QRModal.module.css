@@ -1,31 +1,28 @@
 .content {
-  padding: 24px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
 
-.qrContainer {
-  background: white;
-  padding: 16px;
-  border-radius: 12px;
-  display: inline-block;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+/* White, not paper: a QR code needs the contrast its spec assumes. */
+.qrFrame {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--rule-control);
 }
 
 .qrImage {
   width: 200px;
   height: 200px;
   display: block;
-  border-radius: 8px;
 }
 
 .description {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-bottom: 24px;
+  margin: 0;
+  font-size: 13.5px;
   line-height: 1.5;
-}
-
-.closeButton {
-  width: 100%;
+  color: var(--ink-body);
+  text-align: center;
+  text-wrap: pretty;
 }

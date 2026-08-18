@@ -154,6 +154,21 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Boot screen, before auth has resolved and there is any chrome to show. */
+.appBooting {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
 /* Inline spinner used while the app boots. */
 .loading {
   display: inline-block;
@@ -163,7 +178,6 @@ body {
   border-top-color: var(--ink);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-right: 8px;
 }
 
 @keyframes spin {

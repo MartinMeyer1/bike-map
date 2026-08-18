@@ -1,256 +1,270 @@
-.modalContent {
-  max-width: 600px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: var(--text-muted);
-}
-
-.refreshingIndicator {
-  position: sticky;
-  top: 0;
-  background: rgba(23, 162, 184, 0.1);
-  color: #17a2b8;
-  text-align: center;
-  padding: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  z-index: 10;
-}
-
-.section {
-  margin-bottom: 32px;
-}
-
-.section:last-child {
-  margin-bottom: 0;
-}
-
-.sectionTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-body);
-  margin-bottom: 16px;
-  border-bottom: 2px solid #e9ecef;
-  padding-bottom: 8px;
-}
-
-/* Rating Styles */
-.ratingOverview {
-  margin-bottom: 20px;
-}
-
-.ratingStats {
+.sections {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.averageRating {
+.sectionLabel {
+  composes: label from '../styles/type.module.css';
+  margin-bottom: 10px;
+}
+
+.loading,
+.refreshing {
+  composes: caption from '../styles/type.module.css';
+  padding: 30px 0;
+  text-align: center;
+}
+
+.refreshing {
+  padding: 8px 0 0;
+}
+
+/*
+ * The average and the visitor's own rating sit side by side in one hairline box:
+ * what everyone thinks, and what you think.
+ */
+.ratings {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  border: 1px solid var(--rule-row);
+}
+
+.average {
+  padding: 16px 18px;
+  background: var(--paper-sunk);
+  border-right: 1px solid var(--rule-row);
+}
+
+.averageValue {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 5px;
 }
 
-.averageText {
-  font-size: 16px;
-  color: var(--text-body);
-  font-weight: 500;
+.averageNumber {
+  composes: mono from '../styles/type.module.css';
+  font-size: 40px;
+  line-height: 0.9;
+  color: var(--ink);
+}
+
+.averageOutOf {
+  composes: mono from '../styles/type.module.css';
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+/* Read-only stars: ink for earned, faint for the rest. */
+.averageStars {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.starEmpty {
+  color: var(--rule-control);
+}
+
+.averageCount {
+  composes: caption from '../styles/type.module.css';
+  margin-top: 8px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
 }
 
 .noRatings {
-  color: var(--text-muted);
-  font-style: italic;
-  margin: 0;
+  composes: caption from '../styles/type.module.css';
+  margin-top: 8px;
 }
 
-.userRating {
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
-  margin-bottom: 16px;
+.own {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
 }
 
-.userRatingTitle {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.userRatingText {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-left: 8px;
-}
-
-.loginPrompt {
-  color: var(--text-muted);
-  font-style: italic;
-  margin: 12px 0;
-  text-align: center;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
-}
-
-/* Star Rating Styles */
+/* Five square buttons rather than five glyphs: each is its own target. */
 .stars {
   display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.stars.interactive {
-  cursor: pointer;
+  gap: 6px;
+  margin-top: 9px;
 }
 
 .star {
-  font-size: 18px;
-  color: var(--border-subtle);
-  transition: color 0.2s ease;
-  user-select: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-field);
+  border: 1px solid var(--rule-row);
+  border-radius: 0;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--rule-control);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.star.filled {
-  color: #ffc107;
+.starFilled {
+  background: var(--paper-active);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
-.star.empty {
-  color: var(--text-muted);
-  font-weight: bold;
+.star:disabled {
+  cursor: not-allowed;
 }
 
-.stars.interactive .star:hover {
-  color: #ffc107;
+.ownNote {
+  margin-top: auto;
+  padding-top: 10px;
+  font-size: 13px;
+  color: var(--ink-body);
 }
 
-/* Comments Styles */
+.signInNote {
+  composes: caption from '../styles/type.module.css';
+  padding: 12px 0 0;
+}
+
+/* Comments */
+
 .commentForm {
-  margin-bottom: 24px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .commentInput {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-family: inherit;
+  min-height: 62px;
+  padding: 11px 12px;
+  background: var(--paper-field);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+  color: var(--ink-soft);
   resize: vertical;
-  margin-bottom: 12px;
+  outline: none;
 }
 
 .commentInput:focus {
-  outline: none;
-  border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: var(--ink);
 }
 
-.commentInput:disabled {
-  background-color: var(--surface-muted);
-  opacity: 1;
+.commentInput::placeholder {
+  color: var(--ink-muted);
 }
 
-.commentsList {
-  space-y: 16px;
+.commentList {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
 }
 
 .comment {
-  padding: 16px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  margin-bottom: 16px;
-}
-
-.comment:last-child {
-  margin-bottom: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule-row);
 }
 
 .commentHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .commentAuthor {
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--text-body);
-  font-size: 14px;
+  color: var(--ink);
 }
 
 .commentDate {
-  font-size: 12px;
-  color: var(--text-muted);
+  composes: mono from '../styles/type.module.css';
+  font-size: 11px;
+  color: var(--ink-muted);
 }
 
 .commentActions {
+  margin-left: auto;
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
-.editButton,
-.deleteButton {
-  background: none;
-  border: none;
+.commentAction {
+  padding: 4px 9px;
+  background: var(--paper);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-body);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s;
 }
 
-.editButton:hover {
-  background-color: rgba(255, 193, 7, 0.1);
+.commentAction:hover:not(:disabled) {
+  background: var(--paper-active);
 }
 
-.deleteButton:hover {
-  background-color: rgba(220, 53, 69, 0.1);
+.commentActionDanger {
+  border-color: var(--danger-chip);
+  color: var(--danger);
 }
 
-.editButton:disabled,
-.deleteButton:disabled {
-  opacity: 0.5;
+.commentActionDanger:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+.commentAction:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .commentText {
-  color: var(--text-body);
-  line-height: 1.6;
-  margin: 0;
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
   white-space: pre-wrap;
   word-break: break-word;
+  text-wrap: pretty;
 }
 
-.editingComment {
+.editing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 8px;
 }
 
 .editActions {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .noComments {
+  composes: caption from '../styles/type.module.css';
+  padding: 16px 0;
   text-align: center;
-  color: var(--text-muted);
-  font-style: italic;
-  padding: 20px;
-  margin: 0;
+}
+
+@media (max-width: 560px) {
+  /* Stacked: 168px of average plus stars will not fit beside each other. */
+  .ratings {
+    grid-template-columns: 1fr;
+  }
+
+  .average {
+    border-right: none;
+    border-bottom: 1px solid var(--rule-row);
+  }
 }

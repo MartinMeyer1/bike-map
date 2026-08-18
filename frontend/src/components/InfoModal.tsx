@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Badge } from './ui';
+import { LineKey } from './DifficultyLegend';
 import { DIFFICULTY_LEVELS } from '../utils/constants';
 import styles from './InfoModal.module.css';
 
@@ -13,18 +14,25 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      size="medium"
+      showCloseButton={false}
+      centerTitle
+      centerFooter
       title={
-        <>
+        <span className={styles.titleRow}>
           <img src="/rock.png" alt="" className={styles.titleIcon} />
           About BikeMap
-        </>
+        </span>
       }
-      showCloseButton={false}
-      centerTitle={true}
+      footer={
+        <Button variant="primary" size="large" onClick={onClose}>
+          Got it
+        </Button>
+      }
     >
-      <div>
-        <section className={styles.section}>
-          <h4 className={styles.heading}>🚵 Mountain Bike Trail Sharing</h4>
+      <div className={styles.sections}>
+        <section>
+          <h4 className={styles.heading}>MOUNTAIN BIKE TRAIL SHARING</h4>
           <p className={styles.body}>
             BikeMap is a community-driven platform for sharing and discovering mountain
             bike trails. Upload your favorite trails, explore new routes, and connect with
@@ -32,23 +40,38 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
           </p>
         </section>
 
-        <section className={styles.section}>
-          <h4 className={styles.heading}>🎯 Difficulty Levels</h4>
+        <section>
+          <h4 className={styles.heading}>DIFFICULTY LEVELS</h4>
           <div className={styles.levels}>
             {DIFFICULTY_LEVELS.map((level) => (
               <div key={level.value} className={styles.level}>
-                <div className={styles.levelHeader}>
-                  <Badge level={level.value} />
-                  <span className={styles.levelName}>{level.name}</span>
+                <Badge level={level.value} />
+                <div>
+                  <div className={styles.levelName}>{level.name}</div>
+                  <p className={styles.levelDescription}>{level.description}</p>
                 </div>
-                <p className={styles.levelDescription}>{level.description}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className={styles.section}>
-          <h4 className={styles.heading}>🛤️ Trail Segments vs Tours</h4>
+        {/*
+         * What the ridden flag actually means. It was previously explained
+         * nowhere, which left the solid and dashed lines on the map, and the
+         * filled and hollow badges, looking like decoration.
+         */}
+        <section>
+          <h4 className={styles.heading}>SOLID VS DASHED LINES</h4>
+          <p className={styles.body}>
+            A solid line means someone has ridden the trail and confirmed its level, tags
+            and description. A dashed line means the trail has been added but not yet
+            ridden, so its details are still unconfirmed.
+          </p>
+          <LineKey layout="column" sampleWidth={48} />
+        </section>
+
+        <section>
+          <h4 className={styles.heading}>TRAIL SEGMENTS VS TOURS</h4>
           <p className={styles.body}>
             We prefer individual trail segments over complete tours. This allows riders to
             mix and match trails based on their skill level and preferences, creating
@@ -56,8 +79,8 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
           </p>
         </section>
 
-        <section className={styles.section}>
-          <h4 className={styles.heading}>💻 Open Source</h4>
+        <section>
+          <h4 className={styles.heading}>OPEN SOURCE</h4>
           <p className={styles.body}>
             BikeMap is open source! Check out the code, contribute, or report issues:
           </p>
@@ -67,15 +90,9 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
             rel="noopener noreferrer"
             className={styles.githubLink}
           >
-            📂 GitHub Repository
+            GITHUB REPOSITORY
           </a>
         </section>
-
-        <div className={styles.footer}>
-          <Button variant="primary" onClick={onClose}>
-            ✓ Got it!
-          </Button>
-        </div>
       </div>
     </Modal>
   );

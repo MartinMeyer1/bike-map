@@ -13,6 +13,8 @@ interface RatingsCommentsModalProps {
   user: User | null;
 }
 
+const STARS = [1, 2, 3, 4, 5];
+
 export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
   isOpen,
   onClose,
@@ -21,7 +23,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
 }) => {
   const [comments, setComments] = useState<TrailCommentWithUser[]>([]);
   const [ratingStats, setRatingStats] = useState<RatingStats>({ count: 0, average: 0 });
-  
+
   // Access app context for MVT refresh
   const { refreshMVTLayer } = useAppContext();
   const [userRating, setUserRating] = useState<number>(0);
@@ -71,7 +73,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     try {
       await PocketBaseService.upsertTrailRating(trail.id, rating);
       await loadData(false); // Refresh data without loading state
-      
+
       // Refresh MVT layer to update engagement data
       refreshMVTLayer();
     } catch (error) {
@@ -90,7 +92,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       await PocketBaseService.createTrailComment(trail.id, newComment.trim());
       setNewComment('');
       await loadData(false); // Refresh data without loading state
-      
+
       // Refresh MVT layer to update engagement data
       refreshMVTLayer();
     } catch (error) {
@@ -114,9 +116,9 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       setEditingComment(null);
       setEditingCommentText('');
       await loadData(false); // Refresh data without loading state
-      
+
       // Refresh MVT layer to update engagement data
-        refreshMVTLayer();
+      refreshMVTLayer();
     } catch (error) {
       console.error('Failed to update comment:', error);
     } finally {
@@ -130,7 +132,7 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
       try {
         await PocketBaseService.deleteTrailComment(commentId);
         await loadData(false); // Refresh data without loading state
-        
+
         // Refresh MVT layer to update engagement data
         refreshMVTLayer();
       } catch (error) {
@@ -145,175 +147,197 @@ export const RatingsCommentsModal: React.FC<RatingsCommentsModalProps> = ({
     return user && (user.id === comment.user || user.role === 'Admin');
   };
 
-  const renderStars = (rating: number, interactive = false, onStarClick?: (rating: number) => void) => {
-    return (
-      <div className={`${styles.stars} ${interactive ? styles.interactive : ''}`}>
-        {[1, 2, 3, 4, 5].map((star) => {
-          const isFilled = star <= rating;
-          
-          return (
-            <span
-              key={star}
-              className={`${styles.star} ${isFilled ? styles.filled : styles.empty}`}
-              onClick={interactive && onStarClick ? () => onStarClick(star) : undefined}
-            >
-              {isFilled ? '★' : '☆'}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
-
   if (!trail) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${trail.name} - Ratings & Comments`}>
-      <div className={styles.modalContent}>
-        {refreshing && (
-          <div className={styles.refreshingIndicator}>Updating...</div>
-        )}
-        {loading ? (
-          <div className={styles.loading}>Loading...</div>
-        ) : (
-          <>
-            {/* Ratings Section */}
-            <div className={styles.section}>
-              <h3 className={styles.sectionTitle}>Ratings</h3>
-              
-              {/* Overall Rating Stats */}
-              <div className={styles.ratingOverview}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="medium"
+      eyebrow="RATINGS & COMMENTS"
+      title={trail.name}
+    >
+      {loading ? (
+        <div className={styles.loading}>LOADING…</div>
+      ) : (
+        <div className={styles.sections}>
+          {refreshing && <div className={styles.refreshing}>UPDATING…</div>}
+
+          <section>
+            <div className={styles.sectionLabel}>RATINGS</div>
+
+            <div className={styles.ratings}>
+              <div className={styles.average}>
                 {ratingStats.count > 0 ? (
-                  <div className={styles.ratingStats}>
-                    <div className={styles.averageRating}>
-                      {renderStars(ratingStats.average)}
-                      <span className={styles.averageText}>
-                        {ratingStats.average.toFixed(1)} ({ratingStats.count} rating{ratingStats.count !== 1 ? 's' : ''})
+                  <>
+                    <div className={styles.averageValue}>
+                      <span className={styles.averageNumber}>
+                        {ratingStats.average.toFixed(1)}
                       </span>
+                      <span className={styles.averageOutOf}>/5</span>
                     </div>
-                  </div>
+                    <div className={styles.averageStars} aria-hidden="true">
+                      {STARS.map((star) => (
+                        <span
+                          key={star}
+                          className={
+                            star <= Math.round(ratingStats.average) ? undefined : styles.starEmpty
+                          }
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                    <div className={styles.averageCount}>
+                      {ratingStats.count} RATING{ratingStats.count !== 1 ? 'S' : ''}
+                    </div>
+                  </>
                 ) : (
-                  <p className={styles.noRatings}>No ratings yet</p>
+                  <>
+                    <div className={styles.averageValue}>
+                      <span className={styles.averageNumber}>—</span>
+                    </div>
+                    <div className={styles.noRatings}>NO RATINGS YET</div>
+                  </>
                 )}
               </div>
 
-              {/* User Rating */}
-              {user ? (
-                <div className={styles.userRating}>
-                  <h4 className={styles.userRatingTitle}>Your Rating:</h4>
-                  {renderStars(userRating, true, handleRatingClick)}
-                  {userRating > 0 && (
-                    <span className={styles.userRatingText}>You rated this trail {userRating} star{userRating !== 1 ? 's' : ''}</span>
-                  )}
+              <div className={styles.own}>
+                <div className={styles.sectionLabel}>YOUR RATING</div>
+
+                {user ? (
+                  <>
+                    <div className={styles.stars}>
+                      {STARS.map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          className={`${styles.star} ${star <= userRating ? styles.starFilled : ''}`}
+                          onClick={() => handleRatingClick(star)}
+                          disabled={submitting}
+                          aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
+                          aria-pressed={star <= userRating}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    <div className={styles.ownNote}>
+                      {userRating > 0
+                        ? `You rated this trail ${userRating} star${userRating !== 1 ? 's' : ''}`
+                        : 'Not rated yet'}
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.signInNote}>SIGN IN TO RATE THIS TRAIL</div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className={styles.sectionLabel}>COMMENTS ({comments.length})</div>
+
+            {user ? (
+              <form onSubmit={handleCommentSubmit} className={styles.commentForm}>
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Share your thoughts about this trail..."
+                  className={styles.commentInput}
+                  rows={2}
+                  maxLength={1000}
+                  disabled={submitting}
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="small"
+                  disabled={!newComment.trim() || submitting}
+                >
+                  {submitting ? 'Posting…' : 'Post comment'}
+                </Button>
+              </form>
+            ) : (
+              <div className={styles.signInNote}>SIGN IN TO COMMENT ON THIS TRAIL</div>
+            )}
+
+            <div className={styles.commentList}>
+              {comments.length === 0 ? (
+                <div className={styles.noComments}>
+                  NO COMMENTS YET — BE THE FIRST TO SHARE YOUR EXPERIENCE
                 </div>
               ) : (
-                <p className={styles.loginPrompt}>Login to rate this trail</p>
-              )}
-            </div>
-
-            {/* Comments Section */}
-            <div className={styles.section}>
-              <h3 className={styles.sectionTitle}>Comments ({comments.length})</h3>
-
-              {/* Add Comment */}
-              {user ? (
-                <form onSubmit={handleCommentSubmit} className={styles.commentForm}>
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Share your thoughts about this trail..."
-                    className={styles.commentInput}
-                    rows={2}
-                    maxLength={1000}
-                    disabled={submitting}
-                  />
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="small"
-                    disabled={!newComment.trim() || submitting}
-                  >
-                    {submitting ? 'Posting...' : 'Post Comment'}
-                  </Button>
-                </form>
-              ) : (
-                <p className={styles.loginPrompt}>Login to comment on this trail</p>
-              )}
-
-              {/* Comments List */}
-              <div className={styles.commentsList}>
-                {comments.length === 0 ? (
-                  <p className={styles.noComments}>No comments yet. Be the first to share your experience!</p>
-                ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className={styles.comment}>
-                      <div className={styles.commentHeader}>
-                        <span className={styles.commentAuthor}>
-                          {comment.expand?.user?.name || comment.expand?.user?.email || 'Anonymous'}
-                        </span>
-                        <span className={styles.commentDate}>
-                          {formatDate(comment.created)}
-                        </span>
-                        {canEditComment(comment) && (
-                          <div className={styles.commentActions}>
-                            <button
-                              onClick={() => handleEditComment(comment.id, comment.comment)}
-                              className={styles.editButton}
-                              disabled={submitting}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleDeleteComment(comment.id)}
-                              className={styles.deleteButton}
-                              disabled={submitting}
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {editingComment === comment.id ? (
-                        <div className={styles.editingComment}>
-                          <textarea
-                            value={editingCommentText}
-                            onChange={(e) => setEditingCommentText(e.target.value)}
-                            className={styles.commentInput}
-                            rows={2}
-                            maxLength={1000}
+                comments.map((comment) => (
+                  <div key={comment.id} className={styles.comment}>
+                    <div className={styles.commentHeader}>
+                      <span className={styles.commentAuthor}>
+                        {comment.expand?.user?.name || comment.expand?.user?.email || 'Anonymous'}
+                      </span>
+                      <span className={styles.commentDate}>
+                        {formatDate(comment.created)}
+                      </span>
+                      {canEditComment(comment) && (
+                        <span className={styles.commentActions}>
+                          <button
+                            type="button"
+                            onClick={() => handleEditComment(comment.id, comment.comment)}
+                            className={styles.commentAction}
                             disabled={submitting}
-                          />
-                          <div className={styles.editActions}>
-                            <Button
-                              onClick={handleUpdateComment}
-                              variant="primary"
-                              size="small"
-                              disabled={!editingCommentText.trim() || submitting}
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              onClick={() => setEditingComment(null)}
-                              variant="secondary"
-                              size="small"
-                              disabled={submitting}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className={styles.commentText}>{comment.comment}</p>
+                          >
+                            EDIT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className={`${styles.commentAction} ${styles.commentActionDanger}`}
+                            disabled={submitting}
+                          >
+                            DELETE
+                          </button>
+                        </span>
                       )}
                     </div>
-                  ))
-                )}
-              </div>
+
+                    {editingComment === comment.id ? (
+                      <div className={styles.editing}>
+                        <textarea
+                          value={editingCommentText}
+                          onChange={(e) => setEditingCommentText(e.target.value)}
+                          className={styles.commentInput}
+                          rows={2}
+                          maxLength={1000}
+                          disabled={submitting}
+                        />
+                        <div className={styles.editActions}>
+                          <Button
+                            onClick={handleUpdateComment}
+                            variant="primary"
+                            size="small"
+                            disabled={!editingCommentText.trim() || submitting}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            onClick={() => setEditingComment(null)}
+                            variant="secondary"
+                            size="small"
+                            disabled={submitting}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className={styles.commentText}>{comment.comment}</p>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
-          </>
-        )}
-      </div>
+          </section>
+        </div>
+      )}
     </Modal>
   );
 };
