@@ -30,10 +30,17 @@
 .s4 { --level: var(--level-s4); }
 .s5 { --level: var(--level-s5); }
 
+/*
+ * The two keys sit side by side where there is room and wrap where there is not.
+ * Row and column gaps differ deliberately: one flat 18px meant that once the
+ * keys wrapped -- which they do in the 396px sidebar -- the two lines stood
+ * further apart than the scale bar above them, so the block read as three
+ * separate things rather than one legend.
+ */
 .key {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 6px 18px;
   margin-top: 9px;
   flex-wrap: wrap;
 }

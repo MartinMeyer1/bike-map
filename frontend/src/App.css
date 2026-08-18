@@ -167,6 +167,45 @@ body {
 }
 
 /*
+ * Scrollbars, squared off like everything else: a sunk paper track and a plain
+ * ink-muted thumb, no radius and no gradient. Set globally rather than per
+ * scroll container -- the trail list, the dialog bodies and the mobile sheet all
+ * want the same one. The mobile strip hides its own in MobileSheet.module.css.
+ */
+/*
+ * Firefox only: it has no ::-webkit-scrollbar, and the standard properties are
+ * all it offers -- but where both are understood the standard `scrollbar-width`
+ * wins over the exact 8px below, so it has to stay out of Chromium's way.
+ */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) var(--paper-sunk);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper-sunk);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rule-strong);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--paper-sunk);
+}
+
+/*
  * Trail start/finish markers, built as divIcons in utils/markerIcons.ts. Leaflet
  * paints its own white box with a blue border behind a divIcon; the marker's SVG
  * carries all of its own shape, so that box has to go.
