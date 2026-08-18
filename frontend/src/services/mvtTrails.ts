@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet.vectorgrid";
 import { MVTTrailProperties, MVTTrail, MapBounds } from "../types";
 import { getLevelColor } from "../utils/colors";
+import { startIcon, endIcon, markerSizeForZoom } from "../utils/markerIcons";
 import { API_BASE_URL } from "../utils/apiBaseUrl";
 
 export interface MVTTrailEvents {
@@ -66,33 +67,11 @@ export function convertMVTPropertiesToTrail(
 
 type TrailLayer = L.vectorGrid.VectorGridLayer;
 
-const START_ICON_URL = "/rock.png";
-const END_ICON_URL = "/beer.png";
-
-// Four zoom buckets x two images means eight distinct icons for the lifetime of
-// the app. L.Icon holds no per-marker state -- Leaflet builds a fresh element
-// from it for each marker -- so one instance can back every marker at a size.
-const iconCache = new Map<string, L.Icon>();
-
-function markerIcon(iconUrl: string, size: number): L.Icon {
-  const key = `${iconUrl}@${size}`;
-  const cached = iconCache.get(key);
-
-  if (cached) {
-    return cached;
-  }
-
-  const half = size / 2;
-  const icon = L.icon({
-    iconUrl,
-    iconSize: [size, size],
-    iconAnchor: [half, half],
-    popupAnchor: [0, -half],
-  });
-
-  iconCache.set(key, icon);
-
-  return icon;
+/** Both markers of one trail, with the level their appearance is derived from. */
+interface TrailMarkers {
+  start: L.Marker;
+  end: L.Marker;
+  level: string;
 }
 
 export class MVTTrailService {
@@ -100,7 +79,7 @@ export class MVTTrailService {
   private mvtLayer: TrailLayer | null = null;
   private selectedTrailId: string | null = null; // Track currently selected trail
   private loadedTrails = new Map<string, MVTTrail>();
-  private trailMarkers = new Map<string, { start: L.Marker; end: L.Marker }>();
+  private trailMarkers = new Map<string, TrailMarkers>();
   private events: MVTTrailEvents = {};
   private baseUrl: string;
   private cacheVersion: string = ""; // Persistent cache version for all requests
@@ -124,11 +103,6 @@ export class MVTTrailService {
 
   private generateCacheVersion(): void {
     this.cacheVersion = `v${Date.now()}`;
-  }
-
-  // Markers grow with zoom; every zoom level shows them.
-  private getMarkerSizeForZoom(zoom: number): number {
-    return zoom <= 10 ? 15 : zoom <= 12 ? 22 : zoom <= 14 ? 30 : 38;
   }
 
   createMVTLayer(): TrailLayer {
@@ -183,21 +157,21 @@ export class MVTTrailService {
       return;
     }
 
-    const size = this.getMarkerSizeForZoom(this.map.getZoom());
+    const size = markerSizeForZoom(this.map.getZoom());
 
     const startMarker = L.marker(
       [trail.startPoint.lat, trail.startPoint.lng],
       {
         title: `${trail.name} - Start`,
-        icon: markerIcon(START_ICON_URL, size),
+        icon: startIcon(trail.level, size),
       },
     ).addTo(this.map);
 
     const endMarker = L.marker(
       [trail.endPoint.lat, trail.endPoint.lng],
       {
-        title: `${trail.name} - End`,
-        icon: markerIcon(END_ICON_URL, size),
+        title: `${trail.name} - Finish`,
+        icon: endIcon(trail.level, size),
       },
     ).addTo(this.map);
 
@@ -208,7 +182,11 @@ export class MVTTrailService {
     startMarker.on("click", handleMarkerClick);
     endMarker.on("click", handleMarkerClick);
 
-    this.trailMarkers.set(trail.id, { start: startMarker, end: endMarker });
+    this.trailMarkers.set(trail.id, {
+      start: startMarker,
+      end: endMarker,
+      level: trail.level,
+    });
   }
 
   addToMap(): void {
@@ -418,18 +396,18 @@ export class MVTTrailService {
   }
 
   private updateMarkerSizes(): void {
-    const size = this.getMarkerSizeForZoom(this.map.getZoom());
+    const size = markerSizeForZoom(this.map.getZoom());
 
-    // setIcon replaces the marker's <img> element. Applying it on every settled
-    // move rebuilt two DOM nodes per loaded trail even when the size was
-    // identical, which is the common case: panning never changes the bucket.
+    // setIcon replaces the marker's element. Applying it on every settled move
+    // rebuilt two DOM nodes per loaded trail even when the size was identical,
+    // which is the common case: panning never changes the bucket.
     const sizeChanged = size !== this.appliedMarkerSize;
     this.appliedMarkerSize = size;
 
     this.trailMarkers.forEach((markers) => {
       if (sizeChanged) {
-        markers.start.setIcon(markerIcon(START_ICON_URL, size));
-        markers.end.setIcon(markerIcon(END_ICON_URL, size));
+        markers.start.setIcon(startIcon(markers.level, size));
+        markers.end.setIcon(endIcon(markers.level, size));
       }
 
       // Re-add markers if they were previously removed

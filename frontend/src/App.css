@@ -154,6 +154,16 @@ body {
   font-family: var(--font-sans);
 }
 
+/*
+ * Trail start/finish markers, built as divIcons in utils/markerIcons.ts. Leaflet
+ * paints its own white box with a blue border behind a divIcon; the marker's SVG
+ * carries all of its own shape, so that box has to go.
+ */
+.bikemap-marker {
+  background: transparent;
+  border: none;
+}
+
 /* Boot screen, before auth has resolved and there is any chrome to show. */
 .appBooting {
   height: 100vh;
