@@ -34,3 +34,22 @@ export function getLevelColor(level: string): string {
 
   return token(`--level-${level.toLowerCase()}`) || fallback;
 }
+
+/**
+ * The grade's colour mixed well down towards paper, for the start and finish
+ * markers. They belong to their line without adding a seventh saturated colour
+ * to the map, which at marker density would swamp the terrain underneath.
+ */
+export function getLevelTint(level: string): string {
+  const fallback = token('--tint-unknown') || '#d9d6cf';
+  if (!/^S[0-5]$/.test(level)) {
+    return fallback;
+  }
+
+  return token(`--tint-${level.toLowerCase()}`) || fallback;
+}
+
+/** Any :root design token, for the few places that need one outside CSS. */
+export function getToken(name: string): string {
+  return token(name);
+}

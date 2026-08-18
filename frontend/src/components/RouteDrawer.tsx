@@ -3,8 +3,11 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
+import { haversineDistance } from '../utils/geo';
+import { getToken } from '../utils/colors';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
+import styles from './routeDrawer.module.css';
 
 interface RouteDrawerProps {
   isActive: boolean;
@@ -49,19 +52,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     return routePointsWithElevation.map(p => ({ lat: p.lat, lng: p.lng }));
   }, [waypoints, routePointsWithElevation]);
 
-  // Calculate distance between two lat/lng points in meters (Haversine formula)
-  const calculateDistance = useCallback((lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }, []);
-
   // Split a complete route back into segments between waypoints
   const splitRouteIntoSegments = useCallback((completeRoute: Array<{lat: number, lng: number, ele?: number}>, waypoints: PathPoint[]): Array<Array<{lat: number, lng: number, ele?: number}>> => {
     if (waypoints.length < 2 || completeRoute.length < 2) return [];
@@ -77,7 +67,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       let startIndex = 0;
       let minStartDist = Infinity;
       for (let j = 0; j < completeRoute.length; j++) {
-        const dist = calculateDistance(startWaypoint.lat, startWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
+        const dist = haversineDistance(startWaypoint.lat, startWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
         if (dist < minStartDist) {
           minStartDist = dist;
           startIndex = j;
@@ -88,7 +78,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       let endIndex = completeRoute.length - 1;
       let minEndDist = Infinity;
       for (let j = startIndex; j < completeRoute.length; j++) {
-        const dist = calculateDistance(endWaypoint.lat, endWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
+        const dist = haversineDistance(endWaypoint.lat, endWaypoint.lng, completeRoute[j].lat, completeRoute[j].lng);
         if (dist < minEndDist) {
           minEndDist = dist;
           endIndex = j;
@@ -103,7 +93,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     }
     
     return segments;
-  }, [calculateDistance]);
+  }, []);
 
   // Initialize waypoints from GPX content when drawing becomes active.
   // This is a pure reset driven by props (isActive/initialGpxContent), so it's
@@ -248,7 +238,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const prevPoint = trackPoints[i - 1];
       
       // Calculate distance
-      const distance = calculateDistance(prevPoint.lat, prevPoint.lng, point.lat, point.lng);
+      const distance = haversineDistance(prevPoint.lat, prevPoint.lng, point.lat, point.lng);
       totalDistance += distance;
       
       // Calculate elevation change
@@ -267,7 +257,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       loss: totalLoss,
       distance: totalDistance
     };
-  }, [calculateDistance]);
+  }, []);
 
   // Update route when waypoints change - handle incrementally.
   // routeSegments accumulates results from real BRouter network calls, so this
@@ -322,17 +312,27 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     routeLayer.clearLayers();
     waypointLayer.clearLayers();
 
+    /*
+     * The overlay borrows the grade scale's green, blue and red for start,
+     * middle and end. Read from the tokens rather than written out: these were
+     * literal copies of the old bright palette, so when the scale was darkened
+     * they stayed behind as the only vivid thing left on the map.
+     */
+    const startColor = getToken('--level-s0');
+    const midColor = getToken('--level-s1');
+    const endColor = getToken('--level-s3');
+
     // Draw waypoints
     waypoints.forEach((point, index) => {
       const marker = L.circleMarker([point.lat, point.lng], {
         radius: 8,
-        fillColor: index === 0 ? '#28a745' : index === waypoints.length - 1 ? '#dc3545' : '#007bff',
-        color: '#fff',
+        fillColor: index === 0 ? startColor : index === waypoints.length - 1 ? endColor : midColor,
+        color: getToken('--paper'),
         weight: 2,
         opacity: 1,
-        fillOpacity: 0.8,
+        fillOpacity: 0.9,
       });
-      
+
       marker.bindTooltip(`Waypoint ${index + 1}`, { permanent: false });
       waypointLayer.addLayer(marker);
     });
@@ -340,13 +340,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     // Draw route - either computed by BRouter or straight lines as fallback
     if (routePoints.length >= 2) {
       const isComputedRoute = routePoints.length > waypoints.length;
-      
+
       const polyline = L.polyline(
         routePoints.map((p): L.LatLngTuple => [p.lat, p.lng]),
         {
-          color: '#dc3545',
+          color: endColor,
           weight: 6,
-          opacity: 0.8,
+          opacity: 0.85,
           dashArray: isComputedRoute ? undefined : '5, 5'
         }
       );
@@ -401,177 +401,109 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     }
   }, [initialWaypoints, routePointsWithElevation, onRouteComplete, onCancel]);
 
+
   if (!isActive) return null;
 
+  /*
+   * Prefer the routed track's own measurements. Climb is only reported when the
+   * points actually carry elevation: when BRouter is unreachable the fallback
+   * straight lines still produce a route, and a confident "D+ 0m" on those would
+   * claim the line is flat rather than unmeasured.
+   */
+  const trackPoints =
+    routePointsWithElevation.length > 0
+      ? routePointsWithElevation
+      : routePoints.map((p) => ({ ...p, ele: undefined }));
+  const hasElevation = trackPoints.some((p) => p.ele !== undefined);
+  const routeData = trackPoints.length > 1 ? calculateRouteData(trackPoints) : null;
+
   return (
-    <div 
+    <div
       data-route-drawer-panel
-      style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        background: 'white',
-        borderRadius: '8px',
-        padding: '16px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        zIndex: 1000,
-        minWidth: '200px',
-        pointerEvents: 'auto', // Ensure this panel captures clicks
-      }}
+      className={styles.panel}
       onClick={(e) => {
         e.stopPropagation();
       }}
     >
-      <h4 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>🎯 Draw Route</h4>
-      
-      <div style={{ fontSize: '14px', marginBottom: '16px' }}>
-        <div style={{ 
-          padding: '12px', 
-          backgroundColor: '#f8f9fa', 
-          borderRadius: '6px',
-          border: '1px solid #e9ecef',
-          height: '80px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
+      <div className={styles.header}>
+        <div className={styles.eyebrow}>DRAWING MODE</div>
+        <div className={styles.title}>Draw Route</div>
+      </div>
+
+      <div className={styles.readout}>
+        <div className={styles.measure}>
+          <div className={styles.measureLabel}>DISTANCE</div>
+
           {isCalculatingRoute ? (
-            <div style={{ color: '#6c757d', fontWeight: '500' }}>🔄 Computing route...</div>
-          ) : routePointsWithElevation.length > 0 ? (
-            (() => {
-              const routeData = calculateRouteData(routePointsWithElevation);
-              const distanceKm = routeData.distance / 1000;
-              return (
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#212529', marginBottom: '8px' }}>
-                    📏 {distanceKm.toFixed(1)} km
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#6c757d' }}>
-                    <strong>D+:</strong> {Math.round(routeData.gain)}m | <strong>D-:</strong> {Math.round(routeData.loss)}m
-                  </div>
+            <>
+              <div className={styles.distance}>—</div>
+              <div className={styles.pending}>COMPUTING ROUTE…</div>
+            </>
+          ) : routeData ? (
+            <>
+              <div className={styles.distance}>
+                {(routeData.distance / 1000).toFixed(1)} km
+              </div>
+              {hasElevation ? (
+                <div className={styles.climb}>
+                  <span>D+ {Math.round(routeData.gain)}m</span>
+                  <span>D− {Math.round(routeData.loss)}m</span>
                 </div>
-              );
-            })()
-          ) : routePoints.length > 1 ? (
-            (() => {
-              const routeData = calculateRouteData(routePoints.map(p => ({...p, ele: undefined})));
-              const distanceKm = routeData.distance / 1000;
-              return (
-                <div style={{ fontSize: '16px', fontWeight: '600', color: '#6c757d' }}>
-                  📏 {distanceKm.toFixed(1)} km (approx)
-                </div>
-              );
-            })()
+              ) : (
+                <div className={styles.pending}>STRAIGHT LINE — NO ELEVATION</div>
+              )}
+            </>
           ) : (
-            <div style={{ color: '#6c757d', fontStyle: 'italic', textAlign: 'center' }}>
-              No waypoint
-            </div>
+            <>
+              <div className={styles.distance}>—</div>
+              <div className={styles.pending}>NO WAYPOINTS YET</div>
+            </>
           )}
+        </div>
+
+        <div className={styles.waypoints}>
+          <span className={styles.waypointsLabel}>WAYPOINTS</span>
+          <span className={styles.waypointsCount}>{waypoints.length}</span>
         </div>
       </div>
 
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className={styles.actions}>
         <button
+          type="button"
+          className={styles.action}
           onClick={(e) => {
             e.stopPropagation();
             handleUndo();
           }}
           disabled={waypoints.length === 0}
-          style={{
-            padding: '8px 12px',
-            background: waypoints.length === 0 ? '#ccc' : 'linear-gradient(135deg, #ffc107 0%, #fd7e14 100%)',
-            color: waypoints.length === 0 ? '#666' : '#212529',
-            border: 'none',
-            borderRadius: '6px',
-            fontWeight: '500',
-            cursor: waypoints.length === 0 ? 'not-allowed' : 'pointer',
-            fontSize: '12px',
-            transition: 'all 0.2s',
-            boxShadow: waypoints.length === 0 ? 'none' : '0 2px 4px rgba(255,193,7,0.2)'
-          }}
-          onMouseOver={(e) => {
-            if (waypoints.length > 0) {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 8px rgba(255,193,7,0.3)';
-            }
-          }}
-          onMouseOut={(e) => {
-            if (waypoints.length > 0) {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(255,193,7,0.2)';
-            }
-          }}
         >
-          ↶ Undo Last Point
+          ↶ UNDO LAST POINT
         </button>
-        
+
         <button
+          type="button"
+          className={`${styles.action} ${styles.actionPrimary}`}
           onClick={(e) => {
             e.stopPropagation();
             handleComplete();
           }}
           disabled={routePoints.length < 2}
-          style={{
-            padding: '8px 12px',
-            background: routePoints.length < 2 ? '#ccc' : 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontWeight: '500',
-            cursor: routePoints.length < 2 ? 'not-allowed' : 'pointer',
-            fontSize: '12px',
-            transition: 'all 0.2s',
-            boxShadow: routePoints.length < 2 ? 'none' : '0 2px 4px rgba(40,167,69,0.2)'
-          }}
-          onMouseOver={(e) => {
-            if (routePoints.length >= 2) {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 8px rgba(40,167,69,0.3)';
-            }
-          }}
-          onMouseOut={(e) => {
-            if (routePoints.length >= 2) {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(40,167,69,0.2)';
-            }
-          }}
         >
-          ✓ Complete Route
+          ✓ COMPLETE ROUTE
         </button>
-        
+
         <button
+          type="button"
+          className={`${styles.action} ${styles.actionDanger}`}
           onClick={(e) => {
             e.stopPropagation();
             handleCancel();
           }}
-          style={{
-            padding: '8px 12px',
-            background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            fontSize: '12px',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 4px rgba(220,53,69,0.2)'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.transform = 'translateY(-1px)';
-            e.currentTarget.style.boxShadow = '0 4px 8px rgba(220,53,69,0.3)';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 2px 4px rgba(220,53,69,0.2)';
-          }}
         >
-          ✕ Cancel
+          ✕ CANCEL
         </button>
-      </div>
 
-      <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-        Click on map to add waypoints
+        <div className={styles.hint}>CLICK ON MAP TO ADD WAYPOINTS</div>
       </div>
     </div>
   );

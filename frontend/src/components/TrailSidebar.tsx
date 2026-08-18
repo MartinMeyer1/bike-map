@@ -8,7 +8,7 @@ import { TrailCard } from './TrailCard';
 import { QRModal } from './QRModal';
 import { InfoModal } from './InfoModal';
 import { RatingsCommentsModal } from './RatingsCommentsModal';
-import { Button, Badge } from './ui';
+import { DifficultyScale, LineKey } from './DifficultyLegend';
 import styles from './TrailSidebar.module.css';
 
 interface TrailSidebarProps {
@@ -24,7 +24,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   visibleTrails,
   selectedTrail,
   user,
-  onTrailClick, 
+  onTrailClick,
   onAddTrailClick,
   onEditTrailClick
 }) => {
@@ -60,7 +60,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   //
   // This used to re-run on every map move, which meant panning with a trail
   // selected kept yanking the list back to it, at the cost of re-rendering every
-  // card.
+  // row.
   useEffect(() => {
     if (!selectedTrail) {
       return;
@@ -87,28 +87,28 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
   // Sort trails to put selected trail first, then by rating, then by creation date
   const sortedTrails = React.useMemo(() => {
     if (!visibleTrails.length) return [];
-    
+
     // Use a more stable sort to prevent unnecessary re-renders
     const sorted = [...visibleTrails].sort((a, b) => {
       // Selected trail always first
       if (selectedTrail?.id === a.id) return -1;
       if (selectedTrail?.id === b.id) return 1;
-      
+
       // Then sort by rating average (highest first)
       const ratingA = a.rating_average || 0;
       const ratingB = b.rating_average || 0;
       if (ratingA !== ratingB) {
         return ratingB - ratingA; // Higher ratings first
       }
-      
+
       // If ratings are equal, sort by creation date (most recent first)
       const dateA = new Date(a.created).getTime();
       const dateB = new Date(b.created).getTime();
       return dateB - dateA; // More recent first
     });
-    
+
     // Engagement is built here rather than inline in the JSX below: a fresh
-    // object literal per card per render defeats TrailCard's memo for the whole
+    // object literal per row per render defeats TrailCard's memo for the whole
     // list. Derived from fields on `trail`, so it stays valid as long as the
     // trail object does. userRating is still fetched by RatingsCommentsModal.
     return sorted.map((trail) => ({
@@ -123,14 +123,14 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
     }));
   }, [visibleTrails, selectedTrail?.id]); // Only depend on selectedTrail.id, not full object
 
-  // Only the rows on screen are mounted. Card heights genuinely vary -- long
-  // names wrap, tag rows differ, the selected card expands -- so rows are
-  // measured rather than assumed; estimateSize only seeds the scrollbar before
-  // a row has been seen.
+  // Only the rows on screen are mounted. Row heights genuinely vary -- long
+  // names wrap, the selected row expands -- so rows are measured rather than
+  // assumed; estimateSize only seeds the scrollbar before a row has been seen,
+  // and 118px is a collapsed row with a tag line.
   const virtualizer = useVirtualizer({
     count: sortedTrails.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => 150,
+    estimateSize: () => 118,
     overscan: 4,
     getItemKey: (index) => sortedTrails[index].trail.id,
   });
@@ -140,32 +140,35 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
       {/* Fixed Header Section */}
       <div className={styles.header}>
         <div className={styles.titleRow}>
-          <h2 className={styles.title}>
-            <img src="/rock.png" alt="BikeMap" style={{ width: '24px', height: '24px', verticalAlign: 'middle', marginRight: '6px' }} />
-            BikeMap
-          </h2>
+          <div className={styles.brand}>
+            <img src="/rock.png" alt="" className={styles.mark} />
+            <div>
+              <div className={styles.eyebrow}>TRAIL REGISTER</div>
+              <h2 className={styles.title}>BikeMap</h2>
+            </div>
+          </div>
+
           {user && (user.role === 'Editor' || user.role === 'Admin') && (
-            <Button 
-              variant="success"
-              size="small"
+            <button
+              type="button"
+              className={styles.addButton}
               onClick={onAddTrailClick}
               title="Add new trail"
             >
-              ➕ Add Trail
-            </Button>
+              + ADD TRAIL
+            </button>
           )}
         </div>
 
         {/* User Section */}
-        <UserSection 
+        <UserSection
           user={user}
         />
+      </div>
 
-        <div>
-          <h4 className={styles.visibleTrailsTitle}>
-            Visible Trails ({visibleTrails.length})
-          </h4>
-        </div>
+      <div className={styles.listHead}>
+        <div className={styles.listLabel}>VISIBLE TRAILS</div>
+        <div className={styles.listCount}>{visibleTrails.length}</div>
       </div>
 
       {/* Scrollable Trails Section */}
@@ -173,7 +176,7 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
         {visibleTrails.length === 0 ? (
           <div className={styles.emptyState}>
             No trails visible in current area.<br />
-            Pan the map to explore trails or {user ? 'upload a new trail!' : 'login to add trails.'}
+            Pan the map to explore trails or {user ? 'upload a new trail.' : 'sign in to add trails.'}
           </div>
         ) : (
           <div
@@ -227,26 +230,21 @@ const TrailSidebar: React.FC<TrailSidebarProps> = memo(({
 
       {/* Fixed Footer Section */}
       <div className={styles.footer}>
-        <div className={styles.legend}>
-          <div className={styles.legendTitle}>
-            <strong>Difficulty Legend:</strong>
-          </div>
-          <div className={styles.legendBadges}>
-            <Badge level="S0" />
-            <Badge level="S1" />
-            <Badge level="S2" />
-            <Badge level="S3" />
-            <Badge level="S4" />
-            <Badge level="S5" />
-          </div>
+        <div className={styles.legendHead}>
+          <div className={styles.legendTitle}>DIFFICULTY LEGEND</div>
           <button
+            type="button"
             onClick={handleToggleInfoModal}
             className={styles.infoButton}
             title="App Information"
+            aria-label="About BikeMap"
           >
-            ℹ️
+            i
           </button>
         </div>
+
+        <DifficultyScale />
+        <LineKey />
       </div>
 
       {/* Information Modal */}

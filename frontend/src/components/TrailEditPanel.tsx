@@ -116,40 +116,29 @@ export default function TrailEditPanel({
       <Modal
         isOpen
         onClose={onClose}
-        title="✏️ Edit Trail"
-        headerVariant="warning"
-        centerTitle
-        showCloseButton={false}
         size="wide"
+        eyebrow="EDIT TRAIL"
+        title={trail.name}
+        showCloseButton={false}
         closeOnOverlayClick={false}
-      >
-        {error && <div className={styles.errorBanner}>⚠️ {error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <TrailForm
-            idPrefix="edit"
-            values={values}
-            onChange={setValues}
-            fileLabel="GPX File (optional - leave empty to keep current file)"
-            selectedFileLabel="New file selected"
-            fileHint={`Current file: ${trail.id}.gpx`}
-            drawnGpxContent={drawnGpxContent}
-            onStartDrawing={handleStartDrawing}
-            onError={setError}
-            onClearError={() => setError('')}
-          />
-
-          <div className={styles.actions}>
-            <Button type="submit" variant="success" size="large" disabled={isLoading}>
+        footer={
+          <>
+            <Button
+              type="submit"
+              form="edit-form"
+              variant="primary"
+              size="large"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
                   <span className={styles.spinner}></span>
-                  Updating...
+                  Updating…
                 </>
               ) : drawnGpxContent ? (
-                '💾 Save Trail Route'
+                'Save trail route'
               ) : (
-                '💾 Update Trail'
+                'Update trail'
               )}
             </Button>
 
@@ -159,39 +148,55 @@ export default function TrailEditPanel({
               size="large"
               onClick={() => setShowDeleteConfirm(true)}
             >
-              🗑️ Delete
+              Delete
             </Button>
 
             <Button type="button" variant="secondary" size="large" onClick={onClose}>
               Cancel
             </Button>
+          </>
+        }
+      >
+        {/*
+         * The mockups only show an error banner on the add panel, but this one
+         * reports real submit failures too, and swallowing those would be worse
+         * than the extra element.
+         */}
+        {error && (
+          <div className={styles.errorBanner}>
+            <span className={styles.errorChip}>ERROR</span>
+            <span>{error}</span>
           </div>
+        )}
+
+        <form id="edit-form" onSubmit={handleSubmit}>
+          <TrailForm
+            idPrefix="edit"
+            mode="edit"
+            values={values}
+            onChange={setValues}
+            fileHint={`CURRENT FILE: ${trail.id}.gpx`}
+            drawnGpxContent={drawnGpxContent}
+            onStartDrawing={handleStartDrawing}
+            onError={setError}
+            onClearError={() => setError('')}
+          />
         </form>
       </Modal>
 
       <Modal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        title={
-          <>
-            <div className={styles.deleteIcon}>🗑️</div>
-            Delete Trail
-          </>
-        }
+        size="narrow"
+        eyebrow="DELETE TRAIL"
         headerVariant="danger"
-        centerTitle
         showCloseButton={false}
         closeOnOverlayClick={false}
-      >
-        <div className={styles.deleteBody}>
-          <p className={styles.deleteLead}>Are you sure you want to delete</p>
-          <p className={styles.deleteName}>"{trail.name}"?</p>
-          <p className={styles.deleteWarning}>This action cannot be undone.</p>
-
-          <div className={styles.deleteActions}>
+        footer={
+          <>
             <Button
               type="button"
-              variant="danger"
+              variant="dangerFilled"
               size="large"
               onClick={handleDelete}
               disabled={isDeleting}
@@ -199,10 +204,10 @@ export default function TrailEditPanel({
               {isDeleting ? (
                 <>
                   <span className={styles.spinner}></span>
-                  Deleting...
+                  Deleting…
                 </>
               ) : (
-                '🗑️ Delete'
+                'Delete'
               )}
             </Button>
 
@@ -215,8 +220,12 @@ export default function TrailEditPanel({
             >
               Cancel
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
+        <p className={styles.deleteLead}>Are you sure you want to delete</p>
+        <p className={styles.deleteName}>"{trail.name}"?</p>
+        <p className={styles.deleteWarning}>THIS ACTION CANNOT BE UNDONE.</p>
       </Modal>
     </>
   );

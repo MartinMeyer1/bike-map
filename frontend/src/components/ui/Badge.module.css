@@ -1,20 +1,43 @@
 /*
- * Each level class only picks a colour; the filled and outlined looks are
- * derived from it. The colours themselves come from the :root tokens in
- * App.css, which utils/colors.ts also reads for the map lines.
+ * The square grade swatch. Each level class only picks a colour; filled versus
+ * hollow is derived from it, and carries meaning: filled means someone has
+ * ridden the trail and vouched for its grade, hollow means the grade is still
+ * unconfirmed. The map draws the same distinction as solid versus dashed line.
+ *
+ * The colours come from the :root tokens in App.css, which utils/colors.ts also
+ * reads for the trail lines.
  */
 
 .badge {
-    padding: 2px 6px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    display: inline-block;
-    border: 2px solid transparent;
-    background: var(--level);
-    color: white;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--level);
+  border: 1px solid var(--level);
+  color: #fff;
+}
+
+/* Sizes: the sidebar row, the mobile detail header, the form's level preview. */
+.small {
+  width: 26px;
+  height: 26px;
+  font-size: 10.5px;
+}
+
+.medium {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.large {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
 }
 
 .s0 { --level: var(--level-s0); }
@@ -24,9 +47,13 @@
 .s4 { --level: var(--level-s4); }
 .s5 { --level: var(--level-s5); }
 
-/* Outlined variant for non-ridden trails */
+/* Hollow variant: grade recorded but not yet confirmed by a ride. */
 .outlined {
-    background: transparent;
-    color: var(--level);
-    border-color: var(--level);
+  background: transparent;
+  color: var(--level);
+  border-width: 1.5px;
+}
+
+.outlined.large {
+  border-width: 2px;
 }

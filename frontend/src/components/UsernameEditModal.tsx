@@ -56,43 +56,26 @@ export default function UsernameEditModal({
     <Modal
       isOpen={isVisible}
       onClose={onClose}
-      title="✏️ Edit Username"
-      headerVariant="warning"
-      centerTitle
+      eyebrow="ACCOUNT"
+      title="Edit Username"
       showCloseButton={false}
       closeOnOverlayClick={false}
-    >
-      {error && <div className={styles.errorBanner}>⚠️ {error}</div>}
-
-      <form onSubmit={handleSubmit}>
-        <div className={styles.formGroup}>
-          <label htmlFor="username">Username</label>
-          <input
-            type="text"
-            id="username"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Enter your display name"
-            maxLength={50}
-            autoFocus
-          />
-          <div className={styles.charCount}>{newName.length}/50 characters</div>
-        </div>
-
-        <div className={styles.actions}>
+      footer={
+        <>
           <Button
             type="submit"
-            variant="success"
+            form="username-form"
+            variant="primary"
             size="large"
             disabled={isLoading || !newName.trim()}
           >
             {isLoading ? (
               <>
                 <span className={styles.spinner}></span>
-                Saving...
+                Saving…
               </>
             ) : (
-              '✅ Save'
+              'Save'
             )}
           </Button>
 
@@ -105,6 +88,34 @@ export default function UsernameEditModal({
           >
             Cancel
           </Button>
+        </>
+      }
+    >
+      {error && <div className={styles.errorBanner}>
+        <span className={styles.errorChip}>ERROR</span>
+        <span>{error}</span>
+      </div>}
+
+      {/*
+       * The submit button lives in the modal's footer, outside this element, so
+       * it reaches the form by id rather than by nesting.
+       */}
+      <form id="username-form" onSubmit={handleSubmit}>
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor="username">
+            USERNAME
+          </label>
+          <input
+            type="text"
+            id="username"
+            className={styles.input}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Enter your display name"
+            maxLength={50}
+            autoFocus
+          />
+          <div className={styles.charCount}>{newName.length}/50 CHARACTERS</div>
         </div>
       </form>
     </Modal>

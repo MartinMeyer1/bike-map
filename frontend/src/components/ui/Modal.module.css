@@ -1,55 +1,65 @@
 .overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  inset: 0;
+  background: var(--scrim);
+  display: grid;
+  /*
+   * The explicit track matters. Left implicit, the column is sized `auto`, which
+   * takes its width from the item's max-content contribution -- 780px for the
+   * trail form -- and happily overflows a 362px phone. `max-width: 100%` then
+   * resolves against that 780px grid area and clamps nothing, so every modal
+   * rendered at full desktop width with its right half off-screen. minmax(0, 1fr)
+   * pins the track to the container instead.
+   */
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding: 28px;
   z-index: var(--z-modal);
-  backdrop-filter: blur(4px);
 }
 
 .modal {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  /*
+   * One declaration per size rather than a width plus a max-width, so the
+   * clamp lives where the size is chosen and holds whatever the overlay does.
+   * The vh pair is a fallback ladder: dvh tracks the viewport a mobile browser
+   * actually leaves visible, where vh counts the space behind a retracted URL
+   * bar and lets a modal stand taller than the screen.
+   */
+  width: min(430px, 100%);
+  max-height: 90vh;
+  max-height: 90dvh;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--paper);
+  border: 1px solid var(--ink-muted);
+  border-radius: 0;
+  box-shadow: var(--shadow-modal);
+}
+
+/* Roomier variants: the trail form, then the ratings sheet between the two. */
+.wide {
+  width: min(780px, 100%);
+  max-height: 92vh;
+  max-height: 92dvh;
+}
+
+.medium {
+  width: min(640px, 100%);
+}
+
+.narrow {
+  width: min(390px, 100%);
 }
 
 .header {
-  color: white;
-  padding: 20px 24px;
+  flex-shrink: 0;
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-}
-
-.blue {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-}
-
-.purple {
-  background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
-}
-
-.success {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.warning {
-  background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-  color: var(--text-strong);
-}
-
-.danger {
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  gap: 16px;
+  padding: 18px 26px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .centeredHeader {
@@ -57,44 +67,168 @@
   text-align: center;
 }
 
+/*
+ * The delete dialog's band. It is the one place a saturated fill is allowed
+ * outside the difficulty scale, because the mockup uses it as a stop sign.
+ */
+.danger {
+  background: var(--danger);
+  border-bottom-color: var(--danger);
+}
+
+.danger .eyebrow {
+  color: var(--danger-on);
+}
+
+.danger .title {
+  color: var(--paper);
+}
+
+.eyebrow {
+  composes: eyebrow from '../../styles/type.module.css';
+}
+
 .title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  composes: title from '../../styles/type.module.css';
+  margin: 3px 0 0;
+  font-size: 20px;
+  letter-spacing: -0.3px;
+}
+
+.titleGroup {
+  min-width: 0;
 }
 
 .closeButton {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 24px;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--ink-body);
   cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
+  transition: background-color 0.15s, border-color 0.15s;
 }
 
 .closeButton:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
 }
 
 .content {
-  padding: 24px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  max-height: calc(80vh - 80px);
+  /* Reaching the end of a form must not start scrolling the sheet behind it. */
+  overscroll-behavior: contain;
+  padding: 22px 26px 24px;
 }
 
-/* Roomier variant for the trail form, which is much taller than a dialog. */
-.wide {
-  max-width: 600px;
-  max-height: 90vh;
+/* Action bar pinned under the scroll area, on the recessed paper. */
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  padding: 16px 26px;
+  border-top: 1px solid var(--rule);
+  background: var(--paper-sunk);
 }
 
-.wide .content {
-  max-height: calc(90vh - 80px);
+/* The affirmative action takes the remaining width; the rest stay intrinsic. */
+.footer > :first-child {
+  flex: 1;
+}
+
+.centeredFooter {
+  justify-content: center;
+}
+
+.centeredFooter > :first-child {
+  flex: 0 0 auto;
+  min-width: 180px;
+}
+
+@media (max-width: 768px), (pointer: coarse) and (hover: none) and (max-height: 768px) {
+  .overlay {
+    padding: 14px;
+  }
+
+  .header {
+    padding: 16px 18px;
+  }
+
+  .content {
+    padding: 18px;
+  }
+
+  .footer {
+    padding: 14px 18px;
+    flex-wrap: wrap;
+  }
+}
+
+/*
+ * Narrow: three action buttons across 362px squeezed the primary to 113px and
+ * wrapped its label mid-phrase. It takes a row of its own and the secondaries
+ * share the next, which keeps every label on one line and the DOM order intact.
+ */
+@media (max-width: 480px) {
+  .footer > :first-child {
+    flex: 1 1 100%;
+  }
+
+  /*
+   * And the rest share the row beneath, stretched: Cancel alone becomes a second
+   * full-width button, Delete and Cancel take half each. Left at their intrinsic
+   * widths they hung off the left edge of an otherwise full-width stack.
+   */
+  .footer > :not(:first-child) {
+    flex: 1 1 0;
+  }
+
+  .centeredFooter > :first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
+
+/*
+ * Short: a landscape phone gives a 743px form a 205px window once the header and
+ * footer have taken their share. Tightening the frame returns about 60px of it.
+ */
+@media (max-height: 520px) {
+  .overlay {
+    padding: 8px;
+  }
+
+  .modal,
+  .wide {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .header {
+    padding: 10px 18px;
+  }
+
+  .content {
+    padding: 14px 18px;
+  }
+
+  .footer {
+    padding: 10px 18px;
+  }
+}
+
+/* Touch: the drawn 34px close button is under the comfortable minimum. */
+@media (pointer: coarse) {
+  .closeButton {
+    width: 44px;
+    height: 44px;
+  }
 }

@@ -34,6 +34,12 @@ interface MapProps {
   showUserLocation?: boolean;
   userHeading?: number;
   locationMarkerRef?: React.RefObject<LocationMarkerRef | null>;
+  /**
+   * The Leaflet map itself. The mobile sheet resizes the map's container as it
+   * moves, and Leaflet only re-measures when told to, so App needs the instance
+   * to call invalidateSize and refit bounds.
+   */
+  mapRef?: React.RefObject<L.Map | null>;
 }
 
 // Component to handle map bounds fitting
@@ -199,7 +205,8 @@ function Map({
   userLocation,
   showUserLocation = false,
   userHeading,
-  locationMarkerRef
+  locationMarkerRef,
+  mapRef
 }: MapProps) {
   const trailClickedRef = useRef(false);
 
@@ -221,11 +228,14 @@ function Map({
   
   return (
     <MapContainer
+      ref={mapRef}
       center={[46.2, 7.65]} // Center on Valais, Switzerland
       zoom={10}
       zoomControl={false}
       tapTolerance={44} // Increase touch tolerance on mobile
-      style={{ height: '100vh', width: '100%' }}
+      // Fills whatever the shell gives it: the full viewport on desktop, the
+      // space above the sheet on mobile.
+      style={{ height: '100%', width: '100%' }}
     >
       {/* Base map tile layer */}
       <TileLayer
