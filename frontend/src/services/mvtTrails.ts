@@ -123,7 +123,10 @@ export class MVTTrailService {
           return {
             weight: 6,
             color: trackColor,
-            opacity: trail.ridden ? 0.9 : 0.7,
+            // Full strength, ridden or not: solid versus dashed already carries
+            // that distinction, and dimming an unridden trail on top of it only
+            // made it harder to see against the terrain.
+            opacity: 1,
             lineCap: "round",
             lineJoin: "round",
             dashArray: trail.ridden ? undefined : "12, 14", // Dashed for non-ridden trails
@@ -318,7 +321,7 @@ export class MVTTrailService {
         this.mvtLayer.setFeatureStyle(trailId, {
           weight: 12,
           color: trackColor,
-          opacity: 0.9,
+          opacity: 1,
           lineCap: "round",
           lineJoin: "round",
         });
