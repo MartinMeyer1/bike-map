@@ -304,6 +304,11 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
             {/* Grows in from above as the sheet is pulled up. */}
             <div
               className={styles.revealBlock}
+              // Collapsed to nothing, the block is still in the layout, so its
+              // buttons stayed tabbable: keyboard and switch-control users could
+              // reach an invisible ADD TRAIL. inert takes them out of reach
+              // without taking them out of flow, which the measurement needs.
+              inert={reveal === 0}
               style={{
                 height: Math.round(headerHeight * reveal),
                 opacity: reveal * reveal,
@@ -357,6 +362,7 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
             {/* And this one from below. */}
             <div
               className={styles.revealBlock}
+              inert={reveal === 0}
               style={{
                 height: Math.round((legendHeight + 14) * reveal),
                 opacity: reveal * reveal,

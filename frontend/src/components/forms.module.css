@@ -406,3 +406,28 @@
     min-height: 44px;
   }
 }
+
+/*
+ * A finger needs 44px where a cursor needs 30. Scoped to coarse pointers so
+ * mouse-driven screens keep the proportions the mockups draw. The tag row grows
+ * from two rows to about three on a 390px screen; the form already scrolls.
+ */
+@media (pointer: coarse) {
+  .tagChip {
+    min-height: 44px;
+    padding: 7px 16px;
+  }
+
+  .fileButton {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+  }
+
+  /* Keep the row tall enough to hold the bigger button without clipping it. */
+  .filePicker,
+  .drawButton {
+    min-height: 56px;
+  }
+}

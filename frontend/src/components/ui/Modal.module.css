@@ -3,6 +3,15 @@
   inset: 0;
   background: var(--scrim);
   display: grid;
+  /*
+   * The explicit track matters. Left implicit, the column is sized `auto`, which
+   * takes its width from the item's max-content contribution -- 780px for the
+   * trail form -- and happily overflows a 362px phone. `max-width: 100%` then
+   * resolves against that 780px grid area and clamps nothing, so every modal
+   * rendered at full desktop width with its right half off-screen. minmax(0, 1fr)
+   * pins the track to the container instead.
+   */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 28px;
   z-index: var(--z-modal);
@@ -11,9 +20,16 @@
 .modal {
   display: flex;
   flex-direction: column;
-  width: 430px;
-  max-width: 100%;
+  /*
+   * One declaration per size rather than a width plus a max-width, so the
+   * clamp lives where the size is chosen and holds whatever the overlay does.
+   * The vh pair is a fallback ladder: dvh tracks the viewport a mobile browser
+   * actually leaves visible, where vh counts the space behind a retracted URL
+   * bar and lets a modal stand taller than the screen.
+   */
+  width: min(430px, 100%);
   max-height: 90vh;
+  max-height: 90dvh;
   overflow: hidden;
   background: var(--paper);
   border: 1px solid var(--ink-muted);
@@ -23,16 +39,17 @@
 
 /* Roomier variants: the trail form, then the ratings sheet between the two. */
 .wide {
-  width: 780px;
+  width: min(780px, 100%);
   max-height: 92vh;
+  max-height: 92dvh;
 }
 
 .medium {
-  width: 640px;
+  width: min(640px, 100%);
 }
 
 .narrow {
-  width: 390px;
+  width: min(390px, 100%);
 }
 
 .header {
@@ -107,6 +124,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Reaching the end of a form must not start scrolling the sheet behind it. */
+  overscroll-behavior: contain;
   padding: 22px 26px 24px;
 }
 
@@ -150,5 +169,66 @@
   .footer {
     padding: 14px 18px;
     flex-wrap: wrap;
+  }
+}
+
+/*
+ * Narrow: three action buttons across 362px squeezed the primary to 113px and
+ * wrapped its label mid-phrase. It takes a row of its own and the secondaries
+ * share the next, which keeps every label on one line and the DOM order intact.
+ */
+@media (max-width: 480px) {
+  .footer > :first-child {
+    flex: 1 1 100%;
+  }
+
+  /*
+   * And the rest share the row beneath, stretched: Cancel alone becomes a second
+   * full-width button, Delete and Cancel take half each. Left at their intrinsic
+   * widths they hung off the left edge of an otherwise full-width stack.
+   */
+  .footer > :not(:first-child) {
+    flex: 1 1 0;
+  }
+
+  .centeredFooter > :first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
+
+/*
+ * Short: a landscape phone gives a 743px form a 205px window once the header and
+ * footer have taken their share. Tightening the frame returns about 60px of it.
+ */
+@media (max-height: 520px) {
+  .overlay {
+    padding: 8px;
+  }
+
+  .modal,
+  .wide {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+
+  .header {
+    padding: 10px 18px;
+  }
+
+  .content {
+    padding: 14px 18px;
+  }
+
+  .footer {
+    padding: 10px 18px;
+  }
+}
+
+/* Touch: the drawn 34px close button is under the comfortable minimum. */
+@media (pointer: coarse) {
+  .closeButton {
+    width: 44px;
+    height: 44px;
   }
 }

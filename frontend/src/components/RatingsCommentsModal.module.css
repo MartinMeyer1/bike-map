@@ -268,3 +268,21 @@
     border-bottom: 1px solid var(--rule-row);
   }
 }
+
+/*
+ * Touch sizing, mouse screens untouched. Rating is the one action here anybody
+ * performs in a hurry, mid-ride, so its five targets get the full 44px; the
+ * comment actions are destructive enough that they should not be a 24px sliver
+ * either.
+ */
+@media (pointer: coarse) {
+  .star {
+    width: 44px;
+    height: 44px;
+  }
+
+  .commentAction {
+    min-height: 44px;
+    padding: 4px 14px;
+  }
+}

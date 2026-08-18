@@ -358,3 +358,36 @@
   background: var(--ink);
   color: var(--paper);
 }
+
+/*
+ * Landscape. Every stop is derived from viewport height, so a 390px-tall screen
+ * leaves the sheet very little to work with -- the padding is what gives first.
+ * The handle keeps its size: it is the only way to move the sheet at all.
+ */
+@media (max-height: 520px) {
+  .header {
+    padding: 10px 16px 11px;
+  }
+
+  .stripHead {
+    padding: 9px 16px 8px;
+  }
+
+  .legend {
+    padding: 10px 16px 12px;
+    margin-top: 10px;
+  }
+
+  .detail {
+    padding: 10px 16px 14px;
+  }
+
+  .detailTitleRow {
+    margin-top: 10px;
+  }
+
+  .detailBody {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+}
