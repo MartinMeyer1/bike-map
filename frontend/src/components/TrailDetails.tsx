@@ -204,11 +204,58 @@ export function UnconfirmedMark() {
   );
 }
 
-/** Comma-free tag line: NATURAL · FLOW. */
+/**
+ * Comma-free tag line: NATURAL · FLOW. A span, not a div, so it stays valid
+ * inside the mobile strip's card, which is itself a button.
+ */
 export function TrailTagLine({ tags }: { tags: string[] }) {
   if (!tags || tags.length === 0) {
     return null;
   }
 
-  return <div className={styles.tagLine}>{tags.join(' · ')}</div>;
+  return <span className={styles.tagLine}>{tags.join(' · ')}</span>;
+}
+
+/**
+ * The same rating and comment figures as TrailEngagementButton, without the
+ * button. The mobile strip card is itself a button, so the interactive version
+ * cannot nest inside it; tapping the card opens the detail view, where the
+ * figures are interactive again.
+ */
+export function TrailEngagementReadout({
+  ratingAverage,
+  ratingCount,
+  commentCount,
+}: {
+  ratingAverage: number;
+  ratingCount: number;
+  commentCount: number;
+}) {
+  const count = Number(ratingCount) || 0;
+
+  return (
+    <span className={styles.engagementReadout}>
+      <span className={styles.rating}>
+        <span aria-hidden="true">★</span>
+        <span>{count > 0 ? (Number(ratingAverage) || 0).toFixed(1) : '—'}</span>
+      </span>
+      <span className={styles.separator} aria-hidden="true">·</span>
+      <span className={styles.comments}>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.1"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M1.4 3.1h11.2v6.4H5.6L2.9 12V9.5H1.4z" />
+        </svg>
+        <span>{Number(commentCount) || 0}</span>
+        <span className={styles.srOnly}>comments</span>
+      </span>
+    </span>
+  );
 }

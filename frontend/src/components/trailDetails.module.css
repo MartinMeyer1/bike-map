@@ -131,8 +131,18 @@
   color: var(--ink-muted);
 }
 
+.engagementReadout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
 .tagLine {
   composes: mono from '../styles/type.module.css';
+  display: block;
   margin-top: 4px;
   font-size: 10px;
   letter-spacing: 0.14em;

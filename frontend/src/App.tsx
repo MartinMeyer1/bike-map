@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import L from 'leaflet';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import TrailEditPanel from './components/TrailEditPanel';
-import { MobileTrailPopup } from './components/MobileTrailPopup';
-import { MobileHeader } from './components/MobileHeader';
+import { MobileSheet } from './components/MobileSheet';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
 import { BaseMapSelector, BaseMapType } from './components/BaseMapSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -14,7 +14,6 @@ import { useAppContext } from './hooks/useAppContext';
 import { useIsMobile } from './hooks/useMediaQuery';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
-import { MVTTrail } from './types';
 import './App.css';
 
 /** How long a notice stands before dismissing itself. */
@@ -22,7 +21,6 @@ const NOTICE_DURATION_MS = 4000;
 
 const AppContent: React.FC = () => {
   const isMobile = useIsMobile();
-  const [mobileSelectedTrail, setMobileSelectedTrail] = useState<MVTTrail | null>(null);
   const [showLocationTracking, setShowLocationTracking] = useState(false);
   const [hasRequestedOrientation, setHasRequestedOrientation] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
@@ -32,6 +30,7 @@ const AppContent: React.FC = () => {
   });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
   const locationRequestPendingRef = useRef(false);
+  const mapRef = useRef<L.Map | null>(null);
 
   // Notices share one stack so a share confirmation and a context error can
   // stand together instead of one covering the other.
@@ -119,29 +118,35 @@ const AppContent: React.FC = () => {
     showEditPanel(trailToEdit!);
   };
 
-  // Sync selectedTrail to mobileSelectedTrail when trail is loaded from URL.
-  // Adjusted during render (not in an effect) per
-  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  if (isMobile && selectedTrail && !mobileSelectedTrail) {
-    // Trail was selected (likely from URL) but mobile popup isn't showing
-    setMobileSelectedTrail(selectedTrail);
-  }
-
-  const handleMobileTrailClick = useCallback((trail: MVTTrail | null) => {
-    if (isMobile) {
-      setMobileSelectedTrail(trail);
-      if (trail) {
-        selectTrail(trail);
-      }
-    } else {
-      selectTrail(trail);
-    }
-  }, [isMobile, selectTrail]);
-
-  const handleCloseMobilePopup = useCallback(() => {
-    setMobileSelectedTrail(null);
+  const handleCloseTrail = useCallback(() => {
     selectTrail(null);
   }, [selectTrail]);
+
+  /*
+   * The sheet resizes the map's container as it moves, but Leaflet only learns
+   * about a container it did not resize itself when told. Once the sheet has
+   * settled, re-measure -- and in the detail state, refit the selected trail into
+   * whatever strip of map is left above the sheet.
+   */
+  const handleSheetSettled = useCallback(
+    (detent: string) => {
+      const map = mapRef.current;
+      if (!map) {
+        return;
+      }
+
+      map.invalidateSize();
+
+      if (detent === 'detail' && selectedTrail?.bounds) {
+        const { south, west, north, east } = selectedTrail.bounds;
+        map.fitBounds(L.latLngBounds([south, west], [north, east]), {
+          padding: [24, 24],
+          maxZoom: 16,
+        });
+      }
+    },
+    [selectedTrail],
+  );
 
   const dismissNotice = useCallback((id: number) => {
     setNotices((current) => current.filter((notice) => notice.id !== id));
@@ -232,31 +237,29 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="App">
-      {/* Mobile Header - only shown on mobile */}
-      {isMobile && !isDrawingActive && (
-        <MobileHeader
-          user={user}
-          onAddTrailClick={showUploadPanel}
+      {/*
+       * The map's shell is the full viewport on desktop and the space above the
+       * sheet on mobile, which App.css derives from the sheet's own height.
+       */}
+      <div className="mapShell">
+        <Map
+          selectedTrail={selectedTrail}
+          onTrailClick={selectTrail}
+          onTrailsLoaded={updateVisibleTrailsFromMVT}
+          refreshTrigger={mvtRefreshTrigger}
+          fitBoundsTarget={fitBoundsTarget}
+          isDrawingActive={isDrawingActive}
+          onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
+          onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
+          initialGpxContent={getGpxContent(drawingMode || 'upload')}
+          userLocation={userLocation}
+          showUserLocation={!!userLocation}
+          userHeading={userHeading}
+          locationMarkerRef={locationMarkerRef}
+          mapRef={mapRef}
+          activeBaseMap={activeBaseMap}
         />
-      )}
-
-      {/* Main map */}
-      <Map
-        selectedTrail={selectedTrail}
-        onTrailClick={isMobile ? handleMobileTrailClick : selectTrail}
-        onTrailsLoaded={updateVisibleTrailsFromMVT}
-        refreshTrigger={mvtRefreshTrigger}
-        fitBoundsTarget={fitBoundsTarget}
-        isDrawingActive={isDrawingActive}
-        onRouteComplete={drawingMode === 'edit' ? handleEditRouteComplete : handleRouteComplete}
-        onDrawingCancel={drawingMode === 'edit' ? handleEditDrawingCancel : handleDrawingCancel}
-        initialGpxContent={getGpxContent(drawingMode || 'upload')}
-        userLocation={userLocation}
-        showUserLocation={!!userLocation}
-        userHeading={userHeading}
-        locationMarkerRef={locationMarkerRef}
-        activeBaseMap={activeBaseMap}
-      />
+      </div>
 
       {/* Trail sidebar - hidden during drawing mode and on mobile */}
       {!isDrawingActive && !isMobile && (
@@ -270,17 +273,22 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {/* Mobile trail popup */}
-      {isMobile && mobileSelectedTrail && (
-        <MobileTrailPopup
-          trail={mobileSelectedTrail}
+      {/*
+       * On mobile everything the sidebar holds lives in the sheet instead: the
+       * trail strip, the account block, the legend, and the selected trail. There
+       * is no top banner, so the map keeps the whole screen above it.
+       */}
+      {isMobile && !isDrawingActive && (
+        <MobileSheet
+          trails={visibleTrails}
+          selectedTrail={selectedTrail}
           user={user}
-          onClose={handleCloseMobilePopup}
-          onEditTrailClick={(trail) => {
-            showEditPanel(trail);
-            handleCloseMobilePopup();
-          }}
+          onOpenTrail={selectTrail}
+          onCloseTrail={handleCloseTrail}
+          onAddTrailClick={showUploadPanel}
+          onEditTrailClick={showEditPanel}
           onShowToast={handleShowToast}
+          onSettled={handleSheetSettled}
         />
       )}
 
@@ -320,9 +328,6 @@ const AppContent: React.FC = () => {
         onTrailCreated={() => {
           // The panel closes itself through onClose; this only refreshes the map.
           refreshMVTLayer();
-          if (isMobile) {
-            setMobileSelectedTrail(null);
-          }
         }}
         onStartDrawing={handleStartDrawing}
         drawnGpxContent={getGpxContent('upload')}
