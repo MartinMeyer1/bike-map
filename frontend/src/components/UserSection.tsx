@@ -3,7 +3,6 @@ import { User } from '../types';
 import { useAppContext } from '../hooks/useAppContext';
 import { getErrorMessage } from '../utils/errorHandling';
 import UsernameEditModal from './UsernameEditModal';
-import { Button } from './ui';
 import styles from './UserSection.module.css';
 
 interface UserSectionProps {
@@ -30,15 +29,15 @@ export default function UserSection({ user }: UserSectionProps) {
 
   if (!user) {
     return (
-      <div className={`${styles.card} ${styles.guestCard}`}>
+      <div className={styles.card}>
         <div className={styles.guestHeader}>
           <div className={styles.guestTitle}>Welcome to BikeMap!</div>
           <div className={styles.guestSubtitle}>Sign in to upload and manage trails</div>
         </div>
 
         <div className={styles.guestBody}>
-          <button className={styles.googleButton} onClick={handleLogin}>
-            🔐 Sign in with Google
+          <button type="button" className={styles.signInButton} onClick={handleLogin}>
+            SIGN IN WITH GOOGLE
           </button>
         </div>
       </div>
@@ -50,48 +49,43 @@ export default function UserSection({ user }: UserSectionProps) {
   return (
     <>
       <div className={styles.card}>
-        <div className={styles.header}>
-          <div className={styles.identity}>
-            <div className={styles.onlineDot}></div>
-            <strong className={styles.name}>{user.name || user.email}</strong>
-          </div>
-
-          <button
-            className={styles.collapseButton}
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            title={isCollapsed ? 'Expand user section' : 'Collapse user section'}
-          >
+        <button
+          type="button"
+          className={styles.summary}
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-expanded={!isCollapsed}
+        >
+          <span className={styles.identity}>
+            <span className={styles.onlineDot} aria-hidden="true"></span>
+            <span className={styles.name}>{user.name || user.email}</span>
+          </span>
+          <span className={styles.caret} aria-hidden="true">
             {isCollapsed ? '▼' : '▲'}
-          </button>
-        </div>
+          </span>
+        </button>
 
         {!isCollapsed && (
           <div className={styles.body}>
-            <div className={styles.usernameRow}>
-              <div className={styles.username}>{user.name || user.email}</div>
-              <Button
-                variant="secondary"
-                size="small"
-                className={styles.editButton}
+            <div className={styles.roleRow}>
+              <span className={styles.roleLabel}>ROLE</span>
+              <span className={`${styles.roleBadge} ${roleClass[role] || ''}`}>
+                {role.toUpperCase()}
+              </span>
+            </div>
+
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.action}
                 onClick={() => setShowUsernameEdit(true)}
                 title="Edit username"
               >
-                ✏️ Edit
-              </Button>
+                EDIT NAME
+              </button>
+              <button type="button" className={styles.action} onClick={logout}>
+                SIGN OUT
+              </button>
             </div>
-
-            <div className={styles.roleRow}>
-              <span className={styles.roleLabel}>Role</span>
-              <span className={`${styles.roleBadge} ${roleClass[role] || ''}`}>{role}</span>
-            </div>
-
-            <Button
-              variant="secondary"
-              className={styles.signOutButton}
-              onClick={logout}
-            >
-              🚪 Sign Out
-            </Button>
           </div>
         )}
       </div>

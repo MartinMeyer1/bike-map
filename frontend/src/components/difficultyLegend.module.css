@@ -1,0 +1,60 @@
+.scale {
+  display: flex;
+  gap: 6px;
+}
+
+.scaleCompact {
+  gap: 5px;
+}
+
+.cell {
+  flex: 1;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--level);
+}
+
+.scaleCompact .cell {
+  font-size: 10px;
+}
+
+.s0 { --level: var(--level-s0); }
+.s1 { --level: var(--level-s1); }
+.s2 { --level: var(--level-s2); }
+.s3 { --level: var(--level-s3); }
+.s4 { --level: var(--level-s4); }
+.s5 { --level: var(--level-s5); }
+
+.key {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+
+.keyColumn {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.keyItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.keyLabel {
+  composes: caption from '../styles/type.module.css';
+  color: var(--ink-body);
+}
+
+.keyLabelMuted {
+  composes: caption from '../styles/type.module.css';
+}

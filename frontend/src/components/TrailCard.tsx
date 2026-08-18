@@ -1,9 +1,16 @@
 import React, { memo } from "react";
 import { MVTTrail, User, TrailEngagement, Trail } from "../types";
 import { PocketBaseService } from "../services/pocketbase";
-import { useTrailDetails } from "../hooks";
-import { Button, Badge } from "./ui";
-import { TrailElevation, TrailEngagementButton, TrailMetadata } from "./TrailDetails";
+import { useTrailDetails, useTrailElevation } from "../hooks";
+import { Badge } from "./ui";
+import {
+  TrailElevation,
+  TrailEngagementButton,
+  TrailMetadata,
+  TrailProfile,
+  TrailTagLine,
+  UnconfirmedMark,
+} from "./TrailDetails";
 import styles from "./TrailCard.module.css";
 
 interface TrailCardProps {
@@ -18,8 +25,11 @@ interface TrailCardProps {
   onShowRatingsComments?: (trail: MVTTrail) => void;
 }
 
-const COLLAPSED_TAG_LIMIT = 2;
-
+/**
+ * One line of the register. Collapsed it shows grade, name, tags and the
+ * numbers; selected it opens to the elevation silhouette, provenance,
+ * description and actions.
+ */
 export const TrailCard: React.FC<TrailCardProps> = memo(
   ({
     trail,
@@ -39,7 +49,11 @@ export const TrailCard: React.FC<TrailCardProps> = memo(
       error: trailError,
     } = useTrailDetails(isSelected ? trail.id : null);
 
-    // Card-level clicks select the trail, so the buttons inside must not bubble.
+    // Derived from the GPX, so it only starts loading once the record above has
+    // arrived with the file name.
+    const elevationSamples = useTrailElevation(detailedTrail);
+
+    // Row-level clicks select the trail, so the buttons inside must not bubble.
     const stopPropagation =
       (action: () => void) => (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -47,40 +61,26 @@ export const TrailCard: React.FC<TrailCardProps> = memo(
       };
 
     const canEdit = user && PocketBaseService.canEditTrail(trail, user);
-    const visibleTags = isSelected ? trail.tags : trail.tags.slice(0, COLLAPSED_TAG_LIMIT);
-    const hiddenTagCount = trail.tags.length - visibleTags.length;
 
     return (
       <div
-        className={`${styles.trailCard} ${isSelected ? styles.selected : ""}`}
+        className={`${styles.row} ${isSelected ? styles.selected : ""}`}
         onClick={() => onTrailClick(trail)}
-        title="Click to center on map"
+        title="Click to centre on map"
       >
         <div className={styles.header}>
-          <h4 className={styles.title}>{trail.name}</h4>
-          <div className={styles.badgeContainer}>
-            <Badge level={trail.level} outlined={!trail.ridden} />
-            {isSelected && <div className={styles.selectedIndicator} />}
+          <Badge level={trail.level} outlined={!trail.ridden} />
+
+          <div className={styles.identity}>
+            <h4 className={styles.title}>{trail.name}</h4>
+            <TrailTagLine tags={trail.tags} />
           </div>
+
+          {!trail.ridden && <UnconfirmedMark />}
         </div>
 
-        {trail.tags && trail.tags.length > 0 && (
-          <div className={styles.tags}>
-            {visibleTags.map((tag) => (
-              <span key={tag} className={styles.tag}>
-                {tag}
-              </span>
-            ))}
-            {hiddenTagCount > 0 && (
-              <span className={styles.moreTag}>+{hiddenTagCount} more</span>
-            )}
-          </div>
-        )}
-
-        <div className={`${styles.stats} ${isSelected ? styles.expanded : ""}`}>
-          <div className={styles.elevationStats}>
-            <TrailElevation elevation={trail.elevation} />
-          </div>
+        <div className={styles.stats}>
+          <TrailElevation elevation={trail.elevation} />
 
           {engagement && onShowRatingsComments && (
             <TrailEngagementButton
@@ -93,47 +93,50 @@ export const TrailCard: React.FC<TrailCardProps> = memo(
         </div>
 
         {isSelected && (
-          <div className={styles.expandedContent}>
+          <div className={styles.expanded}>
             {trailLoading ? (
-              <div className={styles.loadingState}>Loading trail details...</div>
+              <div className={styles.loadingState}>Loading trail details…</div>
             ) : trailError ? (
               <div className={styles.errorState}>Failed to load trail details</div>
             ) : detailedTrail ? (
-              <TrailMetadata trail={detailedTrail} />
+              <>
+                <TrailProfile samples={elevationSamples} />
+                <TrailMetadata trail={detailedTrail} distance={trail.distance} />
+              </>
             ) : null}
 
-            <div
-              className={`${styles.actions} ${canEdit ? styles.threeColumns : styles.twoColumns}`}
-            >
-              <Button
-                variant="primary"
-                size="small"
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.action}
+                disabled={!detailedTrail}
                 onClick={stopPropagation(
                   () => detailedTrail && onDownloadGPX(detailedTrail),
                 )}
               >
-                📥 GPX
-              </Button>
+                GPX
+              </button>
 
-              <Button
-                variant="secondary"
-                size="small"
+              <button
+                type="button"
+                className={styles.action}
+                disabled={!detailedTrail}
                 onClick={stopPropagation(
                   () => detailedTrail && onShowQRCode(detailedTrail),
                 )}
               >
-                📱 QR
-              </Button>
+                QR
+              </button>
 
               {canEdit && (
-                <Button
-                  variant="secondary"
-                  size="small"
+                <button
+                  type="button"
+                  className={`${styles.action} ${styles.actionPrimary}`}
                   onClick={stopPropagation(() => onEditTrailClick(trail))}
                   title="Edit trail"
                 >
-                  ✏️ Edit
-                </Button>
+                  EDIT
+                </button>
               )}
             </div>
           </div>
