@@ -93,45 +93,60 @@ export default function UploadPanel({
     <Modal
       isOpen={isVisible}
       onClose={onClose}
-      title="➕ Add New Trail"
-      centerTitle
-      showCloseButton={false}
       size="wide"
+      eyebrow="NEW ENTRY"
+      title="Add New Trail"
+      showCloseButton={false}
       closeOnOverlayClick={false}
-    >
-      {error && <div className={styles.errorBanner}>⚠️ {error}</div>}
-
-      <form onSubmit={handleSubmit}>
-        <TrailForm
-          idPrefix="upload"
-          values={values}
-          onChange={setValues}
-          fileLabel="GPX File"
-          selectedFileLabel="Selected"
-          drawnGpxContent={drawnGpxContent}
-          onStartDrawing={handleStartDrawing}
-          onError={setError}
-          onClearError={() => setError('')}
-        />
-
-        <div className={styles.actions}>
-          <Button type="submit" variant="primary" size="large" disabled={isLoading}>
+      footer={
+        <>
+          {/*
+           * The action bar sits outside the scrolling body, so the submit button
+           * reaches its form by id rather than by nesting.
+           */}
+          <Button
+            type="submit"
+            form="upload-form"
+            variant="primary"
+            size="large"
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <span className={styles.spinner}></span>
-                {drawnGpxContent ? 'Saving...' : 'Uploading...'}
+                {drawnGpxContent ? 'Saving…' : 'Uploading…'}
               </>
             ) : drawnGpxContent ? (
-              '💾 Save Trail'
+              'Save trail'
             ) : (
-              '➕ Upload Trail'
+              'Upload trail'
             )}
           </Button>
 
           <Button type="button" variant="secondary" size="large" onClick={onClose}>
             Cancel
           </Button>
+        </>
+      }
+    >
+      {error && (
+        <div className={styles.errorBanner}>
+          <span className={styles.errorChip}>ERROR</span>
+          <span>{error}</span>
         </div>
+      )}
+
+      <form id="upload-form" onSubmit={handleSubmit}>
+        <TrailForm
+          idPrefix="upload"
+          mode="create"
+          values={values}
+          onChange={setValues}
+          drawnGpxContent={drawnGpxContent}
+          onStartDrawing={handleStartDrawing}
+          onError={setError}
+          onClearError={() => setError('')}
+        />
       </form>
     </Modal>
   );
