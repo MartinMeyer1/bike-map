@@ -1,7 +1,6 @@
 import React from 'react';
+import { BaseMapType } from '../map/basemaps';
 import styles from './mapControls.module.css';
-
-export type BaseMapType = 'swisstopo' | 'osm';
 
 interface BaseMapSelectorProps {
   activeBaseMap: BaseMapType;
