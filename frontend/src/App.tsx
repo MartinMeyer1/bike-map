@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import L from 'leaflet';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import TrailEditPanel from './components/TrailEditPanel';
 import { MobileSheet } from './components/MobileSheet';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
-import { BaseMapSelector, BaseMapType } from './components/BaseMapSelector';
+import { BaseMapSelector } from './components/BaseMapSelector';
+import { BaseMapType } from './map/basemaps';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack, Notice, ToastVariant } from './components/ui';
 import { AppProvider } from './context/AppContext';
@@ -30,7 +31,7 @@ const AppContent: React.FC = () => {
   });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
   const locationRequestPendingRef = useRef(false);
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
 
   // Notices share one stack so a share confirmation and a context error can
   // stand together instead of one covering the other.
@@ -123,10 +124,10 @@ const AppContent: React.FC = () => {
   }, [selectTrail]);
 
   /*
-   * The sheet resizes the map's container as it moves, but Leaflet only learns
-   * about a container it did not resize itself when told. Once the sheet has
-   * settled, re-measure -- and in the detail state, refit the selected trail into
-   * whatever strip of map is left above the sheet.
+   * The sheet resizes the map's container as it moves. MapLibre watches the
+   * container itself and re-measures, so there is nothing to tell it any more --
+   * this is only here to refit the selected trail into whatever strip of map is
+   * left above the sheet once it has settled in the detail state.
    */
   const handleSheetSettled = useCallback(
     (detent: string) => {
@@ -135,14 +136,15 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      map.invalidateSize();
-
       if (detent === 'detail' && selectedTrail?.bounds) {
         const { south, west, north, east } = selectedTrail.bounds;
-        map.fitBounds(L.latLngBounds([south, west], [north, east]), {
-          padding: [24, 24],
-          maxZoom: 16,
-        });
+        map.fitBounds(
+          [
+            [west, south],
+            [east, north],
+          ],
+          { padding: 24, maxZoom: 16 },
+        );
       }
     },
     [selectedTrail],

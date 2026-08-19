@@ -161,8 +161,7 @@ body {
 
 /*
  * The map fills its shell rather than the viewport: on mobile the shell is only
- * the space above the sheet. Not !important, so MapContainer's own inline size
- * still wins -- that inline 100% is what makes the shell the authority.
+ * the space above the sheet.
  */
 .mapShell {
   position: absolute;
@@ -172,10 +171,33 @@ body {
   height: 100vh;
 }
 
-.leaflet-container {
+.mapCanvas {
   width: 100%;
   height: 100%;
+}
+
+.maplibregl-map {
   font-family: var(--font-sans);
+}
+
+/*
+ * Shown in place of the map when the browser has no WebGL 2 -- which MapLibre
+ * requires and Leaflet did not, so this is the one case the migration has to
+ * account for rather than inherit.
+ */
+.mapUnsupported {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  background: var(--paper-sunk);
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
 }
 
 /*
@@ -215,16 +237,6 @@ body {
 
 ::-webkit-scrollbar-corner {
   background: var(--paper-sunk);
-}
-
-/*
- * Trail start/finish markers, built as divIcons in utils/markerIcons.ts. Leaflet
- * paints its own white box with a blue border behind a divIcon; the marker's SVG
- * carries all of its own shape, so that box has to go.
- */
-.bikemap-marker {
-  background: transparent;
-  border: none;
 }
 
 /* Boot screen, before auth has resolved and there is any chrome to show. */
@@ -270,9 +282,11 @@ body {
   /*
    * The map gives up exactly the height the sheet has taken beyond its collapsed
    * state. Both values are published by MobileSheet as custom properties, which
-   * keeps a drag from re-rendering the Leaflet subtree sixty times a second: only
-   * CSS reads them. The transition matches the sheet's own, and is dropped while
-   * a finger is down so the map tracks the drag exactly.
+   * keeps a drag from re-rendering the map subtree sixty times a second: only
+   * CSS reads them -- and MapLibre re-measures itself from the container, so a
+   * drag never has to reach the map through React at all. The transition matches
+   * the sheet's own, and is dropped while a finger is down so the map tracks the
+   * drag exactly.
    */
   .mapShell {
     height: calc(

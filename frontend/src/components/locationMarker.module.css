@@ -1,13 +1,8 @@
 /*
- * The GPS "you are here" marker. Leaflet injects this markup as a raw HTML
- * string, so the class names are interpolated from this module rather than
- * written literally.
+ * The GPS "you are here" marker. Its element is built node by node in
+ * LocationMarker and handed to a maplibregl.Marker, so the class names are
+ * applied from this module rather than written literally.
  */
-
-.marker {
-  background: none !important;
-  border: none !important;
-}
 
 .container {
   position: relative;
