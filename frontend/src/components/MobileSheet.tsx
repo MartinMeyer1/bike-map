@@ -37,6 +37,17 @@ const STRIP_GUTTER_PX = 30;
 const EASING = 'cubic-bezier(.32,.72,0,1)';
 const DURATION_MS = 340;
 
+/*
+ * The shrunken map's frame: how far it stands off the screen's top edge and the
+ * sheet, and how round its corners are. Both are screen-space values -- they
+ * stay the same size at every stop -- and both ramp in over the first stretch of
+ * a drag, so the card is seen to lift off the edges rather than detaching from
+ * them the instant a finger moves.
+ */
+const MAP_GAP_PX = 10;
+const MAP_RADIUS_PX = 10;
+const MAP_FRAME_RAMP_PX = 60;
+
 export const MobileSheet: React.FC<MobileSheetProps> = ({
   trails,
   selectedTrail,
@@ -100,18 +111,17 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
   /*
    * How the map answers the sheet.
    *
-   * The map is not resized any more: its container keeps the whole viewport and
-   * is scaled down by CSS, the way a video shrinks when a comment sheet opens
-   * over it. A transform changes no layout box, so MapLibre's ResizeObserver
-   * never fires -- the map does not re-measure, does not re-render and does not
-   * reconsider its tiles while a finger is moving. What the compositor scales is
-   * the frame it had already drawn. A downscaled canvas is supersampled rather
-   * than blurred, so the small map is if anything sharper than the large one.
+   * The map is not resized any more: its container keeps its size and is scaled
+   * down by CSS, the way a video shrinks when a comment sheet opens over it. A
+   * transform changes no layout box, so MapLibre's ResizeObserver never fires --
+   * the map does not re-measure, does not re-render and does not reconsider its
+   * tiles while a finger is moving. What the compositor scales is the frame it
+   * had already drawn. A downscaled canvas is supersampled rather than blurred,
+   * so the small map is if anything sharper than the large one.
    *
-   * Shrinking stops where the trail-detail state ends, and the map holds that
-   * size while the sheet rises over it, fading out by the time the menu is open:
-   * there is no reading a map the size of a stamp, and the menu state is not
-   * about the map at all.
+   * Shrinking stops where the trail-detail state ends. Past that the sheet is
+   * the menu, and the map holds its size and greys out behind it: there is no
+   * reading a map the size of a stamp, and the menu state is not about the map.
    *
    * The floor is the detail *cap* rather than the detail stop itself. The stop
    * is measured from content that only exists while a trail is open -- it
@@ -122,15 +132,32 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
    */
   const floorStop = Math.max(detailCap, mid);
   const rise = Math.max(0, sheetHeight - collapsed);
-  const floorRise = Math.max(0, floorStop - collapsed);
-  const mapScale =
-    viewportHeight > 0
-      ? (viewportHeight - Math.min(rise, floorRise)) / viewportHeight
-      : 1;
-  const mapOpacity =
+
+  // The card's frame, ramped in as the map leaves the screen's edges.
+  const framed = Math.max(0, Math.min(1, rise / MAP_FRAME_RAMP_PX));
+  const mapGap = MAP_GAP_PX * framed;
+
+  /*
+   * The map's own height is the screen less the resting handle, so that nothing
+   * it draws is ever hidden behind one -- a trail fitted into a container whose
+   * bottom strip is covered comes to rest below the middle of what can be seen.
+   * The scale is measured against that same height, and targets the space left
+   * above the sheet once the frame is taken out of it.
+   */
+  const mapHeight = Math.max(1, viewportHeight - collapsed);
+  const heightAt = (stop: number) =>
+    Math.max(0, viewportHeight - stop - 2 * mapGap) / mapHeight;
+  const mapScale = Math.max(heightAt(floorStop), heightAt(sheetHeight));
+
+  /*
+   * Past the trail-detail stop the sheet is the menu, and the map behind it is
+   * no longer something to read or to touch: it holds its size and greys out
+   * rather than shrinking on into a thumbnail.
+   */
+  const mapGrey =
     full > floorStop
-      ? 1 - Math.max(0, Math.min(1, (sheetHeight - floorStop) / (full - floorStop)))
-      : 1;
+      ? Math.max(0, Math.min(1, (sheetHeight - floorStop) / (full - floorStop)))
+      : 0;
 
   /*
    * Published as custom properties rather than lifted into App's state: these
@@ -146,24 +173,37 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--bm-viewport-height', `${viewportHeight}px`);
+    root.style.setProperty('--bm-sheet-collapsed', `${collapsed}px`);
     root.style.setProperty('--bm-map-scale', `${mapScale}`);
-    root.style.setProperty('--bm-map-opacity', `${mapOpacity}`);
+    root.style.setProperty('--bm-map-gap', `${mapGap}px`);
+    // Divided by the scale: a radius inside a scaled element shrinks with it,
+    // and this corner is meant to be the same size at every stop.
+    root.style.setProperty('--bm-map-radius', `${(MAP_RADIUS_PX * framed) / mapScale}px`);
+    root.style.setProperty('--bm-map-grey', `${mapGrey}`);
 
-    // An invisible map must not go on taking taps in the strip the sheet does
-    // not cover: opacity alone would leave it there, still listening.
-    if (mapOpacity < 0.05) {
-      root.setAttribute('data-bm-map-faded', 'true');
+    // A greyed-out map must not go on taking taps in the strip the sheet does
+    // not cover: looking inert and being inert are not the same thing.
+    if (mapGrey > 0) {
+      root.setAttribute('data-bm-map-inert', 'true');
     } else {
-      root.removeAttribute('data-bm-map-faded');
+      root.removeAttribute('data-bm-map-inert');
     }
 
     return () => {
-      root.style.removeProperty('--bm-viewport-height');
-      root.style.removeProperty('--bm-map-scale');
-      root.style.removeProperty('--bm-map-opacity');
-      root.removeAttribute('data-bm-map-faded');
+      for (const property of [
+        '--bm-viewport-height',
+        '--bm-sheet-collapsed',
+        '--bm-map-scale',
+        '--bm-map-gap',
+        '--bm-map-radius',
+        '--bm-map-grey',
+      ]) {
+        root.style.removeProperty(property);
+      }
+
+      root.removeAttribute('data-bm-map-inert');
     };
-  }, [viewportHeight, mapScale, mapOpacity]);
+  }, [viewportHeight, collapsed, mapScale, mapGap, framed, mapGrey]);
 
   // The map animates with the sheet, and must not while a finger is on it.
   useEffect(() => {
