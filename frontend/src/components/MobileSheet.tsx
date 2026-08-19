@@ -26,8 +26,6 @@ interface MobileSheetProps {
   onAddTrailClick: () => void;
   onEditTrailClick: (trail: MVTTrail) => void;
   onShowToast: (message: string, variant: ToastVariant) => void;
-  /** Fired once the sheet has come to rest, for the map to refit itself. */
-  onSettled: (detent: Detent) => void;
 }
 
 /** Movement past this is a drag; anything less is a tap on the handle. */
@@ -48,7 +46,6 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
   onAddTrailClick,
   onEditTrailClick,
   onShowToast,
-  onSettled,
 }) => {
   const [detent, setDetent] = useState<Detent>('collapsed');
   const [drag, setDrag] = useState<number | null>(null);
@@ -101,21 +98,72 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
       : Math.max(0, Math.min(1, (sheetHeight - mid) / (full - mid)));
 
   /*
-   * The map's height is published as a custom property rather than lifted into
-   * App's state: this changes every frame of a drag, and re-rendering the Leaflet
-   * subtree at that rate would drop the interaction. Only CSS reads it, so the
-   * map container follows the sheet without React being involved.
+   * How the map answers the sheet.
+   *
+   * The map is not resized any more: its container keeps the whole viewport and
+   * is scaled down by CSS, the way a video shrinks when a comment sheet opens
+   * over it. A transform changes no layout box, so MapLibre's ResizeObserver
+   * never fires -- the map does not re-measure, does not re-render and does not
+   * reconsider its tiles while a finger is moving. What the compositor scales is
+   * the frame it had already drawn. A downscaled canvas is supersampled rather
+   * than blurred, so the small map is if anything sharper than the large one.
+   *
+   * Shrinking stops where the trail-detail state ends, and the map holds that
+   * size while the sheet rises over it, fading out by the time the menu is open:
+   * there is no reading a map the size of a stamp, and the menu state is not
+   * about the map at all.
+   *
+   * The floor is the detail *cap* rather than the detail stop itself. The stop
+   * is measured from content that only exists while a trail is open -- it
+   * collapses to the bare handle otherwise -- and a floor that moved with it
+   * would make the same drag shrink the map differently depending on whether
+   * something happened to be selected. The cap is half the screen, so it is
+   * always at least the list stop's 45%.
+   */
+  const floorStop = Math.max(detailCap, mid);
+  const rise = Math.max(0, sheetHeight - collapsed);
+  const floorRise = Math.max(0, floorStop - collapsed);
+  const mapScale =
+    viewportHeight > 0
+      ? (viewportHeight - Math.min(rise, floorRise)) / viewportHeight
+      : 1;
+  const mapOpacity =
+    full > floorStop
+      ? 1 - Math.max(0, Math.min(1, (sheetHeight - floorStop) / (full - floorStop)))
+      : 1;
+
+  /*
+   * Published as custom properties rather than lifted into App's state: these
+   * change every frame of a drag, and re-rendering the map subtree at that rate
+   * would drop the interaction. Only CSS reads them, so the map follows the
+   * sheet without React being involved.
+   *
+   * The viewport height goes out with them because the shell is sized from it:
+   * scaling by a ratio measured against visualViewport while the shell is 100vh
+   * tall would leave the card's bottom edge adrift by the height of an iOS URL
+   * bar.
    */
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty('--bm-sheet-height', `${sheetHeight}px`);
-    root.style.setProperty('--bm-sheet-collapsed', `${collapsed}px`);
+    root.style.setProperty('--bm-viewport-height', `${viewportHeight}px`);
+    root.style.setProperty('--bm-map-scale', `${mapScale}`);
+    root.style.setProperty('--bm-map-opacity', `${mapOpacity}`);
+
+    // An invisible map must not go on taking taps in the strip the sheet does
+    // not cover: opacity alone would leave it there, still listening.
+    if (mapOpacity < 0.05) {
+      root.setAttribute('data-bm-map-faded', 'true');
+    } else {
+      root.removeAttribute('data-bm-map-faded');
+    }
 
     return () => {
-      root.style.removeProperty('--bm-sheet-height');
-      root.style.removeProperty('--bm-sheet-collapsed');
+      root.style.removeProperty('--bm-viewport-height');
+      root.style.removeProperty('--bm-map-scale');
+      root.style.removeProperty('--bm-map-opacity');
+      root.removeAttribute('data-bm-map-faded');
     };
-  }, [sheetHeight, collapsed]);
+  }, [viewportHeight, mapScale, mapOpacity]);
 
   // The map animates with the sheet, and must not while a finger is on it.
   useEffect(() => {
@@ -154,26 +202,6 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
     },
     [onOpenTrail],
   );
-
-  // Let the map refit once the sheet has come to rest and the transition has
-  // played out, so it measures the size it actually ended at.
-  const settleTimerRef = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (drag !== null) {
-      return;
-    }
-
-    settleTimerRef.current = window.setTimeout(
-      () => onSettled(detent),
-      DURATION_MS + 20,
-    );
-
-    return () => {
-      if (settleTimerRef.current !== undefined) {
-        clearTimeout(settleTimerRef.current);
-      }
-    };
-  }, [detent, drag, onSettled]);
 
   const nearestStop = useCallback(
     (px: number): Detent => {

@@ -9,7 +9,7 @@ import { BASE_MAPS, BASE_MAP_TYPES, BaseMapType, MAX_ZOOM } from '../map/basemap
 import { registerEndpointImages } from '../map/markerImages';
 import { configureMapWorker } from '../map/worker';
 import { isWebGL2Available } from '../map/webgl';
-import { clampInset, readSidebarWidth } from '../map/insets';
+import { clampInset, hasLeftInset, readSidebarWidth } from '../map/insets';
 import { TrailsLayer } from './TrailsLayer';
 import RouteDrawer from './RouteDrawer';
 import { LocationMarker, LocationMarkerRef } from './LocationMarker';
@@ -41,13 +41,6 @@ interface MapProps {
    * open rather than under the panel.
    */
   hasSidebar?: boolean;
-  /**
-   * The map itself, for App's own camera work. It no longer needs it to keep
-   * the map's size honest: MapLibre watches its container with a ResizeObserver
-   * and re-measures on its own, so the invalidateSize call the mobile sheet used
-   * to make after every drag is gone.
-   */
-  mapRef?: React.RefObject<MapLibreMap | null>;
 }
 
 /** Pans and zooms to an explicit bounding box, e.g. from a shared link. */
@@ -107,12 +100,19 @@ function ViewportInsetHandler({ hasSidebar }: { hasSidebar: boolean }) {
         ? clampInset(readSidebarWidth(), map.getContainer().clientWidth)
         : 0;
 
+      // Setting padding stops the camera dead, so it is only ever set when it
+      // would actually change something -- see hasLeftInset.
+      if (hasLeftInset(map.getPadding(), left)) {
+        return;
+      }
+
       map.setPadding({ top: 0, right: 0, bottom: 0, left });
     };
 
     apply();
 
-    // The clamp depends on the container, so a window resize can change it.
+    // The clamp depends on the container's width, so a window resize can change
+    // it -- and apply() is free when it has not.
     map.on('resize', apply);
 
     return () => {
@@ -160,7 +160,6 @@ function Map({
   showUserLocation = false,
   userHeading,
   locationMarkerRef,
-  mapRef
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Held as state rather than a ref so that children mount once the style is
@@ -206,10 +205,6 @@ function Map({
 
     instance.touchZoomRotate.disableRotation();
 
-    if (mapRef) {
-      mapRef.current = instance;
-    }
-
     let cancelled = false;
 
     instance.on('load', () => {
@@ -228,13 +223,9 @@ function Map({
       cancelled = true;
       setMap(null);
 
-      if (mapRef) {
-        mapRef.current = null;
-      }
-
       instance.remove();
     };
-  }, [isSupported, mapRef]);
+  }, [isSupported]);
 
   if (!isSupported) {
     return (

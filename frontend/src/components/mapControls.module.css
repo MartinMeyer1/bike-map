@@ -92,4 +92,27 @@
     width: 44px;
     height: 44px;
   }
+
+  /*
+   * The map shrinks towards the middle of the screen as the sheet rises, so its
+   * right edge walks inwards by half of what it gives up in width. The controls
+   * follow it at full size -- pinned to the screen instead, they would end up
+   * straddling the map's edge, half on the map and half on the ink. They leave
+   * with the map when it fades out under the menu: a locate button over a map
+   * that is not there controls nothing.
+   */
+  .controls {
+    transform: translateX(calc((1 - var(--bm-map-scale, 1)) * -50vw));
+    opacity: var(--bm-map-opacity, 1);
+    transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 340ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  :root[data-bm-sheet-dragging='true'] .controls {
+    transition: none;
+  }
+
+  :root[data-bm-map-faded='true'] .controls {
+    pointer-events: none;
+  }
 }

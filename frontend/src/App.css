@@ -289,23 +289,36 @@ body {
   }
 
   /*
-   * The map gives up exactly the height the sheet has taken beyond its collapsed
-   * state. Both values are published by MobileSheet as custom properties, which
-   * keeps a drag from re-rendering the map subtree sixty times a second: only
-   * CSS reads them -- and MapLibre re-measures itself from the container, so a
-   * drag never has to reach the map through React at all. The transition matches
-   * the sheet's own, and is dropped while a finger is down so the map tracks the
-   * drag exactly.
+   * The map keeps the whole viewport and shrinks by transform as the sheet
+   * rises, the way a video shrinks when a comment sheet opens over it. It used
+   * to give up its height instead, which meant MapLibre re-measuring and
+   * re-rendering on every frame of a drag; a transform changes no layout box, so
+   * the map is not told anything happened and the compositor scales the frame it
+   * had already drawn.
+   *
+   * Shrinking from the top edge leaves the map against the top of the screen
+   * with the sheet rising to meet it, and ink -- the body's own ground -- showing
+   * in the margins either side. Both values come from MobileSheet as custom
+   * properties, so a drag never reaches the map through React at all. The
+   * transition matches the sheet's own, and is dropped while a finger is down so
+   * the map tracks the drag exactly.
    */
   .mapShell {
-    height: calc(
-      100vh - max(0px, var(--bm-sheet-height, 0px) - var(--bm-sheet-collapsed, 0px))
-    );
-    transition: height 340ms cubic-bezier(0.32, 0.72, 0, 1);
+    height: var(--bm-viewport-height, 100vh);
+    transform-origin: top center;
+    transform: scale(var(--bm-map-scale, 1));
+    opacity: var(--bm-map-opacity, 1);
+    transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 340ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   :root[data-bm-sheet-dragging='true'] .mapShell {
     transition: none;
+  }
+
+  /* Faded out under the menu, and no longer taking taps it cannot answer. */
+  :root[data-bm-map-faded='true'] .mapShell {
+    pointer-events: none;
   }
 }
 

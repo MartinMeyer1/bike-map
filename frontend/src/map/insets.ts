@@ -10,6 +10,8 @@
  * against the map a reader can actually see.
  */
 
+import type { PaddingOptions } from 'maplibre-gl';
+
 /** Defined in App.css, where the panel itself reads it for its width. */
 const SIDEBAR_WIDTH_TOKEN = '--bm-sidebar-width';
 
@@ -33,4 +35,23 @@ export function readSidebarWidth(): number {
  */
 export function clampInset(inset: number, containerWidth: number): number {
   return Math.max(0, Math.min(inset, containerWidth - MIN_VISIBLE_WIDTH));
+}
+
+/**
+ * Whether the map is already padded by exactly this much on the left.
+ *
+ * Worth asking, because setting padding is not a free assignment: `setPadding`
+ * is `jumpTo({padding})`, and `jumpTo` opens by calling `stop()` and closes by
+ * firing a whole movestart/move/moveend cycle -- whether or not the value it
+ * was handed differs from the one already there. So a padding re-applied on
+ * every resize would cancel whatever flight was carrying the camera to the
+ * selected trail, for no change at all.
+ */
+export function hasLeftInset(current: PaddingOptions, left: number): boolean {
+  return (
+    current.left === left &&
+    current.top === 0 &&
+    current.right === 0 &&
+    current.bottom === 0
+  );
 }
