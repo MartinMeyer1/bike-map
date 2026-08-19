@@ -633,6 +633,12 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
         </div>
       </div>
 
+      {/*
+        * Two labels per button, one shown at a time: on mobile these sit three
+        * across rather than stacked, and the long forms would wrap to three
+        * lines each. display:none keeps the hidden one out of the accessibility
+        * tree too, so nothing is announced twice.
+        */}
       <div className={styles.actions}>
         <button
           type="button"
@@ -640,7 +646,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           onClick={handleUndo}
           disabled={waypoints.length === 0}
         >
-          ↶ UNDO LAST POINT
+          ↶ <span className={styles.labelLong}>UNDO LAST POINT</span>
+          <span className={styles.labelShort}>UNDO</span>
         </button>
 
         <button
@@ -649,7 +656,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           onClick={handleComplete}
           disabled={routePoints.length < 2}
         >
-          ✓ COMPLETE ROUTE
+          ✓ <span className={styles.labelLong}>COMPLETE ROUTE</span>
+          <span className={styles.labelShort}>COMPLETE</span>
         </button>
 
         <button
@@ -659,8 +667,17 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
         >
           ✕ CANCEL
         </button>
+      </div>
 
-        <div className={styles.hint}>CLICK ON MAP TO ADD WAYPOINTS</div>
+      {/*
+       * Only worth the room until the first point is down: after that the reader
+       * has plainly worked it out. Kept always on desktop, where it costs
+       * nothing.
+       */}
+      <div
+        className={`${styles.hint} ${waypoints.length > 0 ? styles.hintDone : ''}`}
+      >
+        CLICK ON MAP TO ADD WAYPOINTS
       </div>
     </div>
   );
