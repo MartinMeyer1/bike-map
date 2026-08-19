@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import type { Map as MapLibreMap } from 'maplibre-gl';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
@@ -31,7 +30,6 @@ const AppContent: React.FC = () => {
   });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
   const locationRequestPendingRef = useRef(false);
-  const mapRef = useRef<MapLibreMap | null>(null);
 
   // Notices share one stack so a share confirmation and a context error can
   // stand together instead of one covering the other.
@@ -119,36 +117,15 @@ const AppContent: React.FC = () => {
     showEditPanel(trailToEdit!);
   };
 
+  /*
+   * The sidebar covers the map's left edge rather than sitting beside it, so
+   * the map has to know when it is there to keep its camera clear of it.
+   */
+  const hasSidebar = !isDrawingActive && !isMobile;
+
   const handleCloseTrail = useCallback(() => {
     selectTrail(null);
   }, [selectTrail]);
-
-  /*
-   * The sheet resizes the map's container as it moves. MapLibre watches the
-   * container itself and re-measures, so there is nothing to tell it any more --
-   * this is only here to refit the selected trail into whatever strip of map is
-   * left above the sheet once it has settled in the detail state.
-   */
-  const handleSheetSettled = useCallback(
-    (detent: string) => {
-      const map = mapRef.current;
-      if (!map) {
-        return;
-      }
-
-      if (detent === 'detail' && selectedTrail?.bounds) {
-        const { south, west, north, east } = selectedTrail.bounds;
-        map.fitBounds(
-          [
-            [west, south],
-            [east, north],
-          ],
-          { padding: 24, maxZoom: 16 },
-        );
-      }
-    },
-    [selectedTrail],
-  );
 
   const dismissNotice = useCallback((id: number) => {
     setNotices((current) => current.filter((notice) => notice.id !== id));
@@ -258,13 +235,13 @@ const AppContent: React.FC = () => {
           showUserLocation={!!userLocation}
           userHeading={userHeading}
           locationMarkerRef={locationMarkerRef}
-          mapRef={mapRef}
           activeBaseMap={activeBaseMap}
+          hasSidebar={hasSidebar}
         />
       </div>
 
       {/* Trail sidebar - hidden during drawing mode and on mobile */}
-      {!isDrawingActive && !isMobile && (
+      {hasSidebar && (
         <TrailSidebar
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
@@ -290,7 +267,6 @@ const AppContent: React.FC = () => {
           onAddTrailClick={showUploadPanel}
           onEditTrailClick={showEditPanel}
           onShowToast={handleShowToast}
-          onSettled={handleSheetSettled}
         />
       )}
 
