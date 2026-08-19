@@ -66,7 +66,7 @@ export const MobileTrailDetail: React.FC<MobileTrailDetailProps> = ({
           type="button"
           className={styles.backButton}
           onClick={onBack}
-          aria-label="Back to trail list"
+          aria-label="Close trail"
         >
           <svg
             width="16"
