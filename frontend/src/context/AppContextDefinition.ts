@@ -10,6 +10,13 @@ export interface AppState {
   visibleTrails: MVTTrail[]; // From MVT layer - only currently visible tiles
   selectedTrail: MVTTrail | null;
   fitBoundsTarget: MapBounds | null; // Bounds to fit map to (one-time action)
+  /**
+   * Bumped each time a trail is deliberately selected -- a click on the map, a
+   * card in a list, a link on load. The map frames the selection when this
+   * changes rather than when `selectedTrail` changes identity, so re-publishing
+   * the same trail with a fuller record never moves the camera.
+   */
+  trailFocusRequest: number;
 
   // UI state
   isUploadPanelVisible: boolean;
