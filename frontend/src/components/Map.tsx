@@ -9,6 +9,7 @@ import { BASE_MAPS, BASE_MAP_TYPES, BaseMapType, MAX_ZOOM } from '../map/basemap
 import { registerEndpointImages } from '../map/markerImages';
 import { configureMapWorker } from '../map/worker';
 import { isWebGL2Available } from '../map/webgl';
+import { clampInset, readSidebarWidth } from '../map/insets';
 import { TrailsLayer } from './TrailsLayer';
 import RouteDrawer from './RouteDrawer';
 import { LocationMarker, LocationMarkerRef } from './LocationMarker';
@@ -34,6 +35,12 @@ interface MapProps {
   showUserLocation?: boolean;
   userHeading?: number;
   locationMarkerRef?: React.RefObject<LocationMarkerRef | null>;
+  /**
+   * Whether the sidebar is currently drawn over the map's left edge. The map
+   * insets its camera by the panel's width so that what it frames stays in the
+   * open rather than under the panel.
+   */
+  hasSidebar?: boolean;
   /**
    * The map itself, for App's own camera work. It no longer needs it to keep
    * the map's size honest: MapLibre watches its container with a ResizeObserver
@@ -85,6 +92,37 @@ function SelectedTrailHandler({ selectedTrail }: { selectedTrail: MVTTrail | nul
   return null;
 }
 
+/**
+ * Tells the map how much of it the sidebar hides, as viewport padding. With it
+ * the camera's centre is the centre of the visible map, so a selected trail is
+ * framed in the open instead of half under the panel; without it a fit is
+ * measured against a container the panel is sitting on top of.
+ */
+function ViewportInsetHandler({ hasSidebar }: { hasSidebar: boolean }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const apply = () => {
+      const left = hasSidebar
+        ? clampInset(readSidebarWidth(), map.getContainer().clientWidth)
+        : 0;
+
+      map.setPadding({ top: 0, right: 0, bottom: 0, left });
+    };
+
+    apply();
+
+    // The clamp depends on the container, so a window resize can change it.
+    map.on('resize', apply);
+
+    return () => {
+      map.off('resize', apply);
+    };
+  }, [map, hasSidebar]);
+
+  return null;
+}
+
 /** Swaps base maps by visibility, so neither source is torn down. */
 function BaseMapHandler({ activeBaseMap }: { activeBaseMap: BaseMapType }) {
   const map = useMap();
@@ -117,6 +155,7 @@ function Map({
   onDrawingCancel,
   initialGpxContent,
   activeBaseMap = 'swisstopo',
+  hasSidebar = false,
   userLocation,
   showUserLocation = false,
   userHeading,
@@ -220,6 +259,9 @@ function Map({
         */}
       {map && (
         <MapContext.Provider value={map}>
+          {/* Mounted first: the handlers below frame against its padding. */}
+          <ViewportInsetHandler hasSidebar={hasSidebar} />
+
           <BaseMapHandler activeBaseMap={activeBaseMap} />
 
           <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />

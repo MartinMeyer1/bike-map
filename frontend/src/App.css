@@ -116,6 +116,15 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas,
     monospace;
 
+  /*
+   * The desktop sidebar's width. The panel is drawn over the map rather than
+   * beside it, so the map's camera has to inset by the same amount to keep what
+   * it frames out from under the panel -- which is why this is a token here
+   * rather than a number in TrailSidebar.module.css. Read by that module for
+   * the panel's width, and by map/insets.ts for the camera's.
+   */
+  --bm-sidebar-width: 396px;
+
   /* Stacking order, so these stop being scattered magic numbers. */
   --z-map-control: 1000;
   --z-overlay: 1500;

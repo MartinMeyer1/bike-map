@@ -119,6 +119,12 @@ const AppContent: React.FC = () => {
     showEditPanel(trailToEdit!);
   };
 
+  /*
+   * The sidebar covers the map's left edge rather than sitting beside it, so
+   * the map has to know when it is there to keep its camera clear of it.
+   */
+  const hasSidebar = !isDrawingActive && !isMobile;
+
   const handleCloseTrail = useCallback(() => {
     selectTrail(null);
   }, [selectTrail]);
@@ -260,11 +266,12 @@ const AppContent: React.FC = () => {
           locationMarkerRef={locationMarkerRef}
           mapRef={mapRef}
           activeBaseMap={activeBaseMap}
+          hasSidebar={hasSidebar}
         />
       </div>
 
       {/* Trail sidebar - hidden during drawing mode and on mobile */}
-      {!isDrawingActive && !isMobile && (
+      {hasSidebar && (
         <TrailSidebar
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
