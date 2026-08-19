@@ -20,6 +20,24 @@ import styles from './routeDrawer.module.css';
 /** Stroke width of the drawn route, and so the unit its dash is measured in. */
 const ROUTE_WIDTH = 6;
 
+/**
+ * A waypoint, plus how the leg arriving at it was drawn.
+ *
+ * `straight` is the drawing mode as it stood when the point was placed: the leg
+ * from the previous waypoint to this one goes direct, with no routing call. The
+ * first waypoint has no leg, so its flag means nothing.
+ */
+type DrawnWaypoint = PathPoint & { straight?: boolean };
+
+/**
+ * A leg of two points is a straight line, whether it was drawn as one or came
+ * back from the router that way -- which is also what a failed route falls back
+ * to. This is the only thing the map and the readout need to know about a leg,
+ * so nothing is stored alongside the segments and nothing has to survive the GPX
+ * round trip: splitRouteIntoSegments recovers a straight leg as its two ends.
+ */
+const isStraightLeg = (segment: Array<{ lat: number; lng: number }>) => segment.length <= 2;
+
 interface RouteDrawerProps {
   isActive: boolean;
   onRouteComplete: (gpxContent: string) => void;
@@ -30,10 +48,17 @@ interface RouteDrawerProps {
 export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initialGpxContent }: RouteDrawerProps) {
   const map = useMap();
   const { setError } = useAppContext();
-  const [waypoints, setWaypoints] = useState<PathPoint[]>([]);
+  const [waypoints, setWaypoints] = useState<DrawnWaypoint[]>([]);
   const [routeSegments, setRouteSegments] = useState<Array<Array<{lat: number, lng: number, ele?: number}>>>([]);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
   const [isCalculatingRoute, startRouteTransition] = useTransition();
+  /*
+   * Straight-line mode: while it is on, a new point is joined to the previous
+   * one by a straight line and BRouter is not called at all. It stays on until
+   * it is switched off, which is what makes it useful -- the router only needs
+   * overriding for the point or two it cannot handle.
+   */
+  const [isStraight, setIsStraight] = useState(false);
   const isUndoingRef = useRef(false);
   const lastUserWaypointCountRef = useRef(0);
 
@@ -112,6 +137,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   const initKey = `${isActive}|${initialGpxContent ?? ''}`;
   if (initKey !== lastInitKey) {
     setLastInitKey(initKey);
+
+    // Every fresh session starts on routing, whichever way the last one ended.
+    setIsStraight(false);
 
     if (!isActive) {
       // Clear state when drawing becomes inactive
@@ -261,7 +289,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
       setWaypoints(prev => [
         ...prev,
-        { lat: event.lngLat.lat, lng: event.lngLat.lng },
+        { lat: event.lngLat.lat, lng: event.lngLat.lng, straight: isStraight },
       ]);
     };
 
@@ -270,7 +298,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     return () => {
       map.off('click', handleMapClick);
     };
-  }, [map, isActive]);
+    // isStraight is read at click time, so the handler is rebound when it
+    // changes: the mode a point records is the mode that was showing.
+  }, [map, isActive, isStraight]);
 
   // Function to calculate route between two specific points
   const calculateRouteSegment = useCallback(async (fromPoint: PathPoint, toPoint: PathPoint): Promise<Array<{lat: number, lng: number, ele?: number}>> => {
@@ -367,10 +397,21 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const fromPoint = waypoints[waypoints.length - 2];
       const toPoint = waypoints[waypoints.length - 1];
 
-      startRouteTransition(async () => {
-        const newSegment = await calculateRouteSegment(fromPoint, toPoint);
-        setRouteSegments(prev => [...prev, newSegment]);
-      });
+      if (toPoint.straight) {
+        // Drawn straight on purpose: the leg *is* its two ends. No router, no
+        // network, and so none of the failure handling below either.
+        startRouteTransition(() => {
+          setRouteSegments(prev => [
+            ...prev,
+            [fromPoint, toPoint].map(({ lat, lng }) => ({ lat, lng })),
+          ]);
+        });
+      } else {
+        startRouteTransition(async () => {
+          const newSegment = await calculateRouteSegment(fromPoint, toPoint);
+          setRouteSegments(prev => [...prev, newSegment]);
+        });
+      }
 
       // Update the cached count
       lastUserWaypointCountRef.current = currentWaypointCount;
@@ -411,21 +452,41 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       })),
     });
 
-    // Draw route - either computed by BRouter or straight lines as fallback
-    const isComputedRoute = routePoints.length > waypoints.length;
+    /*
+     * One feature per leg rather than one for the whole route, because a route
+     * can now mix the two: a leg the router laid out draws solid, one drawn
+     * straight -- on purpose, or because the router could not answer -- draws
+     * dashed. Until the first segments arrive the raw waypoints stand in, as
+     * one straight line through all of them.
+     */
+    const legs: Feature[] =
+      routeSegments.length > 0
+        ? routeSegments
+            .filter((segment) => segment.length >= 2)
+            .map((segment) => {
+              const straight = isStraightLeg(segment);
 
-    routeSource.setData({
-      type: 'FeatureCollection',
-      features:
-        routePoints.length >= 2
+              return {
+                type: 'Feature',
+                properties: {
+                  computed: !straight,
+                  label: straight
+                    ? 'Straight line — no routing'
+                    : 'Route computed by BRouter',
+                },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: segment.map((p) => [p.lng, p.lat]),
+                },
+              };
+            })
+        : routePoints.length >= 2
           ? [
               {
                 type: 'Feature',
                 properties: {
-                  computed: isComputedRoute,
-                  label: isComputedRoute
-                    ? 'Route computed by BRouter'
-                    : 'Fallback: straight line between waypoints',
+                  computed: false,
+                  label: 'Straight line between waypoints',
                 },
                 geometry: {
                   type: 'LineString',
@@ -433,9 +494,10 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
                 },
               },
             ]
-          : [],
-    });
-  }, [map, routePoints, waypoints]);
+          : [];
+
+    routeSource.setData({ type: 'FeatureCollection', features: legs });
+  }, [map, routePoints, routeSegments, waypoints]);
 
   const handleUndo = useCallback(() => {
     isUndoingRef.current = true;
@@ -493,6 +555,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       ? routePointsWithElevation
       : routePoints.map((p) => ({ ...p, ele: undefined }));
   const hasElevation = trackPoints.some((p) => p.ele !== undefined);
+  // A straight leg carries no elevation, so on a mixed route the climb figures
+  // are real but partial. Said out loud rather than left to be inferred.
+  const hasStraightLeg = routeSegments.some(isStraightLeg);
   const routeData = trackPoints.length > 1 ? calculateRouteData(trackPoints) : null;
 
   return (
@@ -517,10 +582,15 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
                 {(routeData.distance / 1000).toFixed(1)} km
               </div>
               {hasElevation ? (
-                <div className={styles.climb}>
-                  <span>D+ {Math.round(routeData.gain)}m</span>
-                  <span>D− {Math.round(routeData.loss)}m</span>
-                </div>
+                <>
+                  <div className={styles.climb}>
+                    <span>D+ {Math.round(routeData.gain)}m</span>
+                    <span>D− {Math.round(routeData.loss)}m</span>
+                  </div>
+                  {hasStraightLeg && (
+                    <div className={styles.pending}>STRAIGHT LEGS NOT MEASURED</div>
+                  )}
+                </>
               ) : (
                 <div className={styles.pending}>STRAIGHT LINE — NO ELEVATION</div>
               )}
@@ -536,6 +606,30 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
         <div className={styles.waypoints}>
           <span className={styles.waypointsLabel}>WAYPOINTS</span>
           <span className={styles.waypointsCount}>{waypoints.length}</span>
+        </div>
+      </div>
+
+      {/*
+        * A mode rather than an action, so it stands apart from the button stack
+        * below: it changes what the next click does instead of doing something.
+        */}
+      <div className={styles.mode}>
+        <button
+          type="button"
+          className={`${styles.modeToggle} ${isStraight ? styles.modeToggleOn : ''}`}
+          onClick={() => setIsStraight((current) => !current)}
+          aria-pressed={isStraight}
+        >
+          <span className={styles.modeBox} aria-hidden="true"></span>
+          <span className={styles.modeLabel}>
+            {isStraight ? 'STRAIGHT LINES' : 'FOLLOW PATHS'}
+          </span>
+        </button>
+
+        <div className={styles.modeHint}>
+          {isStraight
+            ? 'NEW LEGS GO DIRECT — SWITCH BACK FOR ROUTING'
+            : 'BROUTER PICKS THE PATH BETWEEN POINTS'}
         </div>
       </div>
 

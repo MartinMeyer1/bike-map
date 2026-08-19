@@ -93,6 +93,68 @@
   composes: value from '../styles/type.module.css';
 }
 
+/*
+ * Straight-line mode. Built like the ridden band in forms.module.css -- the
+ * whole rectangle is the control, with an inset-shadow box as its tick -- but
+ * with its border language inverted on purpose: engaged is DASHED here, because
+ * a dashed line is exactly what the mode draws on the map. Not a mistake, and
+ * not to be tidied into matching the band.
+ */
+.mode {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.modeToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule-control);
+  border-radius: 0;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.modeToggle:hover {
+  background: var(--paper-active);
+  border-color: var(--rule-strong);
+}
+
+.modeToggleOn {
+  background: var(--paper-active);
+  border: 1px dashed var(--ink);
+}
+
+.modeBox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  background: var(--paper-field);
+  border: 1px solid var(--rule-strong);
+}
+
+/* Ticked: an ink square inset inside the box, the band's own construction. */
+.modeToggleOn .modeBox {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 16px var(--ink);
+}
+
+.modeLabel {
+  composes: control from '../styles/type.module.css';
+  color: var(--ink);
+}
+
+.modeHint {
+  composes: caption from '../styles/type.module.css';
+  margin-top: 6px;
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
 .actions {
   padding: 14px 16px;
   display: flex;
@@ -163,5 +225,10 @@
 
   .action {
     padding: 13px 0;
+  }
+
+  /* Thumb-sized, like the buttons under it. */
+  .modeToggle {
+    padding: 12px;
   }
 }
