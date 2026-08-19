@@ -7,6 +7,7 @@ import { useMap } from '../map/useMap';
 import { buildStyle } from '../map/style';
 import { BASE_MAPS, BASE_MAP_TYPES, BaseMapType, MAX_ZOOM } from '../map/basemaps';
 import { registerEndpointImages } from '../map/markerImages';
+import { configureMapWorker } from '../map/worker';
 import { isWebGL2Available } from '../map/webgl';
 import { TrailsLayer } from './TrailsLayer';
 import RouteDrawer from './RouteDrawer';
@@ -144,6 +145,10 @@ function Map({
     if (!isSupported) {
       return;
     }
+
+    // Before the first Map: MapLibre cannot resolve its own worker under a
+    // bundler, and without it every vector tile hangs unreported.
+    configureMapWorker();
 
     const instance = new MapLibreMap({
       container,
