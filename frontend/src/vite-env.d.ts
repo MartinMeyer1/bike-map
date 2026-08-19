@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_API_BASE_URL: string
-  readonly VITE_BROUTER_BASE_URL: string
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
+/**
+ * `?worker&url` yields the bundled worker's URL as a string. Vite ships types
+ * for `?worker` and for `?url` separately, but not for the two combined.
+ */
+declare module '*?worker&url' {
+  const src: string;
+  export default src;
 }

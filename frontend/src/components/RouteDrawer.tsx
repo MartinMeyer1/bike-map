@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from 'react';
-import { useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { Popup } from 'maplibre-gl';
+import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
+import type { Feature, FeatureCollection } from 'geojson';
+import { useMap } from '../map/useMap';
+import {
+  LAYER_ROUTE,
+  LAYER_WAYPOINTS,
+  SOURCE_ROUTE,
+  SOURCE_WAYPOINTS,
+} from '../map/ids';
 import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 import { haversineDistance } from '../utils/geo';
@@ -8,6 +16,27 @@ import { getToken } from '../utils/colors';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
 import styles from './routeDrawer.module.css';
+
+/** Stroke width of the drawn route, and so the unit its dash is measured in. */
+const ROUTE_WIDTH = 6;
+
+/**
+ * A waypoint, plus how the leg arriving at it was drawn.
+ *
+ * `straight` is the drawing mode as it stood when the point was placed: the leg
+ * from the previous waypoint to this one goes direct, with no routing call. The
+ * first waypoint has no leg, so its flag means nothing.
+ */
+type DrawnWaypoint = PathPoint & { straight?: boolean };
+
+/**
+ * A leg of two points is a straight line, whether it was drawn as one or came
+ * back from the router that way -- which is also what a failed route falls back
+ * to. This is the only thing the map and the readout need to know about a leg,
+ * so nothing is stored alongside the segments and nothing has to survive the GPX
+ * round trip: splitRouteIntoSegments recovers a straight leg as its two ends.
+ */
+const isStraightLeg = (segment: Array<{ lat: number; lng: number }>) => segment.length <= 2;
 
 interface RouteDrawerProps {
   isActive: boolean;
@@ -19,14 +48,19 @@ interface RouteDrawerProps {
 export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initialGpxContent }: RouteDrawerProps) {
   const map = useMap();
   const { setError } = useAppContext();
-  const [waypoints, setWaypoints] = useState<PathPoint[]>([]);
+  const [waypoints, setWaypoints] = useState<DrawnWaypoint[]>([]);
   const [routeSegments, setRouteSegments] = useState<Array<Array<{lat: number, lng: number, ele?: number}>>>([]);
   const [initialWaypoints, setInitialWaypoints] = useState<PathPoint[]>([]);
   const [isCalculatingRoute, startRouteTransition] = useTransition();
+  /*
+   * Straight-line mode: while it is on, a new point is joined to the previous
+   * one by a straight line and BRouter is not called at all. It stays on until
+   * it is switched off, which is what makes it useful -- the router only needs
+   * overriding for the point or two it cannot handle.
+   */
+  const [isStraight, setIsStraight] = useState(false);
   const isUndoingRef = useRef(false);
   const lastUserWaypointCountRef = useRef(0);
-  const routeLayerRef = useRef<L.LayerGroup | null>(null);
-  const waypointLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Route points are entirely derived from the accumulated BRouter segments
   // (or, absent those, the raw waypoints) - no need to store them separately.
@@ -104,6 +138,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   if (initKey !== lastInitKey) {
     setLastInitKey(initKey);
 
+    // Every fresh session starts on routing, whichever way the last one ended.
+    setIsStraight(false);
+
     if (!isActive) {
       // Clear state when drawing becomes inactive
       setRouteSegments([]);
@@ -131,61 +168,139 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
     lastUserWaypointCountRef.current = isActive ? initialWaypoints.length : 0;
   }, [isActive, initialWaypoints]);
 
-  // Initialize layers
+  /*
+   * The overlay's sources and layers, alive only while drawing.
+   *
+   * The route borrows the grade scale's green, blue and red for start, middle
+   * and end. Read from the tokens rather than written out: these were literal
+   * copies of the old bright palette, so when the scale was darkened they
+   * stayed behind as the only vivid thing left on the map.
+   */
   useEffect(() => {
-    if (!map || !isActive) return;
+    if (!isActive) return;
 
-    const rLayer = new L.LayerGroup();
-    const wLayer = new L.LayerGroup();
-    
-    map.addLayer(rLayer);
-    map.addLayer(wLayer);
+    const startColor = getToken('--level-s0');
+    const midColor = getToken('--level-s1');
+    const endColor = getToken('--level-s3');
 
-    routeLayerRef.current = rLayer;
-    waypointLayerRef.current = wLayer;
+    const empty: FeatureCollection = { type: 'FeatureCollection', features: [] };
+
+    map.addSource(SOURCE_ROUTE, { type: 'geojson', data: empty });
+    map.addSource(SOURCE_WAYPOINTS, { type: 'geojson', data: empty });
+
+    map.addLayer({
+      id: LAYER_ROUTE,
+      type: 'line',
+      source: SOURCE_ROUTE,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': endColor,
+        'line-width': ROUTE_WIDTH,
+        'line-opacity': 0.85,
+        // Leaflet's "5, 5" in pixels, expressed in the line-widths MapLibre
+        // measures a dash in.
+        'line-dasharray': [
+          'case',
+          ['get', 'computed'],
+          ['literal', [1, 0]],
+          ['literal', [5 / ROUTE_WIDTH, 5 / ROUTE_WIDTH]],
+        ],
+      },
+    });
+
+    map.addLayer({
+      id: LAYER_WAYPOINTS,
+      type: 'circle',
+      source: SOURCE_WAYPOINTS,
+      paint: {
+        'circle-radius': 8,
+        'circle-color': [
+          'match',
+          ['get', 'role'],
+          'start', startColor,
+          'end', endColor,
+          midColor,
+        ],
+        'circle-opacity': 0.9,
+        'circle-stroke-color': getToken('--paper'),
+        'circle-stroke-width': 2,
+      },
+    });
+
+    // One popup, moved and refilled, rather than a tooltip bound to every
+    // waypoint and to the line.
+    const popup = new Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 12,
+    });
+
+    const canvas = map.getCanvas();
+
+    const showLabel = (event: MapMouseEvent & { features?: Feature[] }) => {
+      const label = event.features?.[0]?.properties?.label;
+      if (typeof label !== 'string') return;
+
+      canvas.style.cursor = 'pointer';
+      popup.setLngLat(event.lngLat).setText(label).addTo(map);
+    };
+
+    const hideLabel = () => {
+      canvas.style.cursor = '';
+      popup.remove();
+    };
+
+    for (const id of [LAYER_WAYPOINTS, LAYER_ROUTE]) {
+      map.on('mousemove', id, showLabel);
+      map.on('mouseleave', id, hideLabel);
+    }
 
     return () => {
-      if (map.hasLayer(rLayer)) map.removeLayer(rLayer);
-      if (map.hasLayer(wLayer)) map.removeLayer(wLayer);
-      routeLayerRef.current = null;
-      waypointLayerRef.current = null;
+      for (const id of [LAYER_WAYPOINTS, LAYER_ROUTE]) {
+        map.off('mousemove', id, showLabel);
+        map.off('mouseleave', id, hideLabel);
+
+        if (map.getLayer(id)) map.removeLayer(id);
+      }
+
+      popup.remove();
+      canvas.style.cursor = '';
+
+      for (const id of [SOURCE_ROUTE, SOURCE_WAYPOINTS]) {
+        if (map.getSource(id)) map.removeSource(id);
+      }
     };
   }, [map, isActive]);
 
 
+  /*
+   * Clicks on the map add a waypoint. The panel used to have to be filtered out
+   * of this by hand, because it rendered inside the map's own container and its
+   * clicks reached the map with it; it is now a sibling of that container, so
+   * they never arrive here in the first place.
+   */
   useEffect(() => {
-    if (!map || !isActive) return;
+    if (!isActive) return;
 
-    const handleMapClick = (e: L.LeafletMouseEvent) => {
+    const handleMapClick = (event: MapMouseEvent) => {
       if (isUndoingRef.current) {
         return;
       }
-      
-      // Check if the click event originated from the RouteDrawer panel
-      // This prevents clicks on the panel from adding waypoints
-      const target = e.originalEvent?.target as HTMLElement;
-      if (target && target.closest('[data-route-drawer-panel]')) {
-        return;
-      }
-      
-      setWaypoints(prev => {
 
-        const newPoint: PathPoint = {
-          lat: e.latlng.lat,
-          lng: e.latlng.lng,
-        };
-
-
-        return [...prev, newPoint];
-      });
+      setWaypoints(prev => [
+        ...prev,
+        { lat: event.lngLat.lat, lng: event.lngLat.lng, straight: isStraight },
+      ]);
     };
 
     map.on('click', handleMapClick);
-    
+
     return () => {
       map.off('click', handleMapClick);
     };
-  }, [map, isActive]);
+    // isStraight is read at click time, so the handler is rebound when it
+    // changes: the mode a point records is the mode that was showing.
+  }, [map, isActive, isStraight]);
 
   // Function to calculate route between two specific points
   const calculateRouteSegment = useCallback(async (fromPoint: PathPoint, toPoint: PathPoint): Promise<Array<{lat: number, lng: number, ele?: number}>> => {
@@ -282,10 +397,21 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       const fromPoint = waypoints[waypoints.length - 2];
       const toPoint = waypoints[waypoints.length - 1];
 
-      startRouteTransition(async () => {
-        const newSegment = await calculateRouteSegment(fromPoint, toPoint);
-        setRouteSegments(prev => [...prev, newSegment]);
-      });
+      if (toPoint.straight) {
+        // Drawn straight on purpose: the leg *is* its two ends. No router, no
+        // network, and so none of the failure handling below either.
+        startRouteTransition(() => {
+          setRouteSegments(prev => [
+            ...prev,
+            [fromPoint, toPoint].map(({ lat, lng }) => ({ lat, lng })),
+          ]);
+        });
+      } else {
+        startRouteTransition(async () => {
+          const newSegment = await calculateRouteSegment(fromPoint, toPoint);
+          setRouteSegments(prev => [...prev, newSegment]);
+        });
+      }
 
       // Update the cached count
       lastUserWaypointCountRef.current = currentWaypointCount;
@@ -304,60 +430,74 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
 
   // Update map display
   useEffect(() => {
-    const routeLayer = routeLayerRef.current;
-    const waypointLayer = waypointLayerRef.current;
-    if (!routeLayer || !waypointLayer) return;
+    const routeSource = map.getSource(SOURCE_ROUTE) as GeoJSONSource | undefined;
+    const waypointSource = map.getSource(SOURCE_WAYPOINTS) as GeoJSONSource | undefined;
 
-    // Clear existing layers
-    routeLayer.clearLayers();
-    waypointLayer.clearLayers();
+    if (!routeSource || !waypointSource) return;
 
-    /*
-     * The overlay borrows the grade scale's green, blue and red for start,
-     * middle and end. Read from the tokens rather than written out: these were
-     * literal copies of the old bright palette, so when the scale was darkened
-     * they stayed behind as the only vivid thing left on the map.
-     */
-    const startColor = getToken('--level-s0');
-    const midColor = getToken('--level-s1');
-    const endColor = getToken('--level-s3');
-
-    // Draw waypoints
-    waypoints.forEach((point, index) => {
-      const marker = L.circleMarker([point.lat, point.lng], {
-        radius: 8,
-        fillColor: index === 0 ? startColor : index === waypoints.length - 1 ? endColor : midColor,
-        color: getToken('--paper'),
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.9,
-      });
-
-      marker.bindTooltip(`Waypoint ${index + 1}`, { permanent: false });
-      waypointLayer.addLayer(marker);
+    waypointSource.setData({
+      type: 'FeatureCollection',
+      features: waypoints.map((point, index) => ({
+        type: 'Feature',
+        properties: {
+          role:
+            index === 0
+              ? 'start'
+              : index === waypoints.length - 1
+                ? 'end'
+                : 'mid',
+          label: `Waypoint ${index + 1}`,
+        },
+        geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
+      })),
     });
 
-    // Draw route - either computed by BRouter or straight lines as fallback
-    if (routePoints.length >= 2) {
-      const isComputedRoute = routePoints.length > waypoints.length;
+    /*
+     * One feature per leg rather than one for the whole route, because a route
+     * can now mix the two: a leg the router laid out draws solid, one drawn
+     * straight -- on purpose, or because the router could not answer -- draws
+     * dashed. Until the first segments arrive the raw waypoints stand in, as
+     * one straight line through all of them.
+     */
+    const legs: Feature[] =
+      routeSegments.length > 0
+        ? routeSegments
+            .filter((segment) => segment.length >= 2)
+            .map((segment) => {
+              const straight = isStraightLeg(segment);
 
-      const polyline = L.polyline(
-        routePoints.map((p): L.LatLngTuple => [p.lat, p.lng]),
-        {
-          color: endColor,
-          weight: 6,
-          opacity: 0.85,
-          dashArray: isComputedRoute ? undefined : '5, 5'
-        }
-      );
-      routeLayer.addLayer(polyline);
-      
-      const tooltipText = isComputedRoute 
-        ? 'Route computed by BRouter' 
-        : 'Fallback: straight line between waypoints';
-      polyline.bindTooltip(tooltipText, { permanent: false });
-    }
-  }, [routePoints, waypoints]);
+              return {
+                type: 'Feature',
+                properties: {
+                  computed: !straight,
+                  label: straight
+                    ? 'Straight line — no routing'
+                    : 'Route computed by BRouter',
+                },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: segment.map((p) => [p.lng, p.lat]),
+                },
+              };
+            })
+        : routePoints.length >= 2
+          ? [
+              {
+                type: 'Feature',
+                properties: {
+                  computed: false,
+                  label: 'Straight line between waypoints',
+                },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: routePoints.map((p) => [p.lng, p.lat]),
+                },
+              },
+            ]
+          : [];
+
+    routeSource.setData({ type: 'FeatureCollection', features: legs });
+  }, [map, routePoints, routeSegments, waypoints]);
 
   const handleUndo = useCallback(() => {
     isUndoingRef.current = true;
@@ -415,16 +555,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       ? routePointsWithElevation
       : routePoints.map((p) => ({ ...p, ele: undefined }));
   const hasElevation = trackPoints.some((p) => p.ele !== undefined);
+  // A straight leg carries no elevation, so on a mixed route the climb figures
+  // are real but partial. Said out loud rather than left to be inferred.
+  const hasStraightLeg = routeSegments.some(isStraightLeg);
   const routeData = trackPoints.length > 1 ? calculateRouteData(trackPoints) : null;
 
   return (
-    <div
-      data-route-drawer-panel
-      className={styles.panel}
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
-    >
+    <div className={styles.panel}>
       <div className={styles.header}>
         <div className={styles.eyebrow}>DRAWING MODE</div>
         <div className={styles.title}>Draw Route</div>
@@ -445,10 +582,15 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
                 {(routeData.distance / 1000).toFixed(1)} km
               </div>
               {hasElevation ? (
-                <div className={styles.climb}>
-                  <span>D+ {Math.round(routeData.gain)}m</span>
-                  <span>D− {Math.round(routeData.loss)}m</span>
-                </div>
+                <>
+                  <div className={styles.climb}>
+                    <span>D+ {Math.round(routeData.gain)}m</span>
+                    <span>D− {Math.round(routeData.loss)}m</span>
+                  </div>
+                  {hasStraightLeg && (
+                    <div className={styles.pending}>STRAIGHT LEGS NOT MEASURED</div>
+                  )}
+                </>
               ) : (
                 <div className={styles.pending}>STRAIGHT LINE — NO ELEVATION</div>
               )}
@@ -467,43 +609,75 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
         </div>
       </div>
 
+      {/*
+        * A mode rather than an action, so it stands apart from the button stack
+        * below: it changes what the next click does instead of doing something.
+        */}
+      <div className={styles.mode}>
+        <button
+          type="button"
+          className={`${styles.modeToggle} ${isStraight ? styles.modeToggleOn : ''}`}
+          onClick={() => setIsStraight((current) => !current)}
+          aria-pressed={isStraight}
+        >
+          <span className={styles.modeBox} aria-hidden="true"></span>
+          <span className={styles.modeLabel}>
+            {isStraight ? 'STRAIGHT LINES' : 'FOLLOW PATHS'}
+          </span>
+        </button>
+
+        <div className={styles.modeHint}>
+          {isStraight
+            ? 'NEW LEGS GO DIRECT — SWITCH BACK FOR ROUTING'
+            : 'BROUTER PICKS THE PATH BETWEEN POINTS'}
+        </div>
+      </div>
+
+      {/*
+        * Two labels per button, one shown at a time: on mobile these sit three
+        * across rather than stacked, and the long forms would wrap to three
+        * lines each. display:none keeps the hidden one out of the accessibility
+        * tree too, so nothing is announced twice.
+        */}
       <div className={styles.actions}>
         <button
           type="button"
           className={styles.action}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleUndo();
-          }}
+          onClick={handleUndo}
           disabled={waypoints.length === 0}
         >
-          ↶ UNDO LAST POINT
+          ↶ <span className={styles.labelLong}>UNDO LAST POINT</span>
+          <span className={styles.labelShort}>UNDO</span>
         </button>
 
         <button
           type="button"
           className={`${styles.action} ${styles.actionPrimary}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleComplete();
-          }}
+          onClick={handleComplete}
           disabled={routePoints.length < 2}
         >
-          ✓ COMPLETE ROUTE
+          ✓ <span className={styles.labelLong}>COMPLETE ROUTE</span>
+          <span className={styles.labelShort}>COMPLETE</span>
         </button>
 
         <button
           type="button"
           className={`${styles.action} ${styles.actionDanger}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleCancel();
-          }}
+          onClick={handleCancel}
         >
           ✕ CANCEL
         </button>
+      </div>
 
-        <div className={styles.hint}>CLICK ON MAP TO ADD WAYPOINTS</div>
+      {/*
+       * Only worth the room until the first point is down: after that the reader
+       * has plainly worked it out. Kept always on desktop, where it costs
+       * nothing.
+       */}
+      <div
+        className={`${styles.hint} ${waypoints.length > 0 ? styles.hintDone : ''}`}
+      >
+        CLICK ON MAP TO ADD WAYPOINTS
       </div>
     </div>
   );

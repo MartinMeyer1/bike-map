@@ -1,25 +1,34 @@
-import React, { useEffect, useCallback, useRef } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useEffect, useRef, useState } from 'react';
+import { Map as MapLibreMap } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapBounds, MVTTrail } from '../types';
-import { MVTTrailService } from '../services/mvtTrails';
+import { MapContext } from '../map/MapContext';
+import { useMap } from '../map/useMap';
+import { buildStyle } from '../map/style';
+import { BASE_MAPS, BASE_MAP_TYPES, BaseMapType, MAX_ZOOM } from '../map/basemaps';
+import { registerEndpointImages } from '../map/markerImages';
+import { configureMapWorker } from '../map/worker';
+import { isWebGL2Available } from '../map/webgl';
+import { clampInset, hasLeftInset, readSidebarWidth } from '../map/insets';
+import { TrailsLayer } from './TrailsLayer';
 import RouteDrawer from './RouteDrawer';
 import { LocationMarker, LocationMarkerRef } from './LocationMarker';
 import { UserPosition } from '../hooks/useGeolocation';
 
-// Fix for default markers in react-leaflet. The bundler-mangled icon paths
-// are cached on the prototype, so drop them before pointing Leaflet at a CDN.
-delete (L.Icon.Default.prototype as { _getIconUrl?: string })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-import { BaseMapType } from './BaseMapSelector';
+/** Valais, Switzerland. MapLibre takes a centre as [lng, lat]. */
+const INITIAL_CENTER: [number, number] = [7.65, 46.2];
+const INITIAL_ZOOM = 10;
 
 interface MapProps {
   selectedTrail: MVTTrail | null;
+  /**
+   * Bumped by the context each time a trail is deliberately selected. The map
+   * frames the selection when this changes -- not when `selectedTrail` changes
+   * identity, which happens whenever the same trail is republished with a fuller
+   * record and would otherwise fly the camera back off whatever the reader was
+   * looking at.
+   */
+  trailFocusRequest: number;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   refreshTrigger?: number; // Increment this to trigger MVT refresh
@@ -35,164 +44,143 @@ interface MapProps {
   userHeading?: number;
   locationMarkerRef?: React.RefObject<LocationMarkerRef | null>;
   /**
-   * The Leaflet map itself. The mobile sheet resizes the map's container as it
-   * moves, and Leaflet only re-measures when told to, so App needs the instance
-   * to call invalidateSize and refit bounds.
+   * Whether the sidebar is currently drawn over the map's left edge. The map
+   * insets its camera by the panel's width so that what it frames stays in the
+   * open rather than under the panel.
    */
-  mapRef?: React.RefObject<L.Map | null>;
+  hasSidebar?: boolean;
 }
 
-// Component to handle map bounds fitting
+/** Pans and zooms to an explicit bounding box, e.g. from a shared link. */
 function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | null }) {
   const map = useMap();
 
   useEffect(() => {
     if (fitBoundsTarget && fitBoundsTarget.north !== 0) {
-      const bounds = L.latLngBounds(
-        [fitBoundsTarget.south, fitBoundsTarget.west],
-        [fitBoundsTarget.north, fitBoundsTarget.east]
+      map.fitBounds(
+        [
+          [fitBoundsTarget.west, fitBoundsTarget.south],
+          [fitBoundsTarget.east, fitBoundsTarget.north],
+        ],
+        { padding: 50, maxZoom: 14 },
       );
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
     }
   }, [fitBoundsTarget, map]);
 
   return null;
 }
 
-// Component to handle map events and trail zoom
-function MapEvents({
+/**
+ * Frames the selected trail, once per selection.
+ *
+ * Keyed on the focus request rather than on the trail, so that the camera moves
+ * when a trail is chosen and at no other time: the reader is then free to pan
+ * away from it and stay away. The trail itself is read through a ref, which is
+ * what keeps a re-render with a fresher record from re-arming the effect.
+ */
+function SelectedTrailHandler({
   selectedTrail,
-  onMapClick
+  trailFocusRequest,
 }: {
   selectedTrail: MVTTrail | null;
-  onMapClick: () => void;
+  trailFocusRequest: number;
 }) {
   const map = useMap();
+  const trailRef = useRef(selectedTrail);
+
+  // Kept current in an effect rather than during render. This one is declared
+  // first, so by the time the effect below runs the ref already holds whatever
+  // the render it belongs to was given.
+  useEffect(() => {
+    trailRef.current = selectedTrail;
+  });
 
   useEffect(() => {
-    const handleMapClick = () => {
-      onMapClick();
-    };
+    const bounds = trailRef.current?.bounds;
 
-    map.on('click', handleMapClick);
-
-    return () => {
-      map.off('click', handleMapClick);
-    };
-  }, [map, onMapClick]);
-
-  // Handle trail zoom when selectedTrail changes
-  useEffect(() => {
-    if (selectedTrail && selectedTrail.bounds) {
-      const bounds = selectedTrail.bounds;
-      
-      // Create Leaflet bounds object
-      const leafletBounds = L.latLngBounds(
-        [bounds.south, bounds.west],
-        [bounds.north, bounds.east]
-      );
-      
-      // Store reference to any open popup to reopen it after zoom
-      let openPopup: L.Layer | null = null;
-      map.eachLayer((layer: L.Layer) => {
-        if ('isPopupOpen' in layer && typeof layer.isPopupOpen === 'function' && layer.isPopupOpen()) {
-          openPopup = layer;
-        }
-      });
-      
-      // Always zoom to trail bounds for consistent behavior
-      map.fitBounds(leafletBounds, { 
-        padding: [20, 20],
-        maxZoom: 16 
-      });
-      
-      // Reopen popup after zoom animation
-      if (openPopup) {
-        setTimeout(() => {
-          if (openPopup && map.hasLayer(openPopup) && 'openPopup' in openPopup && typeof openPopup.openPopup === 'function') {
-            openPopup.openPopup();
-          }
-        }, 500);
-      }
+    // A trail restored from a link that carried no bbox has no real one either;
+    // fitting those zeros would fly the map to the Atlantic. FitBoundsHandler
+    // guards the same way.
+    if (!bounds || bounds.north === 0) {
+      return;
     }
-  }, [map, selectedTrail]);
+
+    const { south, west, north, east } = bounds;
+
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      { padding: 20, maxZoom: 16 },
+    );
+  }, [map, trailFocusRequest]);
 
   return null;
 }
 
-// Component to manage MVT trail layer
-function MVTTrailLayer({
-  selectedTrail,
-  onTrailClick,
-  onTrailsLoaded,
-  isDrawingActive,
-  refreshTrigger
-}: {
-  selectedTrail: MVTTrail | null;
-  onTrailClick: (trail: MVTTrail | null) => void;
-  onTrailsLoaded?: (trails: MVTTrail[]) => void;
-  isDrawingActive?: boolean;
-  refreshTrigger?: number;
-}) {
+/**
+ * Tells the map how much of it the sidebar hides, as viewport padding. With it
+ * the camera's centre is the centre of the visible map, so a selected trail is
+ * framed in the open instead of half under the panel; without it a fit is
+ * measured against a container the panel is sitting on top of.
+ */
+function ViewportInsetHandler({ hasSidebar }: { hasSidebar: boolean }) {
   const map = useMap();
-  const mvtServiceRef = useRef<MVTTrailService | null>(null);
 
   useEffect(() => {
-    // Initialize MVT service
-    if (!mvtServiceRef.current) {
-      mvtServiceRef.current = new MVTTrailService(map);
-      mvtServiceRef.current.setEvents({
-        onTrailClick: onTrailClick,
-        onTrailsLoaded: onTrailsLoaded,
-      });
-    }
+    const apply = () => {
+      const left = hasSidebar
+        ? clampInset(readSidebarWidth(), map.getContainer().clientWidth)
+        : 0;
 
-    // Add MVT layer to map (unless drawing is active)
-    if (!isDrawingActive) {
-      mvtServiceRef.current.addToMap();
-    } else {
-      mvtServiceRef.current.removeFromMap();
-    }
+      // Setting padding stops the camera dead, so it is only ever set when it
+      // would actually change something -- see hasLeftInset.
+      if (hasLeftInset(map.getPadding(), left)) {
+        return;
+      }
+
+      map.setPadding({ top: 0, right: 0, bottom: 0, left });
+    };
+
+    apply();
+
+    // The clamp depends on the container's width, so a window resize can change
+    // it -- and apply() is free when it has not.
+    map.on('resize', apply);
 
     return () => {
-      if (mvtServiceRef.current) {
-        mvtServiceRef.current.removeFromMap();
-      }
+      map.off('resize', apply);
     };
-  }, [map, onTrailClick, onTrailsLoaded, isDrawingActive]);
-
-  // Update selected trail
-  useEffect(() => {
-    if (mvtServiceRef.current) {
-      mvtServiceRef.current.selectTrail(selectedTrail?.id || null);
-    }
-  }, [selectedTrail]);
-
-  // Refresh MVT layer when trigger changes
-  useEffect(() => {
-    if (refreshTrigger && mvtServiceRef.current) {
-      mvtServiceRef.current.refreshMVTLayer();
-    }
-  }, [refreshTrigger]);
+  }, [map, hasSidebar]);
 
   return null;
 }
 
-const tileConfigs = {
-  swisstopo: {
-    url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
-    attribution: '&copy; <a href="https://www.swisstopo.admin.ch/">Swisstopo</a>',
-    maxZoom: 18,
-  },
-  osm: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 18,
-  },
-} as const;
+/** Swaps base maps by visibility, so neither source is torn down. */
+function BaseMapHandler({ activeBaseMap }: { activeBaseMap: BaseMapType }) {
+  const map = useMap();
+
+  useEffect(() => {
+    for (const type of BASE_MAP_TYPES) {
+      const { layerId } = BASE_MAPS[type];
+
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(
+          layerId,
+          'visibility',
+          type === activeBaseMap ? 'visible' : 'none',
+        );
+      }
+    }
+  }, [map, activeBaseMap]);
+
+  return null;
+}
 
 function Map({
   selectedTrail,
+  trailFocusRequest,
   onTrailClick,
   onTrailsLoaded,
   refreshTrigger,
@@ -202,91 +190,147 @@ function Map({
   onDrawingCancel,
   initialGpxContent,
   activeBaseMap = 'swisstopo',
+  hasSidebar = false,
   userLocation,
   showUserLocation = false,
   userHeading,
   locationMarkerRef,
-  mapRef
 }: MapProps) {
-  const trailClickedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Held as state rather than a ref so that children mount once the style is
+  // ready; every one of them adds a source or a layer in its first effect.
+  const [map, setMap] = useState<MapLibreMap | null>(null);
+  // A capability of the browser, not something that changes: read once as lazy
+  // initial state rather than discovered inside an effect.
+  const [isSupported] = useState(isWebGL2Available);
 
-  const handleTrailClick = useCallback((trail: MVTTrail | null) => {
-    trailClickedRef.current = true;
-    onTrailClick(trail);
-    // Reset flag after a short delay
-    setTimeout(() => {
-      trailClickedRef.current = false;
-    }, 50);
-  }, [onTrailClick]);
+  // The base map the map is built with. Read once: later changes are a
+  // visibility toggle, not a reason to rebuild the map.
+  const initialBaseMapRef = useRef(activeBaseMap);
 
-  const handleMapClick = useCallback(() => {
-    // Only clear selection if no trail was clicked recently
-    if (!trailClickedRef.current && selectedTrail) {
-      onTrailClick(null);
+  useEffect(() => {
+    const container = containerRef.current;
+
+    if (!container) {
+      return;
     }
-  }, [selectedTrail, onTrailClick]);
-  
+
+    if (!isSupported) {
+      return;
+    }
+
+    // Before the first Map: MapLibre cannot resolve its own worker under a
+    // bundler, and without it every vector tile hangs unreported.
+    configureMapWorker();
+
+    const instance = new MapLibreMap({
+      container,
+      style: buildStyle(initialBaseMapRef.current),
+      center: INITIAL_CENTER,
+      zoom: INITIAL_ZOOM,
+      maxZoom: MAX_ZOOM,
+      // Leaflet could not rotate or tilt, and there is no compass control here
+      // to undo either, so a stray two-finger twist would leave the map askew
+      // with no way back.
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
+      attributionControl: { compact: true },
+    });
+
+    instance.touchZoomRotate.disableRotation();
+
+    let cancelled = false;
+
+    instance.on('load', () => {
+      // The markers are sprite images, so they have to exist before the symbol
+      // layer asks for them by name.
+      registerEndpointImages(instance)
+        .catch((error) => console.error('Failed to register trail markers:', error))
+        .finally(() => {
+          if (!cancelled) {
+            setMap(instance);
+          }
+        });
+    });
+
+    return () => {
+      cancelled = true;
+      setMap(null);
+
+      instance.remove();
+    };
+  }, [isSupported]);
+
+  if (!isSupported) {
+    return (
+      <div className="mapUnsupported">
+        <p>This map needs WebGL 2, which this browser has turned off or does not support.</p>
+        <p>Try a different browser, or enable hardware acceleration in its settings.</p>
+      </div>
+    );
+  }
+
   return (
-    <MapContainer
-      ref={mapRef}
-      center={[46.2, 7.65]} // Center on Valais, Switzerland
-      zoom={10}
-      zoomControl={false}
-      tapTolerance={44} // Increase touch tolerance on mobile
-      // Fills whatever the shell gives it: the full viewport on desktop, the
-      // space above the sheet on mobile.
-      style={{ height: '100%', width: '100%' }}
-    >
-      {/* Base map tile layer */}
-      <TileLayer
-        key={activeBaseMap}
-        url={tileConfigs[activeBaseMap].url}
-        attribution={tileConfigs[activeBaseMap].attribution}
-        maxZoom={tileConfigs[activeBaseMap].maxZoom}
-      />
+    <>
+      {/* Fills whatever the shell gives it: the full viewport on desktop, the
+          space above the sheet on mobile. */}
+      <div ref={containerRef} className="mapCanvas" />
 
+      {/*
+        * Everything below draws on the map, so none of it mounts until the
+        * style has loaded. The route drawer's panel is a sibling of the map's
+        * container rather than a child of it, which is why it no longer has to
+        * filter its own clicks back out of the map's click handler.
+        */}
+      {map && (
+        <MapContext.Provider value={map}>
+          {/* Mounted first: the handlers below frame against its padding. */}
+          <ViewportInsetHandler hasSidebar={hasSidebar} />
 
-      {/* Map event handler */}
-      <MapEvents selectedTrail={selectedTrail} onMapClick={handleMapClick} />
+          <BaseMapHandler activeBaseMap={activeBaseMap} />
 
-      {/* Fit bounds handler */}
-      <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
+          <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
 
-      {/* MVT Trail Layer */}
-      <MVTTrailLayer
-        selectedTrail={selectedTrail}
-        onTrailClick={handleTrailClick}
-        onTrailsLoaded={onTrailsLoaded}
-        isDrawingActive={isDrawingActive}
-        refreshTrigger={refreshTrigger}
-      />
+          <SelectedTrailHandler
+            selectedTrail={selectedTrail}
+            trailFocusRequest={trailFocusRequest}
+          />
 
-      {/* Route drawer */}
-      <RouteDrawer
-        isActive={isDrawingActive}
-        onRouteComplete={onRouteComplete || (() => {})}
-        onCancel={onDrawingCancel || (() => {})}
-        initialGpxContent={initialGpxContent}
-      />
+          {!isDrawingActive && (
+            <TrailsLayer
+              selectedTrail={selectedTrail}
+              onTrailClick={onTrailClick}
+              onTrailsLoaded={onTrailsLoaded}
+              refreshTrigger={refreshTrigger}
+            />
+          )}
 
-      {/* User location marker */}
-      {showUserLocation && userLocation && (
-        <LocationMarker
-          ref={locationMarkerRef}
-          latitude={userLocation.latitude}
-          longitude={userLocation.longitude}
-          accuracy={userLocation.accuracy}
-          heading={userHeading}
-          showAccuracyCircle={true}
-          autoCenter={false}
-        />
+          <RouteDrawer
+            isActive={isDrawingActive}
+            onRouteComplete={onRouteComplete || (() => {})}
+            onCancel={onDrawingCancel || (() => {})}
+            initialGpxContent={initialGpxContent}
+          />
+
+          {showUserLocation && userLocation && (
+            <LocationMarker
+              ref={locationMarkerRef}
+              latitude={userLocation.latitude}
+              longitude={userLocation.longitude}
+              accuracy={userLocation.accuracy}
+              heading={userHeading}
+              showAccuracyCircle={true}
+              autoCenter={false}
+            />
+          )}
+        </MapContext.Provider>
       )}
-
-    </MapContainer>
+    </>
   );
 }
 
 // Memoized because every prop it takes is already referentially stable (context
 // callbacks are useCallback'd, refs are refs). Without this, any state change in
-// AppContent re-reconciles the whole Leaflet subtree on every render.
+// AppContent re-reconciles the whole map subtree on every render.
 export default React.memo(Map);

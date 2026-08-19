@@ -25,3 +25,46 @@ export function haversineDistance(
 
   return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+/**
+ * A circle of `radiusMeters` around a point, as polygon ring coordinates in
+ * [lng, lat] order.
+ *
+ * MapLibre's `circle` layer sizes its radius in screen pixels, so a GPS
+ * accuracy disc -- which is a distance on the ground -- has to be a real
+ * polygon if it is to stay honest as the map zooms. Points are placed by
+ * bearing along a great circle, so the ring stays correct at any latitude
+ * rather than drifting the way a flat degrees-per-metre approximation does.
+ */
+export function circlePolygon(
+  lat: number,
+  lng: number,
+  radiusMeters: number,
+  steps = 64,
+): Array<[number, number]> {
+  const angular = radiusMeters / EARTH_RADIUS_M;
+  const latRad = (lat * Math.PI) / 180;
+  const lngRad = (lng * Math.PI) / 180;
+
+  const ring: Array<[number, number]> = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const bearing = (2 * Math.PI * i) / steps;
+
+    const pointLat = Math.asin(
+      Math.sin(latRad) * Math.cos(angular) +
+        Math.cos(latRad) * Math.sin(angular) * Math.cos(bearing),
+    );
+
+    const pointLng =
+      lngRad +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angular) * Math.cos(latRad),
+        Math.cos(angular) - Math.sin(latRad) * Math.sin(pointLat),
+      );
+
+    ring.push([(pointLng * 180) / Math.PI, (pointLat * 180) / Math.PI]);
+  }
+
+  return ring;
+}

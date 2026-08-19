@@ -1,6 +1,14 @@
 import React, { useRef, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
-import { useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { Marker } from 'maplibre-gl';
+import type { GeoJSONSource } from 'maplibre-gl';
+import type { FeatureCollection } from 'geojson';
+import { useMap } from '../map/useMap';
+import {
+  LAYER_ACCURACY_FILL,
+  LAYER_ACCURACY_LINE,
+  SOURCE_ACCURACY,
+} from '../map/ids';
+import { circlePolygon } from '../utils/geo';
 import controls from './mapControls.module.css';
 import marker from './locationMarker.module.css';
 
@@ -18,6 +26,37 @@ export interface LocationMarkerRef {
   getPosition: () => [number, number] | null;
 }
 
+/** How long the camera takes to reach the user's position, in milliseconds. */
+const CENTER_DURATION_MS = 1000;
+
+/** Ignore jitter below roughly a metre. */
+const MIN_MOVE_DEGREES = 0.00001;
+
+const EMPTY_ACCURACY: FeatureCollection = {
+  type: 'FeatureCollection',
+  features: [],
+};
+
+function accuracyFeature(
+  latitude: number,
+  longitude: number,
+  accuracy: number,
+): FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [circlePolygon(latitude, longitude, accuracy)],
+        },
+      },
+    ],
+  };
+}
+
 export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>(({
   latitude,
   longitude,
@@ -27,144 +66,139 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
   autoCenter = false
 }, ref) => {
   const map = useMap();
-  const markerRef = useRef<L.Marker | null>(null);
-  const accuracyCircleRef = useRef<L.Circle | null>(null);
+  const markerRef = useRef<Marker | null>(null);
+  const coneRef = useRef<HTMLDivElement | null>(null);
   const positionRef = useRef<[number, number] | null>(null);
-  const isZoomingRef = useRef<boolean>(false);
 
-  // Extract marker creation logic
-  const createLocationMarker = useCallback((position: [number, number], currentHeading?: number) => {
-    if (markerRef.current) {
-      map.removeLayer(markerRef.current);
-      markerRef.current = null;
-    }
+  // The marker's element, built once and then only ever updated. Leaflet's
+  // divIcon baked the heading into an HTML string, so every compass reading
+  // meant tearing the marker down and building a new one; here the cone is a
+  // node we keep hold of and restyle, which is also what lets its CSS
+  // transition smooth out a jittery compass.
+  const createMarker = useCallback(() => {
+    const element = document.createElement('div');
+    element.className = marker.container;
 
-    // Create custom GPS location icon with directional pointer
-    const gpsIcon = L.divIcon({
-      className: marker.marker,
-      html: `
-        <div class="${marker.container}">
-          <div class="${marker.directionCone}" style="transform: rotate(${currentHeading || 0}deg); opacity: ${typeof currentHeading === 'number' ? 1 : 0.4};"></div>
-          <div class="${marker.outer}"></div>
-          <div class="${marker.inner}"></div>
-          <div class="${marker.dot}"></div>
-        </div>
-      `,
-      iconSize: [60, 60],
-      iconAnchor: [30, 45]
-    });
+    const cone = document.createElement('div');
+    cone.className = marker.directionCone;
 
-    markerRef.current = L.marker(position, {
-      icon: gpsIcon,
-      zIndexOffset: 1000
-    }).addTo(map);
-  }, [map]);
+    const outer = document.createElement('div');
+    outer.className = marker.outer;
 
-  // Expose methods to parent component
+    const inner = document.createElement('div');
+    inner.className = marker.inner;
+
+    const dot = document.createElement('div');
+    dot.className = marker.dot;
+
+    element.append(cone, outer, inner, dot);
+    coneRef.current = cone;
+
+    // The old icon was a 60x60 box anchored at (30, 45) -- the dot near its
+    // bottom, not the middle of the box. Centring the element and lifting it by
+    // the difference puts that same point on the coordinate.
+    return new Marker({ element, anchor: 'center', offset: [0, -15] });
+  }, []);
+
   useImperativeHandle(ref, () => ({
     centerOnLocation: (zoomLevel: number = 16) => {
-      const currentPosition = positionRef.current;
+      const position = positionRef.current;
 
-      if (currentPosition) {
-        isZoomingRef.current = true;
-
-        map.setView(currentPosition, zoomLevel, {
-          animate: true,
-          duration: 1
-        });
-
-        // Reset zooming flag after zoom completes
-        setTimeout(() => {
-          isZoomingRef.current = false;
-
-          // Recreate marker after zoom if it was removed
-          if (!markerRef.current && positionRef.current) {
-            createLocationMarker(positionRef.current);
-          }
-        }, 1500); // Wait for zoom animation to complete
+      if (!position) {
+        return;
       }
+
+      // Nothing to guard against here any more: a camera move does not touch
+      // markers, so the marker cannot be destroyed mid-flight the way Leaflet's
+      // was -- which is what the old zoom flag and its 1.5s timeout existed for.
+      map.easeTo({
+        center: [position[1], position[0]],
+        zoom: zoomLevel,
+        duration: CENTER_DURATION_MS,
+      });
     },
     getPosition: () => positionRef.current
-  }), [map, createLocationMarker]);
+  }), [map]);
+
+  // The accuracy disc, as a real polygon so its radius stays in metres.
+  useEffect(() => {
+    map.addSource(SOURCE_ACCURACY, { type: 'geojson', data: EMPTY_ACCURACY });
+
+    map.addLayer({
+      id: LAYER_ACCURACY_FILL,
+      type: 'fill',
+      source: SOURCE_ACCURACY,
+      paint: { 'fill-color': '#007AFF', 'fill-opacity': 0.1 },
+    });
+
+    map.addLayer({
+      id: LAYER_ACCURACY_LINE,
+      type: 'line',
+      source: SOURCE_ACCURACY,
+      paint: { 'line-color': '#007AFF', 'line-opacity': 0.3, 'line-width': 1 },
+    });
+
+    return () => {
+      for (const id of [LAYER_ACCURACY_LINE, LAYER_ACCURACY_FILL]) {
+        if (map.getLayer(id)) {
+          map.removeLayer(id);
+        }
+      }
+
+      if (map.getSource(SOURCE_ACCURACY)) {
+        map.removeSource(SOURCE_ACCURACY);
+      }
+    };
+  }, [map]);
 
   useEffect(() => {
-    const position: [number, number] = [latitude, longitude];
-    
-    // Check if this is the first location
-    const isFirstLocation = !positionRef.current;
-    
-    // Reduce sensitivity - only update if position changes by more than ~1 meters
-    const hasPositionChanged = isFirstLocation || 
-      (positionRef.current && (
-        Math.abs(positionRef.current[0] - latitude) > 0.00001 || 
-        Math.abs(positionRef.current[1] - longitude) > 0.00001
-      ));
+    const previous = positionRef.current;
 
-    // Only proceed if position changed significantly
-    if (!hasPositionChanged) return;
-    
-    // Update position reference
-    positionRef.current = position;
+    const hasMoved =
+      !previous ||
+      Math.abs(previous[0] - latitude) > MIN_MOVE_DEGREES ||
+      Math.abs(previous[1] - longitude) > MIN_MOVE_DEGREES;
 
-    // Don't create marker if we're in the middle of zooming
-    if (isZoomingRef.current) {
-      return;
-    }
+    if (hasMoved) {
+      positionRef.current = [latitude, longitude];
 
-    // Create or update the main location marker
-    if (!markerRef.current) {
-      createLocationMarker(position, heading);
-    } else {
-      // Update position
-      markerRef.current.setLatLng(position);
-      // Always recreate marker to update heading (even if undefined)
-      createLocationMarker(position, heading);
-    }
-
-    // Create or update accuracy circle
-    if (accuracy && accuracy > 0 && showAccuracyCircle) {
-      if (!accuracyCircleRef.current) {
-        accuracyCircleRef.current = L.circle(position, {
-          radius: accuracy,
-          fillColor: '#007AFF',
-          fillOpacity: 0.1,
-          color: '#007AFF',
-          opacity: 0.3,
-          weight: 1
-        }).addTo(map);
+      if (!markerRef.current) {
+        markerRef.current = createMarker().setLngLat([longitude, latitude]).addTo(map);
       } else {
-        accuracyCircleRef.current
-          .setLatLng(position)
-          .setRadius(accuracy);
+        markerRef.current.setLngLat([longitude, latitude]);
       }
-    } else if (accuracyCircleRef.current) {
-      // Remove accuracy circle if not needed
-      map.removeLayer(accuracyCircleRef.current);
-      accuracyCircleRef.current = null;
+
+      if (autoCenter) {
+        map.setCenter([longitude, latitude]);
+      }
     }
 
-
-    // Auto center map if requested
-    if (autoCenter) {
-      map.setView(position, map.getZoom());
+    // Heading changes on its own cadence, so it is applied whether or not the
+    // position moved.
+    if (coneRef.current) {
+      coneRef.current.style.transform = `rotate(${heading ?? 0}deg)`;
+      coneRef.current.style.opacity = typeof heading === 'number' ? '1' : '0.4';
     }
 
-  }, [map, latitude, longitude, accuracy, heading, showAccuracyCircle, autoCenter, createLocationMarker]);
+    const source = map.getSource(SOURCE_ACCURACY) as GeoJSONSource | undefined;
 
+    if (source) {
+      source.setData(
+        accuracy && accuracy > 0 && showAccuracyCircle
+          ? accuracyFeature(latitude, longitude, accuracy)
+          : EMPTY_ACCURACY,
+      );
+    }
+  }, [map, latitude, longitude, accuracy, heading, showAccuracyCircle, autoCenter, createMarker]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (markerRef.current) {
-        map.removeLayer(markerRef.current);
-        markerRef.current = null;
-      }
-      if (accuracyCircleRef.current) {
-        map.removeLayer(accuracyCircleRef.current);
-        accuracyCircleRef.current = null;
-      }
+      markerRef.current?.remove();
+      markerRef.current = null;
+      coneRef.current = null;
     };
-  }, [map]);
+  }, []);
 
   return null; // This component doesn't render anything directly
 });
@@ -193,7 +227,7 @@ export const LocationControls: React.FC<{
     if (isLoading) {
       return; // Do nothing while loading
     }
-    
+
     if (locationError) {
       onLocationRequest(); // Retry on error
     } else if (hasLocation) {
@@ -224,7 +258,7 @@ export const LocationControls: React.FC<{
         title={
           isLoading
             ? 'Getting location...'
-            : locationError 
+            : locationError
               ? `Location error: ${locationError} (click to retry)`
               : hasLocation
                 ? isTracking
@@ -258,7 +292,7 @@ export const LocationControls: React.FC<{
           <line x1="19.6" y1="12" x2="22.6" y2="12" />
         </svg>
       </button>
-      
+
     </div>
   );
 };

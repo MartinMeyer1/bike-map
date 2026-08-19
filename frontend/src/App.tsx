@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import L from 'leaflet';
 import Map from './components/Map';
 import UploadPanel from './components/UploadPanel';
 import TrailSidebar from './components/TrailSidebar';
 import TrailEditPanel from './components/TrailEditPanel';
 import { MobileSheet } from './components/MobileSheet';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
-import { BaseMapSelector, BaseMapType } from './components/BaseMapSelector';
+import { BaseMapSelector } from './components/BaseMapSelector';
+import { BaseMapType } from './map/basemaps';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack, Notice, ToastVariant } from './components/ui';
 import { AppProvider } from './context/AppContext';
@@ -30,7 +30,6 @@ const AppContent: React.FC = () => {
   });
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
   const locationRequestPendingRef = useRef(false);
-  const mapRef = useRef<L.Map | null>(null);
 
   // Notices share one stack so a share confirmation and a context error can
   // stand together instead of one covering the other.
@@ -63,6 +62,7 @@ const AppContent: React.FC = () => {
 
     visibleTrails,
     selectedTrail,
+    trailFocusRequest,
     fitBoundsTarget,
 
     isUploadPanelVisible,
@@ -118,35 +118,15 @@ const AppContent: React.FC = () => {
     showEditPanel(trailToEdit!);
   };
 
+  /*
+   * The sidebar covers the map's left edge rather than sitting beside it, so
+   * the map has to know when it is there to keep its camera clear of it.
+   */
+  const hasSidebar = !isDrawingActive && !isMobile;
+
   const handleCloseTrail = useCallback(() => {
     selectTrail(null);
   }, [selectTrail]);
-
-  /*
-   * The sheet resizes the map's container as it moves, but Leaflet only learns
-   * about a container it did not resize itself when told. Once the sheet has
-   * settled, re-measure -- and in the detail state, refit the selected trail into
-   * whatever strip of map is left above the sheet.
-   */
-  const handleSheetSettled = useCallback(
-    (detent: string) => {
-      const map = mapRef.current;
-      if (!map) {
-        return;
-      }
-
-      map.invalidateSize();
-
-      if (detent === 'detail' && selectedTrail?.bounds) {
-        const { south, west, north, east } = selectedTrail.bounds;
-        map.fitBounds(L.latLngBounds([south, west], [north, east]), {
-          padding: [24, 24],
-          maxZoom: 16,
-        });
-      }
-    },
-    [selectedTrail],
-  );
 
   const dismissNotice = useCallback((id: number) => {
     setNotices((current) => current.filter((notice) => notice.id !== id));
@@ -244,6 +224,7 @@ const AppContent: React.FC = () => {
       <div className="mapShell">
         <Map
           selectedTrail={selectedTrail}
+          trailFocusRequest={trailFocusRequest}
           onTrailClick={selectTrail}
           onTrailsLoaded={updateVisibleTrailsFromMVT}
           refreshTrigger={mvtRefreshTrigger}
@@ -256,13 +237,13 @@ const AppContent: React.FC = () => {
           showUserLocation={!!userLocation}
           userHeading={userHeading}
           locationMarkerRef={locationMarkerRef}
-          mapRef={mapRef}
           activeBaseMap={activeBaseMap}
+          hasSidebar={hasSidebar}
         />
       </div>
 
       {/* Trail sidebar - hidden during drawing mode and on mobile */}
-      {!isDrawingActive && !isMobile && (
+      {hasSidebar && (
         <TrailSidebar
           visibleTrails={visibleTrails}
           selectedTrail={selectedTrail}
@@ -288,7 +269,6 @@ const AppContent: React.FC = () => {
           onAddTrailClick={showUploadPanel}
           onEditTrailClick={showEditPanel}
           onShowToast={handleShowToast}
-          onSettled={handleSheetSettled}
         />
       )}
 

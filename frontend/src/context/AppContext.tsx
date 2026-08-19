@@ -1,4 +1,4 @@
-import React, { useReducer, useCallback, useEffect, useMemo } from "react";
+import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "react";
 import { User, MapBounds, MVTTrail } from "../types";
 import { PocketBaseService } from "../services/pocketbase";
 import { handleApiError, getErrorMessage } from "../utils/errorHandling";
@@ -9,7 +9,8 @@ type AppAction =
   | { type: "SET_AUTH_LOADING"; payload: boolean }
 
   | { type: "SET_VISIBLE_TRAILS"; payload: MVTTrail[] }
-  | { type: "SET_SELECTED_TRAIL"; payload: MVTTrail | null }
+  | { type: "SELECT_TRAIL"; payload: MVTTrail | null }
+  | { type: "SYNC_SELECTED_TRAIL"; payload: MVTTrail }
   | { type: "FIT_MAP_TO_BOUNDS"; payload: MapBounds | null }
 
   | { type: "SET_UPLOAD_PANEL_VISIBLE"; payload: boolean }
@@ -35,6 +36,7 @@ const initialState: AppState = {
   visibleTrails: [],
   selectedTrail: null,
   fitBoundsTarget: null,
+  trailFocusRequest: 0,
 
   isUploadPanelVisible: false,
   isEditPanelVisible: false,
@@ -68,8 +70,22 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
       return { ...state, visibleTrails: action.payload };
     }
-    case "SET_SELECTED_TRAIL":
-      return { ...state, selectedTrail: action.payload };
+    case "SELECT_TRAIL":
+      // A deliberate selection, and the only thing that asks the map to frame
+      // one. Deselecting does not: there is nothing to fly to.
+      return {
+        ...state,
+        selectedTrail: action.payload,
+        trailFocusRequest: action.payload
+          ? state.trailFocusRequest + 1
+          : state.trailFocusRequest,
+      };
+    case "SYNC_SELECTED_TRAIL":
+      // The same trail, with a fuller record than the one already held. Leaves
+      // the focus counter alone, so the camera stays where the reader put it.
+      return state.selectedTrail?.id === action.payload.id
+        ? { ...state, selectedTrail: action.payload }
+        : state;
     case "FIT_MAP_TO_BOUNDS":
       return { ...state, fitBoundsTarget: action.payload };
 
@@ -148,81 +164,138 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  // Load trail from URL parameter on mount
+  /*
+   * A trail carried in the URL, restored once the first tiles have arrived --
+   * and only ever once.
+   *
+   * This used to re-run on every change to visibleTrails, which is to say on
+   * every pan: it re-read the `?trail=` that selectTrail itself had written,
+   * re-selected the same trail as a brand-new object, and fetched it again from
+   * the API whenever the pan had carried it off screen. The map, which framed
+   * the selection whenever that object changed, dutifully flew back to it. The
+   * one thing that genuinely wanted a second pass is handled below instead.
+   */
+  const urlRestoreRef = useRef(false);
+  /** The trail whose stub record is still waiting for its tiles -- see below. */
+  const enrichIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    const loadTrailFromUrl = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const trailId = urlParams.get("trail");
-      const bboxParam = urlParams.get("bbox");
+    if (urlRestoreRef.current) {
+      return;
+    }
 
-      if (trailId && state.visibleTrails.length > 0) {
-        // Find the trail in visible trails
-        const trail = state.visibleTrails.find((t) => t.id === trailId);
+    const urlParams = new URLSearchParams(window.location.search);
+    const trailId = urlParams.get("trail");
+    const bboxParam = urlParams.get("bbox");
 
-        if (trail) {
-          // Trail is already loaded in visible trails - just select it, don't pan
-          dispatch({ type: "SET_SELECTED_TRAIL", payload: trail });
-        } else {
-          // Trail not in visible trails yet - try to fetch it from API
-          try {
-            const fullTrail = await PocketBaseService.getTrail(trailId);
+    if (!trailId) {
+      urlRestoreRef.current = true;
+      return;
+    }
 
-            // Parse bbox if provided
-            let bounds = { north: 0, south: 0, east: 0, west: 0 };
-            if (bboxParam) {
-              const bboxParts = bboxParam.split(",").map(parseFloat);
-              if (bboxParts.length === 4 && bboxParts.every((n) => !isNaN(n))) {
-                bounds = {
-                  west: bboxParts[0],
-                  south: bboxParts[1],
-                  east: bboxParts[2],
-                  north: bboxParts[3],
-                };
-              }
-            }
+    // No tiles yet, so nothing to look the trail up in: try again on the next
+    // idle rather than paying for the API when the answer may be on screen.
+    if (state.visibleTrails.length === 0) {
+      return;
+    }
 
-            // Convert Trail to MVTTrail for compatibility
-            const mvtTrail: MVTTrail = {
-              id: fullTrail.id,
-              name: fullTrail.name,
-              description: fullTrail.description,
-              level: fullTrail.level,
-              tags: fullTrail.tags,
-              owner: fullTrail.owner as string,
-              created: fullTrail.created,
-              updated: fullTrail.updated,
-              bounds: bounds, // Use bbox from URL if available
-              elevation: { gain: 0, loss: 0, min: 0, max: 0, start: 0, end: 0 },
-              distance: 0,
-              startPoint: { lat: 0, lng: 0 },
-              endPoint: { lat: 0, lng: 0 },
-              rating_average: 0,
-              rating_count: 0,
-              comment_count: 0,
-              ridden: fullTrail.ridden,
+    // Claimed before the await, so a second render -- or StrictMode's second
+    // mount -- cannot start the same restore again.
+    urlRestoreRef.current = true;
+
+    const trail = state.visibleTrails.find((t) => t.id === trailId);
+
+    if (trail) {
+      // Already on screen, with its full tile record: select it where it is.
+      dispatch({ type: "SELECT_TRAIL", payload: trail });
+      return;
+    }
+
+    const restoreFromApi = async () => {
+      try {
+        const fullTrail = await PocketBaseService.getTrail(trailId);
+
+        // Parse bbox if provided
+        let bounds = { north: 0, south: 0, east: 0, west: 0 };
+        if (bboxParam) {
+          const bboxParts = bboxParam.split(",").map(parseFloat);
+          if (bboxParts.length === 4 && bboxParts.every((n) => !isNaN(n))) {
+            bounds = {
+              west: bboxParts[0],
+              south: bboxParts[1],
+              east: bboxParts[2],
+              north: bboxParts[3],
             };
-            dispatch({ type: "SET_SELECTED_TRAIL", payload: mvtTrail });
-
-            // Pan map to bbox if provided
-            if (bboxParam && bounds.north !== 0) {
-              dispatch({
-                type: "FIT_MAP_TO_BOUNDS",
-                payload: bounds,
-              });
-            }
-          } catch (error) {
-            console.error("Failed to load trail from URL:", error);
-            // Clear invalid trail ID from URL
-            const url = new URL(window.location.href);
-            url.searchParams.delete("trail");
-            url.searchParams.delete("bbox");
-            window.history.replaceState({}, "", url.toString());
           }
         }
+
+        // Convert Trail to MVTTrail for compatibility. The figures the tiles
+        // carry -- distance, elevation, ratings -- are not in this record, so
+        // it stands in until the tiles covering the trail load.
+        const mvtTrail: MVTTrail = {
+          id: fullTrail.id,
+          name: fullTrail.name,
+          description: fullTrail.description,
+          level: fullTrail.level,
+          tags: fullTrail.tags,
+          owner: fullTrail.owner as string,
+          created: fullTrail.created,
+          updated: fullTrail.updated,
+          bounds: bounds, // Use bbox from URL if available
+          elevation: { gain: 0, loss: 0, min: 0, max: 0, start: 0, end: 0 },
+          distance: 0,
+          startPoint: { lat: 0, lng: 0 },
+          endPoint: { lat: 0, lng: 0 },
+          rating_average: 0,
+          rating_count: 0,
+          comment_count: 0,
+          ridden: fullTrail.ridden,
+        };
+
+        enrichIdRef.current = trailId;
+        dispatch({ type: "SELECT_TRAIL", payload: mvtTrail });
+
+        // Pan map to bbox if provided
+        if (bboxParam && bounds.north !== 0) {
+          dispatch({
+            type: "FIT_MAP_TO_BOUNDS",
+            payload: bounds,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load trail from URL:", error);
+        // Clear invalid trail ID from URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete("trail");
+        url.searchParams.delete("bbox");
+        window.history.replaceState({}, "", url.toString());
       }
     };
 
-    loadTrailFromUrl();
+    restoreFromApi();
+  }, [state.visibleTrails]);
+
+  /*
+   * The stub above, upgraded the moment the trail's own tiles arrive -- the
+   * detail panel reads distance, elevation and ratings, none of which the API
+   * record carries. Syncing rather than selecting, so the camera is left alone;
+   * and once, because the ref is cleared on the way through.
+   */
+  useEffect(() => {
+    const trailId = enrichIdRef.current;
+
+    if (!trailId) {
+      return;
+    }
+
+    const full = state.visibleTrails.find((t) => t.id === trailId);
+
+    if (!full) {
+      return;
+    }
+
+    enrichIdRef.current = null;
+    dispatch({ type: "SYNC_SELECTED_TRAIL", payload: full });
   }, [state.visibleTrails]);
 
   const login = useCallback(async () => {
@@ -251,7 +324,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const selectTrail = useCallback((trail: MVTTrail | null) => {
-    dispatch({ type: "SET_SELECTED_TRAIL", payload: trail });
+    dispatch({ type: "SELECT_TRAIL", payload: trail });
 
     // Update URL with trail parameter and bbox
     if (trail) {
@@ -277,7 +350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleTrailDeleted = useCallback(
     (trailId: string) => {
       if (state.selectedTrail?.id === trailId) {
-        dispatch({ type: "SET_SELECTED_TRAIL", payload: null });
+        dispatch({ type: "SELECT_TRAIL", payload: null });
       }
 
       dispatch({ type: "INCREMENT_MVT_REFRESH_TRIGGER" });
