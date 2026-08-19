@@ -215,8 +215,29 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
     }
   }, [drag]);
 
+  /*
+   * Where the sheet was resting when the trail was opened. Closing it puts the
+   * reader back there rather than always raising the list: a trail tapped on the
+   * map from a collapsed sheet gives the map back when it is closed, which is
+   * what it was doing before the tap.
+   *
+   * Recorded through the setDetent callback so the current stop is read without
+   * the effect below having to depend on it -- and never recorded as `detail`,
+   * or dragging around inside a trail would make "back" mean "the trail".
+   */
+  const beforeDetailRef = useRef<Detent>('mid');
+  const openDetail = useCallback(() => {
+    setDetent((current) => {
+      if (current !== 'detail') {
+        beforeDetailRef.current = current;
+      }
+
+      return 'detail';
+    });
+  }, []);
+
   // Selecting a trail anywhere -- a marker, a URL on load -- opens the detail
-  // state; clearing the selection returns to the list.
+  // state; clearing the selection goes back the way it came.
   const previousSelectionRef = useRef<string | null>(null);
   useEffect(() => {
     const id = selectedTrail?.id ?? null;
@@ -225,8 +246,13 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
     }
 
     previousSelectionRef.current = id;
-    setDetent(id ? 'detail' : 'mid');
-  }, [selectedTrail]);
+
+    if (id) {
+      openDetail();
+    } else {
+      setDetent(beforeDetailRef.current);
+    }
+  }, [selectedTrail, openDetail]);
 
   /*
    * Opening a card also sets the detent directly. Leaving it to the effect above
@@ -237,10 +263,10 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
   const handleOpenTrail = useCallback(
     (trail: MVTTrail) => {
       previousSelectionRef.current = trail.id;
-      setDetent('detail');
+      openDetail();
       onOpenTrail(trail);
     },
-    [onOpenTrail],
+    [onOpenTrail, openDetail],
   );
 
   const nearestStop = useCallback(
