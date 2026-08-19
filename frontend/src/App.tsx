@@ -62,6 +62,7 @@ const AppContent: React.FC = () => {
 
     visibleTrails,
     selectedTrail,
+    trailFocusRequest,
     fitBoundsTarget,
 
     isUploadPanelVisible,
@@ -223,6 +224,7 @@ const AppContent: React.FC = () => {
       <div className="mapShell">
         <Map
           selectedTrail={selectedTrail}
+          trailFocusRequest={trailFocusRequest}
           onTrailClick={selectTrail}
           onTrailsLoaded={updateVisibleTrailsFromMVT}
           refreshTrigger={mvtRefreshTrigger}

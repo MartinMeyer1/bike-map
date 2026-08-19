@@ -21,6 +21,14 @@ const INITIAL_ZOOM = 10;
 
 interface MapProps {
   selectedTrail: MVTTrail | null;
+  /**
+   * Bumped by the context each time a trail is deliberately selected. The map
+   * frames the selection when this changes -- not when `selectedTrail` changes
+   * identity, which happens whenever the same trail is republished with a fuller
+   * record and would otherwise fly the camera back off whatever the reader was
+   * looking at.
+   */
+  trailFocusRequest: number;
   onTrailClick: (trail: MVTTrail | null) => void;
   onTrailsLoaded?: (trails: MVTTrail[]) => void;
   refreshTrigger?: number; // Increment this to trigger MVT refresh
@@ -62,16 +70,42 @@ function FitBoundsHandler({ fitBoundsTarget }: { fitBoundsTarget?: MapBounds | n
   return null;
 }
 
-/** Frames the selected trail. */
-function SelectedTrailHandler({ selectedTrail }: { selectedTrail: MVTTrail | null }) {
+/**
+ * Frames the selected trail, once per selection.
+ *
+ * Keyed on the focus request rather than on the trail, so that the camera moves
+ * when a trail is chosen and at no other time: the reader is then free to pan
+ * away from it and stay away. The trail itself is read through a ref, which is
+ * what keeps a re-render with a fresher record from re-arming the effect.
+ */
+function SelectedTrailHandler({
+  selectedTrail,
+  trailFocusRequest,
+}: {
+  selectedTrail: MVTTrail | null;
+  trailFocusRequest: number;
+}) {
   const map = useMap();
+  const trailRef = useRef(selectedTrail);
+
+  // Kept current in an effect rather than during render. This one is declared
+  // first, so by the time the effect below runs the ref already holds whatever
+  // the render it belongs to was given.
+  useEffect(() => {
+    trailRef.current = selectedTrail;
+  });
 
   useEffect(() => {
-    if (!selectedTrail?.bounds) {
+    const bounds = trailRef.current?.bounds;
+
+    // A trail restored from a link that carried no bbox has no real one either;
+    // fitting those zeros would fly the map to the Atlantic. FitBoundsHandler
+    // guards the same way.
+    if (!bounds || bounds.north === 0) {
       return;
     }
 
-    const { south, west, north, east } = selectedTrail.bounds;
+    const { south, west, north, east } = bounds;
 
     map.fitBounds(
       [
@@ -80,7 +114,7 @@ function SelectedTrailHandler({ selectedTrail }: { selectedTrail: MVTTrail | nul
       ],
       { padding: 20, maxZoom: 16 },
     );
-  }, [map, selectedTrail]);
+  }, [map, trailFocusRequest]);
 
   return null;
 }
@@ -146,6 +180,7 @@ function BaseMapHandler({ activeBaseMap }: { activeBaseMap: BaseMapType }) {
 
 function Map({
   selectedTrail,
+  trailFocusRequest,
   onTrailClick,
   onTrailsLoaded,
   refreshTrigger,
@@ -257,7 +292,10 @@ function Map({
 
           <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
 
-          <SelectedTrailHandler selectedTrail={selectedTrail} />
+          <SelectedTrailHandler
+            selectedTrail={selectedTrail}
+            trailFocusRequest={trailFocusRequest}
+          />
 
           {!isDrawingActive && (
             <TrailsLayer
