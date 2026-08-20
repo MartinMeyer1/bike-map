@@ -9,7 +9,7 @@ import {
   SOURCE_ACCURACY,
 } from '../map/ids';
 import { circlePolygon } from '../utils/geo';
-import { getToken } from '../utils/colors';
+import { LOCATION_STYLE } from '../map/mapTheme';
 import controls from './mapControls.module.css';
 import marker from './locationMarker.module.css';
 
@@ -131,7 +131,7 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
   // out here as a literal: that is how a colour ends up restyled in one place
   // and not the other.
   useEffect(() => {
-    const accent = getToken('--accent');
+    const accent = LOCATION_STYLE.color();
 
     map.addSource(SOURCE_ACCURACY, { type: 'geojson', data: EMPTY_ACCURACY });
 
@@ -139,14 +139,18 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
       id: LAYER_ACCURACY_FILL,
       type: 'fill',
       source: SOURCE_ACCURACY,
-      paint: { 'fill-color': accent, 'fill-opacity': 0.1 },
+      paint: { 'fill-color': accent, 'fill-opacity': LOCATION_STYLE.fillOpacity },
     });
 
     map.addLayer({
       id: LAYER_ACCURACY_LINE,
       type: 'line',
       source: SOURCE_ACCURACY,
-      paint: { 'line-color': accent, 'line-opacity': 0.3, 'line-width': 1 },
+      paint: {
+        'line-color': accent,
+        'line-opacity': LOCATION_STYLE.lineOpacity,
+        'line-width': LOCATION_STYLE.lineWidth,
+      },
     });
 
     return () => {
