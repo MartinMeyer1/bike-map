@@ -563,7 +563,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <div className={styles.eyebrow}>DRAWING MODE</div>
         <div className={styles.title}>Draw Route</div>
       </div>
 
@@ -612,33 +611,27 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       {/*
         * A mode rather than an action, so it stands apart from the button stack
         * below: it changes what the next click does instead of doing something.
+        *
+        * One label that does not move, ticked or not. It read as two different
+        * controls when it swapped between STRAIGHT LINES and FOLLOW PATHS --
+        * naming the state it was in on one press and the state it would go to on
+        * the next, depending on how you took it. The tick says which is on; the
+        * label only has to say what it is.
         */}
       <div className={styles.mode}>
         <button
           type="button"
-          className={`${styles.modeToggle} ${isStraight ? styles.modeToggleOn : ''}`}
+          role="checkbox"
+          aria-checked={!isStraight}
+          className={`${styles.modeToggle} ${!isStraight ? styles.modeToggleOn : ''}`}
           onClick={() => setIsStraight((current) => !current)}
-          aria-pressed={isStraight}
         >
           <span className={styles.modeBox} aria-hidden="true"></span>
-          <span className={styles.modeLabel}>
-            {isStraight ? 'STRAIGHT LINES' : 'FOLLOW PATHS'}
-          </span>
+          <span className={styles.modeLabel}>AUTOROUTER</span>
         </button>
-
-        <div className={styles.modeHint}>
-          {isStraight
-            ? 'NEW LEGS GO DIRECT — SWITCH BACK FOR ROUTING'
-            : 'BROUTER PICKS THE PATH BETWEEN POINTS'}
-        </div>
       </div>
 
-      {/*
-        * Two labels per button, one shown at a time: on mobile these sit three
-        * across rather than stacked, and the long forms would wrap to three
-        * lines each. display:none keeps the hidden one out of the accessibility
-        * tree too, so nothing is announced twice.
-        */}
+      {/* Three across, so each label is as short as it can be and still read. */}
       <div className={styles.actions}>
         <button
           type="button"
@@ -646,8 +639,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           onClick={handleUndo}
           disabled={waypoints.length === 0}
         >
-          ↶ <span className={styles.labelLong}>UNDO LAST POINT</span>
-          <span className={styles.labelShort}>UNDO</span>
+          ↶ UNDO
         </button>
 
         <button
@@ -656,8 +648,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           onClick={handleComplete}
           disabled={routePoints.length < 2}
         >
-          ✓ <span className={styles.labelLong}>COMPLETE ROUTE</span>
-          <span className={styles.labelShort}>COMPLETE</span>
+          ✓ COMPLETE
         </button>
 
         <button
@@ -667,17 +658,6 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
         >
           ✕ CANCEL
         </button>
-      </div>
-
-      {/*
-       * Only worth the room until the first point is down: after that the reader
-       * has plainly worked it out. Kept always on desktop, where it costs
-       * nothing.
-       */}
-      <div
-        className={`${styles.hint} ${waypoints.length > 0 ? styles.hintDone : ''}`}
-      >
-        CLICK ON MAP TO ADD WAYPOINTS
       </div>
     </div>
   );

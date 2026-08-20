@@ -9,6 +9,7 @@ import {
   SOURCE_ACCURACY,
 } from '../map/ids';
 import { circlePolygon } from '../utils/geo';
+import { getToken } from '../utils/colors';
 import controls from './mapControls.module.css';
 import marker from './locationMarker.module.css';
 
@@ -79,25 +80,30 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
     const element = document.createElement('div');
     element.className = marker.container;
 
+    // Painted back to front: the direction cone behind the mark, then the ring
+    // going out, the crosshair, and the disc laid over the middle of it all.
     const cone = document.createElement('div');
     cone.className = marker.directionCone;
 
-    const outer = document.createElement('div');
-    outer.className = marker.outer;
+    const pulse = document.createElement('div');
+    pulse.className = marker.pulse;
 
-    const inner = document.createElement('div');
-    inner.className = marker.inner;
+    const ticks = document.createElement('div');
+    ticks.className = marker.ticks;
 
-    const dot = document.createElement('div');
-    dot.className = marker.dot;
+    const disc = document.createElement('div');
+    disc.className = marker.disc;
 
-    element.append(cone, outer, inner, dot);
+    const core = document.createElement('div');
+    core.className = marker.core;
+
+    element.append(cone, pulse, ticks, disc, core);
     coneRef.current = cone;
 
-    // The old icon was a 60x60 box anchored at (30, 45) -- the dot near its
-    // bottom, not the middle of the box. Centring the element and lifting it by
-    // the difference puts that same point on the coordinate.
-    return new Marker({ element, anchor: 'center', offset: [0, -15] });
+    // The mark is symmetrical about the middle of its box, so the middle of the
+    // box is what goes on the coordinate -- no offset, unlike the old icon,
+    // whose dot sat near the bottom of a 60x60 square.
+    return new Marker({ element, anchor: 'center' });
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -120,22 +126,27 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
     getPosition: () => positionRef.current
   }), [map]);
 
-  // The accuracy disc, as a real polygon so its radius stays in metres.
+  // The accuracy disc, as a real polygon so its radius stays in metres. Its blue
+  // is read from the same token the marker's own CSS uses, rather than written
+  // out here as a literal: that is how a colour ends up restyled in one place
+  // and not the other.
   useEffect(() => {
+    const accent = getToken('--accent');
+
     map.addSource(SOURCE_ACCURACY, { type: 'geojson', data: EMPTY_ACCURACY });
 
     map.addLayer({
       id: LAYER_ACCURACY_FILL,
       type: 'fill',
       source: SOURCE_ACCURACY,
-      paint: { 'fill-color': '#007AFF', 'fill-opacity': 0.1 },
+      paint: { 'fill-color': accent, 'fill-opacity': 0.1 },
     });
 
     map.addLayer({
       id: LAYER_ACCURACY_LINE,
       type: 'line',
       source: SOURCE_ACCURACY,
-      paint: { 'line-color': '#007AFF', 'line-opacity': 0.3, 'line-width': 1 },
+      paint: { 'line-color': accent, 'line-opacity': 0.3, 'line-width': 1 },
     });
 
     return () => {
@@ -161,20 +172,28 @@ export const LocationMarker = forwardRef<LocationMarkerRef, LocationMarkerProps>
 
     if (hasMoved) {
       positionRef.current = [latitude, longitude];
+    }
 
-      if (!markerRef.current) {
-        markerRef.current = createMarker().setLngLat([longitude, latitude]).addTo(map);
-      } else {
-        markerRef.current.setLngLat([longitude, latitude]);
-      }
+    /*
+     * Whether the marker exists and whether the reader has moved are not the
+     * same question, and nesting the first inside the second lost the marker
+     * outright: a remount takes the element away -- React's StrictMode does one
+     * in development -- while positionRef survives it, so the next reading came
+     * back as jitter, and jitter built nothing.
+     */
+    if (!markerRef.current) {
+      markerRef.current = createMarker().setLngLat([longitude, latitude]).addTo(map);
+    } else if (hasMoved) {
+      markerRef.current.setLngLat([longitude, latitude]);
+    }
 
-      if (autoCenter) {
-        map.setCenter([longitude, latitude]);
-      }
+    if (hasMoved && autoCenter) {
+      map.setCenter([longitude, latitude]);
     }
 
     // Heading changes on its own cadence, so it is applied whether or not the
-    // position moved.
+    // position moved. Faint rather than hidden without one: a cone lying north
+    // by default would be a reading, and a wrong one.
     if (coneRef.current) {
       coneRef.current.style.transform = `rotate(${heading ?? 0}deg)`;
       coneRef.current.style.opacity = typeof heading === 'number' ? '1' : '0.4';

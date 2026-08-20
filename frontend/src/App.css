@@ -52,7 +52,12 @@
   --tint-s5: #cbcac8;
   --tint-unknown: #d9d6cf;
 
-  /* Accent for the GPS marker, the one element no mockup covers. */
+  /*
+   * The GPS marker's blue, the one element no mockup covers -- and the one place
+   * a colour is allowed to mean something other than a grade. It is not
+   * decoration: ink on paper is the map's own palette, so a mark drawn in it
+   * competes with every contour and building it lands on. This does not.
+   */
   --accent: #007aff;
 
   /*
@@ -125,8 +130,16 @@
    */
   --bm-sidebar-width: 396px;
 
-  /* Stacking order, so these stop being scattered magic numbers. */
-  --z-map-control: 1000;
+  /*
+   * Stacking order, so these stop being scattered magic numbers.
+   *
+   * The map controls sit below the panels rather than beside them: they float on
+   * the map, and a panel drawn over the map is drawn over everything that floats
+   * on it. On one shared value the locate and base-map buttons won by DOM order
+   * alone, and came out on top of the mobile sheet.
+   */
+  --z-map-control: 900;
+  --z-panel: 1000;
   --z-overlay: 1500;
   --z-modal: 2000;
   --z-toast: 9999;
