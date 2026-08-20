@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type {
   ExpressionSpecification,
   MapGeoJSONFeature,
@@ -25,6 +25,7 @@ import {
   MARKER_GLYPH_MIN_ZOOM,
   MARKER_SIZE,
 } from "../map/markerImages";
+import { TRAIL_STYLE } from "../map/mapTheme";
 import {
   convertMVTPropertiesToTrail,
   findTrailById,
@@ -33,25 +34,30 @@ import {
 
 /** Matches the backend's tile_config. */
 const SOURCE_MIN_ZOOM = 6;
-const SOURCE_MAX_ZOOM = 18;
-
-const TRAIL_WIDTH = 6;
-const SELECTED_WIDTH = 12;
 
 /**
- * Leaflet's dash was "12, 14" in pixels. MapLibre measures a dash in multiples
- * of the line's own width, so at width 6 the same rhythm is 2 and 2.33 -- and
- * it now scales with the line, which is why a selected trail keeps a
- * proportionate dash instead of the solid stroke Leaflet fell back to.
+ * Where the backend stops adding anything.
+ *
+ * `get_simplification_tolerance` in mvt-server/initdb/init.sql returns 0 from
+ * zoom 12 up, so a z13 tile carries exactly the geometry its z12 parent already
+ * did, cut into four. Telling the source that 12 is as deep as it goes has
+ * MapLibre scale that parent locally instead, and zooming or panning anywhere
+ * above 12 -- which is most of the riding, most of the time -- then asks the
+ * backend for nothing at all.
+ *
+ * The cost is quantisation: a tile's geometry is snapped to a 4096-unit grid, so
+ * at z12 the step is about 1.6m on the ground, roughly four screen pixels once
+ * the map is at z18. If that reads as a staircase under the lines, 13 halves it
+ * and 14 quarters it -- the backend serves every zoom either way.
  */
-const DASH_PATTERN = [2, 14 / TRAIL_WIDTH];
+const SOURCE_MAX_ZOOM = 12;
 
-/**
- * A fully-dashed pattern, i.e. a solid line. Needed because `line-dasharray`
- * has to produce a value on both branches of the ridden test; MapLibre handles
- * the zero-length gap explicitly.
- */
-const SOLID_PATTERN = [1, 0];
+const {
+  width: TRAIL_WIDTH,
+  selectedWidth: SELECTED_WIDTH,
+  dash: DASH_PATTERN,
+  solid: SOLID_PATTERN,
+} = TRAIL_STYLE;
 
 /** Half of the hit box a click is tested against, in screen pixels. */
 const MOUSE_TOLERANCE = 6;
@@ -147,6 +153,22 @@ function newCacheVersion(): string {
   return `v${Date.now()}`;
 }
 
+/*
+ * Deliberately outside the component.
+ *
+ * There is only ever one TrailsLayer, but it is remounted every time the base
+ * map changes -- a new style means new layers, added from scratch. Held in a
+ * ref, the cache key would be minted fresh on each of those mounts and every
+ * trail tile would be refetched to answer a question about the base map. The
+ * key belongs to the tiles, so it outlives the mounts that draw them.
+ *
+ * `appliedRefreshTrigger` is what keeps the same arrangement from bumping the
+ * key on mount: the refresh effect has to be able to tell a trail that was just
+ * edited from a component that has simply come back.
+ */
+let cacheVersion = newCacheVersion();
+let appliedRefreshTrigger = 0;
+
 interface TrailsLayerProps {
   selectedTrail: MVTTrail | null;
   onTrailClick: (trail: MVTTrail | null) => void;
@@ -169,7 +191,6 @@ export function TrailsLayer({
   refreshTrigger,
 }: TrailsLayerProps) {
   const map = useMap();
-  const cacheVersionRef = useRef<string>(newCacheVersion());
   const selectedId = selectedTrail?.id ?? null;
 
   // Source and layers. Declared first so that on mount they exist before every
@@ -179,7 +200,7 @@ export function TrailsLayer({
   useEffect(() => {
     map.addSource(SOURCE_TRAILS, {
       type: "vector",
-      tiles: [tileUrl(cacheVersionRef.current)],
+      tiles: [tileUrl(cacheVersion)],
       minzoom: SOURCE_MIN_ZOOM,
       maxzoom: SOURCE_MAX_ZOOM,
       // Promotes the trail's own text id to the feature id, which is what makes
@@ -407,9 +428,11 @@ export function TrailsLayer({
   // A trail was created, edited or deleted: point the source at a fresh cache
   // key, which clears its tiles and refetches them.
   useEffect(() => {
-    if (!refreshTrigger) {
+    if (!refreshTrigger || refreshTrigger === appliedRefreshTrigger) {
       return;
     }
+
+    appliedRefreshTrigger = refreshTrigger;
 
     const source = map.getSource(SOURCE_TRAILS) as VectorTileSource | undefined;
 
@@ -417,8 +440,8 @@ export function TrailsLayer({
       return;
     }
 
-    cacheVersionRef.current = newCacheVersion();
-    source.setTiles([tileUrl(cacheVersionRef.current)]);
+    cacheVersion = newCacheVersion();
+    source.setTiles([tileUrl(cacheVersion)]);
   }, [map, refreshTrigger]);
 
   return null;

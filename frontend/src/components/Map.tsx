@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Map as MapLibreMap } from 'maplibre-gl';
+import React, { Fragment, useEffect, useRef, useState } from 'react';
+import { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapBounds, MVTTrail } from '../types';
 import { MapContext } from '../map/MapContext';
 import { useMap } from '../map/useMap';
-import { buildStyle } from '../map/style';
-import { BASE_MAPS, BASE_MAP_TYPES, BaseMapType, MAX_ZOOM } from '../map/basemaps';
+import { loadBaseStyle } from '../map/vectorStyle';
+import { BASE_MAPS, BaseMapId, MAX_ZOOM } from '../map/basemaps';
 import { registerEndpointImages } from '../map/markerImages';
 import { configureMapWorker } from '../map/worker';
 import { isWebGL2Available } from '../map/webgl';
@@ -37,7 +37,7 @@ interface MapProps {
   onRouteComplete?: (gpxContent: string) => void;
   onDrawingCancel?: () => void;
   initialGpxContent?: string;
-  activeBaseMap?: BaseMapType;
+  activeBaseMap?: BaseMapId;
   // Location features
   userLocation?: UserPosition | null;
   showUserLocation?: boolean;
@@ -157,27 +157,6 @@ function ViewportInsetHandler({ hasSidebar }: { hasSidebar: boolean }) {
   return null;
 }
 
-/** Swaps base maps by visibility, so neither source is torn down. */
-function BaseMapHandler({ activeBaseMap }: { activeBaseMap: BaseMapType }) {
-  const map = useMap();
-
-  useEffect(() => {
-    for (const type of BASE_MAP_TYPES) {
-      const { layerId } = BASE_MAPS[type];
-
-      if (map.getLayer(layerId)) {
-        map.setLayoutProperty(
-          layerId,
-          'visibility',
-          type === activeBaseMap ? 'visible' : 'none',
-        );
-      }
-    }
-  }, [map, activeBaseMap]);
-
-  return null;
-}
-
 function Map({
   selectedTrail,
   trailFocusRequest,
@@ -189,7 +168,7 @@ function Map({
   onRouteComplete,
   onDrawingCancel,
   initialGpxContent,
-  activeBaseMap = 'swisstopo',
+  activeBaseMap = 'swisstopo-raster',
   hasSidebar = false,
   userLocation,
   showUserLocation = false,
@@ -204,9 +183,45 @@ function Map({
   // initial state rather than discovered inside an effect.
   const [isSupported] = useState(isWebGL2Available);
 
-  // The base map the map is built with. Read once: later changes are a
-  // visibility toggle, not a reason to rebuild the map.
+  /*
+   * A base map is a whole style document now, not a layer to make visible, so
+   * switching one is a real setStyle -- which drops every source, layer and
+   * sprite image the app had put on the map. The epoch is what puts them back:
+   * the overlay components below are keyed on it, so a style swap unmounts and
+   * remounts them, and each one re-runs the effect that adds its own layers.
+   * They already guard their cleanups with getLayer/getSource checks, so it
+   * does not matter whether they tear down before or after the style goes.
+   *
+   * The camera handlers are deliberately outside that subtree: remounting
+   * SelectedTrailHandler would re-run its fitBounds on every switch and fly the
+   * reader back to whatever trail is selected.
+   */
+  const [styleEpoch, setStyleEpoch] = useState(0);
+  const [styleReady, setStyleReady] = useState(false);
+  const [initialStyle, setInitialStyle] = useState<StyleSpecification | null>(null);
+
+  // The base map the map is built with. Read once: later changes go through
+  // setStyle rather than rebuilding the map.
   const initialBaseMapRef = useRef(activeBaseMap);
+  const appliedBaseMapRef = useRef(activeBaseMap);
+
+  // The first style, fetched before the map exists: a vector base map's style
+  // is a document on the provider's server, not something to synthesise here.
+  useEffect(() => {
+    let cancelled = false;
+
+    loadBaseStyle(BASE_MAPS[initialBaseMapRef.current])
+      .then((style) => {
+        if (!cancelled) {
+          setInitialStyle(style);
+        }
+      })
+      .catch((error) => console.error('Failed to load the base map style:', error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -215,7 +230,7 @@ function Map({
       return;
     }
 
-    if (!isSupported) {
+    if (!isSupported || !initialStyle) {
       return;
     }
 
@@ -225,13 +240,23 @@ function Map({
 
     const instance = new MapLibreMap({
       container,
-      style: buildStyle(initialBaseMapRef.current),
+      style: initialStyle,
       center: INITIAL_CENTER,
       zoom: INITIAL_ZOOM,
       maxZoom: MAX_ZOOM,
       // Leaflet could not rotate or tilt, and there is no compass control here
       // to undo either, so a stray two-finger twist would leave the map askew
       // with no way back.
+      //
+      // maxPitch is what holds that for the 3D base maps as well. They carry
+      // real terrain, but the map is only ever read from straight above -- what
+      // the elevation buys there is the parallax high ground picks up as the
+      // map is panned, not a view from the side. Pinning the ceiling rather
+      // than only the gestures means nothing can tilt it: not a keypress, not
+      // an easeTo, not a control added later.
+      pitch: 0,
+      bearing: 0,
+      maxPitch: 0,
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
@@ -250,6 +275,7 @@ function Map({
         .finally(() => {
           if (!cancelled) {
             setMap(instance);
+            setStyleReady(true);
           }
         });
     });
@@ -257,10 +283,56 @@ function Map({
     return () => {
       cancelled = true;
       setMap(null);
+      setStyleReady(false);
 
       instance.remove();
     };
-  }, [isSupported]);
+  }, [isSupported, initialStyle]);
+
+  // Swapping the base map: fetch the style, hand it over, then let the overlay
+  // components put themselves back through a new epoch.
+  useEffect(() => {
+    if (!map || appliedBaseMapRef.current === activeBaseMap) {
+      return;
+    }
+
+    appliedBaseMapRef.current = activeBaseMap;
+
+    let cancelled = false;
+
+    setStyleReady(false);
+
+    loadBaseStyle(BASE_MAPS[activeBaseMap])
+      .then((style) => {
+        if (cancelled) {
+          return;
+        }
+
+        map.setStyle(style, { diff: false });
+
+        map.once('style.load', () => {
+          if (cancelled) {
+            return;
+          }
+
+          // The sprite does not survive a style, so the markers are registered
+          // again before the symbol layer asks for them by name.
+          registerEndpointImages(map)
+            .catch((error) => console.error('Failed to register trail markers:', error))
+            .finally(() => {
+              if (!cancelled) {
+                setStyleEpoch((epoch) => epoch + 1);
+                setStyleReady(true);
+              }
+            });
+        });
+      })
+      .catch((error) => console.error('Failed to load the base map style:', error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [map, activeBaseMap]);
 
   if (!isSupported) {
     return (
@@ -288,8 +360,6 @@ function Map({
           {/* Mounted first: the handlers below frame against its padding. */}
           <ViewportInsetHandler hasSidebar={hasSidebar} />
 
-          <BaseMapHandler activeBaseMap={activeBaseMap} />
-
           <FitBoundsHandler fitBoundsTarget={fitBoundsTarget} />
 
           <SelectedTrailHandler
@@ -297,32 +367,42 @@ function Map({
             trailFocusRequest={trailFocusRequest}
           />
 
-          {!isDrawingActive && (
-            <TrailsLayer
-              selectedTrail={selectedTrail}
-              onTrailClick={onTrailClick}
-              onTrailsLoaded={onTrailsLoaded}
-              refreshTrigger={refreshTrigger}
-            />
-          )}
+          {/*
+            * Everything that owns a source or a layer, keyed on the style it
+            * was added to. A base map switch replaces the style underneath and
+            * bumps the epoch, which remounts these and has each one add its
+            * layers to the new style.
+            */}
+          {styleReady && (
+            <Fragment key={styleEpoch}>
+              {!isDrawingActive && (
+                <TrailsLayer
+                  selectedTrail={selectedTrail}
+                  onTrailClick={onTrailClick}
+                  onTrailsLoaded={onTrailsLoaded}
+                  refreshTrigger={refreshTrigger}
+                />
+              )}
 
-          <RouteDrawer
-            isActive={isDrawingActive}
-            onRouteComplete={onRouteComplete || (() => {})}
-            onCancel={onDrawingCancel || (() => {})}
-            initialGpxContent={initialGpxContent}
-          />
+              <RouteDrawer
+                isActive={isDrawingActive}
+                onRouteComplete={onRouteComplete || (() => {})}
+                onCancel={onDrawingCancel || (() => {})}
+                initialGpxContent={initialGpxContent}
+              />
 
-          {showUserLocation && userLocation && (
-            <LocationMarker
-              ref={locationMarkerRef}
-              latitude={userLocation.latitude}
-              longitude={userLocation.longitude}
-              accuracy={userLocation.accuracy}
-              heading={userHeading}
-              showAccuracyCircle={true}
-              autoCenter={false}
-            />
+              {showUserLocation && userLocation && (
+                <LocationMarker
+                  ref={locationMarkerRef}
+                  latitude={userLocation.latitude}
+                  longitude={userLocation.longitude}
+                  accuracy={userLocation.accuracy}
+                  heading={userHeading}
+                  showAccuracyCircle={true}
+                  autoCenter={false}
+                />
+              )}
+            </Fragment>
           )}
         </MapContext.Provider>
       )}

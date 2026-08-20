@@ -12,13 +12,12 @@ import {
 import { PathPoint } from '../types';
 import { generateGPX, parseGPXDetailed } from '../utils/gpxGenerator';
 import { haversineDistance } from '../utils/geo';
-import { getToken } from '../utils/colors';
+import { ROUTE_STYLE } from '../map/mapTheme';
 import { PocketBaseService } from '../services/pocketbase';
 import { useAppContext } from '../hooks/useAppContext';
 import styles from './routeDrawer.module.css';
 
 /** Stroke width of the drawn route, and so the unit its dash is measured in. */
-const ROUTE_WIDTH = 6;
 
 /**
  * A waypoint, plus how the leg arriving at it was drawn.
@@ -179,9 +178,8 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
   useEffect(() => {
     if (!isActive) return;
 
-    const startColor = getToken('--level-s0');
-    const midColor = getToken('--level-s1');
-    const endColor = getToken('--level-s3');
+    const { start: startColor, mid: midColor, end: endColor, waypointStroke } =
+      ROUTE_STYLE.colors();
 
     const empty: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -195,15 +193,13 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': endColor,
-        'line-width': ROUTE_WIDTH,
-        'line-opacity': 0.85,
-        // Leaflet's "5, 5" in pixels, expressed in the line-widths MapLibre
-        // measures a dash in.
+        'line-width': ROUTE_STYLE.width,
+        'line-opacity': ROUTE_STYLE.opacity,
         'line-dasharray': [
           'case',
           ['get', 'computed'],
-          ['literal', [1, 0]],
-          ['literal', [5 / ROUTE_WIDTH, 5 / ROUTE_WIDTH]],
+          ['literal', ROUTE_STYLE.solid],
+          ['literal', ROUTE_STYLE.dash],
         ],
       },
     });
@@ -213,7 +209,7 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
       type: 'circle',
       source: SOURCE_WAYPOINTS,
       paint: {
-        'circle-radius': 8,
+        'circle-radius': ROUTE_STYLE.waypointRadius,
         'circle-color': [
           'match',
           ['get', 'role'],
@@ -221,9 +217,9 @@ export default function RouteDrawer({ isActive, onRouteComplete, onCancel, initi
           'end', endColor,
           midColor,
         ],
-        'circle-opacity': 0.9,
-        'circle-stroke-color': getToken('--paper'),
-        'circle-stroke-width': 2,
+        'circle-opacity': ROUTE_STYLE.waypointOpacity,
+        'circle-stroke-color': waypointStroke,
+        'circle-stroke-width': ROUTE_STYLE.waypointStrokeWidth,
       },
     });
 
