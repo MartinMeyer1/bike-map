@@ -180,6 +180,10 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
     // and this corner is meant to be the same size at every stop.
     root.style.setProperty('--bm-map-radius', `${(MAP_RADIUS_PX * framed) / mapScale}px`);
     root.style.setProperty('--bm-map-grey', `${mapGrey}`);
+    // The floating map controls fade out on the same ramp the frame comes in on:
+    // they belong to the map, and the map stops being the thing on screen the
+    // moment the sheet leaves its rest.
+    root.style.setProperty('--bm-map-framed', `${framed}`);
 
     // A greyed-out map must not go on taking taps in the strip the sheet does
     // not cover: looking inert and being inert are not the same thing.
@@ -187,6 +191,15 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
       root.setAttribute('data-bm-map-inert', 'true');
     } else {
       root.removeAttribute('data-bm-map-inert');
+    }
+
+    // Anywhere but the bottom stop, the controls are on their way out or gone.
+    // A number cannot switch pointer-events, so the ramp above is joined by the
+    // one bit of state CSS can actually branch on.
+    if (rise > 0) {
+      root.setAttribute('data-bm-sheet-raised', 'true');
+    } else {
+      root.removeAttribute('data-bm-sheet-raised');
     }
 
     return () => {
@@ -197,13 +210,15 @@ export const MobileSheet: React.FC<MobileSheetProps> = ({
         '--bm-map-gap',
         '--bm-map-radius',
         '--bm-map-grey',
+        '--bm-map-framed',
       ]) {
         root.style.removeProperty(property);
       }
 
       root.removeAttribute('data-bm-map-inert');
+      root.removeAttribute('data-bm-sheet-raised');
     };
-  }, [viewportHeight, collapsed, mapScale, mapGap, framed, mapGrey]);
+  }, [viewportHeight, collapsed, mapScale, mapGap, framed, mapGrey, rise]);
 
   // The map animates with the sheet, and must not while a finger is on it.
   useEffect(() => {

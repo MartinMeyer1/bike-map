@@ -1,79 +1,161 @@
 /*
- * The GPS "you are here" marker. Its element is built node by node in
- * LocationMarker and handed to a maplibregl.Marker, so the class names are
- * applied from this module rather than written literally.
+ * The GPS "you are here" marker: a surveyor's mark. Its element is built node by
+ * node in LocationMarker and handed to a maplibregl.Marker, so the class names
+ * are applied from this module rather than written literally.
+ *
+ * It keeps its blue, and it keeps the cone. Everything else on screen is ink on
+ * paper, which is also the palette the map itself is drawn in -- a mark in ink
+ * lands on contours and buildings and has to be hunted for.
+ *
+ * What is new is the mark at the middle: the drawing the crosshair on the button
+ * that summons it makes, a ring ticked at the compass points with a solid core,
+ * every edge a hairline, which is the house style. The white beneath each line
+ * is what carries it over dark terrain -- the collar the trail endpoint markers
+ * put under their own ring. The filled halo that used to pulse is a hairline
+ * ring going out instead.
  */
 
 .container {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
 }
 
-.outer {
+/*
+ * The crosshair. Two lines crossing the whole 36px box, with the disc laid over
+ * their middle, so what reads is four ticks at N/E/S/W -- the same construction
+ * as the glyph, and one node fewer than drawing four of them. Each line is 3px
+ * of white with its middle pixel in blue.
+ */
+.ticks {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+}
+
+.ticks::before,
+.ticks::after {
+  content: '';
+  position: absolute;
+}
+
+.ticks::before {
+  top: 0;
   bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
-  width: 28px;
-  height: 28px;
-  background: rgba(0, 122, 255, 0.2);
-  border: 2px solid var(--accent);
-  border-radius: 50%;
-  animation: gps-pulse 2s ease-out infinite;
+  width: 3px;
+  margin-left: -1.5px;
+  background: linear-gradient(
+    to right,
+    #fff 0 1px,
+    var(--accent) 1px 2px,
+    #fff 2px 3px
+  );
 }
 
-.inner {
+.ticks::after {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  background: linear-gradient(
+    to bottom,
+    #fff 0 1px,
+    var(--accent) 1px 2px,
+    #fff 2px 3px
+  );
+}
+
+/* A hairline ring going out and fading, rather than a filled halo pulsing. */
+.pulse {
   position: absolute;
-  bottom: 6px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 16px;
-  height: 16px;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  animation: gps-pulse 2.6s ease-out infinite;
+}
+
+/* White under blue: the pairing that survives both a snowfield and a forest. */
+.disc {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  background: #fff;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  /* The endpoint markers' own drop shadow, in CSS. */
+  box-shadow: 0 1px 2px rgba(38, 35, 29, 0.45);
+}
+
+.core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
   background: var(--accent);
-  border: 2px solid white;
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.dot {
-  position: absolute;
-  bottom: 11px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 6px;
-  height: 6px;
-  background: white;
   border-radius: 50%;
 }
 
+/*
+ * Which way the reader is facing: a cone fanning out from under the mark,
+ * strongest at the centre and falling away. It is a claim with a margin of error
+ * in it, and a cone says that where an arrowhead does not -- an arrow points,
+ * and a compass on a phone is in no position to. Drawn first, so the disc lands
+ * on top of its narrow end, and rotated about the mark's centre.
+ *
+ * Rotation is applied imperatively in LocationMarker, so the transition here is
+ * what smooths a jittery compass.
+ */
 .directionCone {
   position: absolute;
-  bottom: 14px; /* Position from bottom edge, centering on the dot */
+  top: 0;
   left: 50%;
-  transform-origin: 50% 100%; /* Rotate around bottom center */
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 32px; /* Half the container: its point sits on the centre. */
+  margin-left: -22px;
+  transform-origin: 50% 100%;
   background: linear-gradient(
     to top,
-    rgba(0, 122, 255, 0.8) 0%,
-    rgba(0, 122, 255, 0.5) 50%,
-    rgba(0, 122, 255, 0.2) 100%
+    color-mix(in srgb, var(--accent) 70%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 40%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 10%, transparent) 100%
   );
-  clip-path: polygon(50% 100%, 20% 20%, 80% 20%);
+  clip-path: polygon(50% 100%, 22% 6%, 78% 6%);
   pointer-events: none;
   transition: transform 0.3s ease-out;
-  margin-left: -20px; /* Center the 40px width */
-  z-index: -1; /* Behind the circular marker */
 }
 
 @keyframes gps-pulse {
   0% {
-    transform: translateX(-50%) scale(0.8);
-    opacity: 1;
+    transform: scale(1);
+    opacity: 0.55;
   }
   100% {
-    transform: translateX(-50%) scale(1.5);
+    transform: scale(2.2);
     opacity: 0;
+  }
+}
+
+/* A beacon in the corner of the eye is not what tells anyone where they are. */
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    display: none;
+  }
+
+  .directionCone {
+    transition: none;
   }
 }

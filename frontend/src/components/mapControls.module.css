@@ -94,30 +94,40 @@
   }
 
   /*
-   * The map shrinks towards the middle of the screen as the sheet rises, so its
-   * right edge walks inwards by half of what it gives up in width. The controls
-   * follow it at full size -- pinned to the screen instead, they would end up
-   * straddling the map's edge, half on the map and half on the ink. The gap
-   * carries them down with its top edge as well, so they do not end up sitting
-   * in the corner's radius. They dim
-   * with the map when it greys out under the menu: a locate button on a map that
-   * is not for using controls nothing.
+   * These belong to the map, and the map is only the thing on screen while the
+   * sheet is at rest. So they are there in full at the bottom stop and gone
+   * everywhere else, fading out on the same ramp the map's frame comes in on --
+   * under the finger, so a drag takes them with it rather than leaving them to
+   * catch up afterwards.
+   *
+   * They used to walk inwards instead, tracking the shrinking map's right edge
+   * at full size. It kept them on the map, but it also kept them: a locate
+   * button riding a thumbnail of a map that is not for using controls nothing.
    */
   .controls {
-    transform: translate(
-      calc((1 - var(--bm-map-scale, 1)) * -50vw),
-      var(--bm-map-gap, 0px)
-    );
-    opacity: calc(1 - 0.6 * var(--bm-map-grey, 0));
-    transition: transform 340ms cubic-bezier(0.32, 0.72, 0, 1),
-      opacity 340ms cubic-bezier(0.32, 0.72, 0, 1);
+    opacity: calc(1 - var(--bm-map-framed, 0));
+    transition: opacity 340ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  :root[data-bm-sheet-dragging='true'] .controls {
-    transition: none;
-  }
-
-  :root[data-bm-map-inert='true'] .controls {
+  /*
+   * Faded out is not out of reach: an invisible button still takes a tab stop
+   * and still answers a tap. The delay is what keeps the fade a fade -- the
+   * element only stops being there once it has finished going.
+   */
+  :root[data-bm-sheet-raised='true'] .controls {
     pointer-events: none;
+    visibility: hidden;
+    transition: opacity 340ms cubic-bezier(0.32, 0.72, 0, 1),
+      visibility 0s linear 340ms;
+  }
+
+  /*
+   * Last of the three on purpose: both attributes are set at once while a finger
+   * is down, and then the sheet is off its rest but the controls are still on
+   * their way out, so they have to stay visible and follow the drag exactly.
+   */
+  :root[data-bm-sheet-dragging='true'] .controls {
+    visibility: visible;
+    transition: none;
   }
 }

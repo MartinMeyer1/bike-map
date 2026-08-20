@@ -16,7 +16,7 @@
   background: var(--paper);
   border-right: 1px solid var(--rule-strong);
   box-shadow: var(--shadow-panel);
-  z-index: var(--z-map-control);
+  z-index: var(--z-panel);
 }
 
 .header {
