@@ -6,7 +6,7 @@ import TrailEditPanel from './components/TrailEditPanel';
 import { MobileSheet } from './components/MobileSheet';
 import { LocationControls, LocationMarkerRef } from './components/LocationMarker';
 import { BaseMapSelector } from './components/BaseMapSelector';
-import { BaseMapType } from './map/basemaps';
+import { BaseMapId, normalizeBaseMapId } from './map/basemaps';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastStack, Notice, ToastVariant } from './components/ui';
 import { AppProvider } from './context/AppContext';
@@ -24,10 +24,9 @@ const AppContent: React.FC = () => {
   const [showLocationTracking, setShowLocationTracking] = useState(false);
   const [hasRequestedOrientation, setHasRequestedOrientation] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
-  const [activeBaseMap, setActiveBaseMap] = useState<BaseMapType>(() => {
-    const saved = localStorage.getItem('bikemap-basemap');
-    return saved === 'osm' ? 'osm' : 'swisstopo';
-  });
+  const [activeBaseMap, setActiveBaseMap] = useState<BaseMapId>(() =>
+    normalizeBaseMapId(localStorage.getItem('bikemap-basemap'))
+  );
   const locationMarkerRef = useRef<LocationMarkerRef>(null);
   const locationRequestPendingRef = useRef(false);
 
@@ -138,12 +137,9 @@ const AppContent: React.FC = () => {
     window.setTimeout(() => dismissNotice(id), NOTICE_DURATION_MS);
   }, [dismissNotice]);
 
-  const handleToggleBaseMap = useCallback(() => {
-    setActiveBaseMap(prev => {
-      const next = prev === 'swisstopo' ? 'osm' : 'swisstopo';
-      localStorage.setItem('bikemap-basemap', next);
-      return next;
-    });
+  const handleSelectBaseMap = useCallback((id: BaseMapId) => {
+    setActiveBaseMap(id);
+    localStorage.setItem('bikemap-basemap', id);
   }, []);
 
   const handleLocationRequest = useCallback(async () => {
@@ -296,7 +292,7 @@ const AppContent: React.FC = () => {
           />
           <BaseMapSelector
             activeBaseMap={activeBaseMap}
-            onToggle={handleToggleBaseMap}
+            onSelect={handleSelectBaseMap}
           />
         </>
       )}

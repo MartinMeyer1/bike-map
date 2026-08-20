@@ -1,0 +1,48 @@
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.heading {
+  composes: label from '../styles/type.module.css';
+  margin: 0 0 8px;
+  font-weight: 400;
+}
+
+/* Three buttons side by side, each its own object rather than a cell. */
+.options {
+  display: flex;
+  gap: 8px;
+}
+
+.option {
+  composes: control from '../styles/type.module.css';
+  flex: 1;
+  padding: 12px 10px;
+  border: 1px solid var(--ink-muted);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.option:hover {
+  background: var(--paper-active);
+  border-color: var(--ink);
+}
+
+/* The map in use, filled with ink: which one is on is the only state here. */
+.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.active:hover {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+  color: var(--paper);
+}
